@@ -5,7 +5,7 @@ by Red Delicious
 ## Team Members
 * Advanced Topic Subteam 1: Networking
 	* Ian Whitfield
-    * Jordan Brudenelle
+    * Jordan Brudenell
     * Ruoheng Xu
 
 * Advanced Topic Subteam 2: Procedural Generation
