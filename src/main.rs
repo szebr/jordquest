@@ -1,4 +1,6 @@
+//TODO can these be in one line?
 mod jordquest;
+mod input;
 
 use bevy::prelude::*;
 
