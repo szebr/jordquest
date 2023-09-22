@@ -1,3 +1,4 @@
+use std::ops::Sub;
 use bevy::prelude::*;
 use crate::input::*;
 
@@ -20,14 +21,12 @@ struct Ability {
 #[derive(Component)]
 struct Character {
     health: f32,  // TODO what type should this be?
+    speed: f32,
     abilities: Vec<Ability>
 }
 
 #[derive(Component)]
-struct Enemy {
-    // decision tree
-    // tree state
-}
+struct Enemy;
 
 
 #[derive(Component)]
@@ -52,6 +51,7 @@ impl Plugin for JordQuestPlugin {
                 update_mouse_state,
                 player_attack.after(update_mouse_state),
                 player_movement.after(update_key_state),
+                enemy_movement,
                 update_sprite));
     }
 }
@@ -65,24 +65,60 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Player,
-        Character { health: 100.0, abilities: vec![
+        Character { health: 100.0, speed: 150., abilities: vec![
             Ability {
                 ready_at: 0,
                 duration: 30,
                 ability_type: AbilityType::Bite,
-            }
-        ] } ));
+            }]
+        })
+    );
+    commands.spawn( (
+        SpriteBundle {
+            transform: Transform::from_xyz(0., 100., 0.),
+            texture: asset_server.load("horse.png"),
+            ..default()
+        },
+        Enemy,
+        Character { health: 100.0, speed: 100., abilities: vec![
+            Ability {
+                ready_at: 0,
+                duration: 30,
+                ability_type: AbilityType::Bite,
+            }]
+        })
+    );
 }
 
 fn player_movement(
     input_state: Res<InputState>,
     time: Res<Time>,
-    mut sprite_position: Query<&mut Transform, With<Player>>) {
+    mut player_position: Query<(&mut Transform, &Character), With<Player>>) {
     let speed = 150.;
-    for mut transform in &mut sprite_position {
-        transform.translation.x += input_state.movement.x * speed * time.delta_seconds();
-        transform.translation.y += input_state.movement.y * speed * time.delta_seconds();
+    for (mut transform, ch) in &mut player_position {
+        transform.translation.x += input_state.movement.x * ch.speed * time.delta_seconds();
+        transform.translation.y += input_state.movement.y * ch.speed * time.delta_seconds();
     }
+}
+
+fn enemy_movement(
+    time: Res<Time>,
+    mut enemy_position: Query<(&mut Transform, &Character), (With<Enemy>, Without<Player>)>,
+    player_position: Query<&Transform, (With<Player>, Without<Enemy>)>) {
+    for (mut transform, ch) in &mut enemy_position {
+        let closest_player = &player_position.iter().next();
+        if !closest_player.is_none() {
+            //TODO when there are multiple players, find the closest one
+            /*for player in &player_position {
+            }*/
+            let closest_player = closest_player.unwrap();
+            let movement = closest_player.translation - transform.translation;
+            let movement = movement.normalize();
+            transform.translation.x += movement.x * ch.speed * time.delta_seconds();
+            transform.translation.y += movement.y * ch.speed * time.delta_seconds();
+        }
+    }
+
 }
 
 //TODO needs refactoring for
