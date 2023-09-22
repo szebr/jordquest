@@ -6,15 +6,32 @@ pub struct JordQuestPlugin;
 #[derive(Resource)]
 struct TickNum(u16);
 
-#[derive(Component)]
-struct Player;  // empty player tag
+enum AbilityType {
+    Bite
+}
 
 //TODO tick rollover is not even REMOTELY addressed
-#[derive(Component)]
-struct Cooldown {
-    start_tick: i32,  // -1 means never happened
-    length: u16,
+struct Ability {
+    ready_at: u16,
+    duration: u16,
+    ability_type: AbilityType
 }
+
+#[derive(Component)]
+struct Character {
+    health: f32,  // TODO what type should this be?
+    abilities: Vec<Ability>
+}
+
+#[derive(Component)]
+struct Enemy {
+    // decision tree
+    // tree state
+}
+
+
+#[derive(Component)]
+struct Player;  // empty player tag
 
 const TICKRATE: u8 = 30;
 
@@ -48,7 +65,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Player,
-        Cooldown { start_tick: -1, length: 30 } ));
+        Character { health: 100.0, abilities: vec![
+            Ability {
+                ready_at: 0,
+                duration: 30,
+                ability_type: AbilityType::Bite,
+            }
+        ] } ));
 }
 
 fn player_movement(
@@ -62,14 +85,20 @@ fn player_movement(
     }
 }
 
+//TODO needs refactoring for
+//  charge attacks
+//  multiple characters
+//  ai
+//  multiple abilities
 fn player_attack(
     input_state: Res<InputState>,
     tick_num: Res<TickNum>,
-    mut cooldowns: Query<&mut Cooldown>) {
-    for mut cooldown in &mut cooldowns {
+    mut characters: Query<&mut Character, With<Player>>) {
+    for mut character in &mut characters {
         if input_state.attack &&
-            (cooldown.start_tick < 0 || tick_num.0 > (cooldown.start_tick as u16) + cooldown.length) {
-            cooldown.start_tick = tick_num.0 as i32;
+            (character.abilities[0].ready_at <= tick_num.0) {
+            character.abilities[0].ready_at += character.abilities[0].duration;
+            // TODO write event stating that this character has used this ability.
         }
     }
 }
@@ -81,10 +110,10 @@ fn increment_tick(
     tick_num.0 += 1;
 }
 
-fn update_sprite(tick_num: Res<TickNum>, mut query: Query<(&Cooldown, &mut Sprite), With<Player>>) {
+fn update_sprite(tick_num: Res<TickNum>, mut query: Query<(&Character, &mut Sprite), With<Player>>) {
     //TODO in the future this will be where spritesheet animation happens
-    for (cd, mut sp) in &mut query {
-        if cd.start_tick < 0 || tick_num.0 > (cd.start_tick as u16) + cd.length {
+    for (ch, mut sp) in &mut query {
+        if tick_num.0 >= ch.abilities[0].ready_at {
             sp.color = Color::rgb(1., 1., 1.);
         }
         else {
