@@ -1,6 +1,8 @@
 //TODO can these be in one line?
 mod jordquest;
 mod input;
+mod enemy;
+mod player;
 
 use bevy::prelude::*;
 
