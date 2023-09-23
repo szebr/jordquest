@@ -45,8 +45,9 @@ impl Plugin for JordQuestPlugin {
                 update_mouse_state,
                 player::attack.after(update_mouse_state),
                 player::movement.after(update_key_state),
+                player::update_sprite,
                 enemy::movement,
-                update_sprite));
+                ));
     }
 }
 
@@ -62,15 +63,3 @@ fn increment_tick(
     tick_num.0 += 1;
 }
 
-fn update_sprite(tick_num: Res<TickNum>, mut query: Query<(&Character, &mut Sprite), With<player::Player>>) {
-    //TODO in the future this will be where spritesheet animation happens
-    for (ch, mut sp) in &mut query {
-        if tick_num.0 >= ch.abilities[0].ready_at {
-            sp.color = Color::rgb(1., 1., 1.);
-        }
-        else {
-            sp.color = Color::rgb(1., 0., 0.);
-        }
-    }
-
-}
