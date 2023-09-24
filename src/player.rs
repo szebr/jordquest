@@ -1,65 +1,71 @@
 use bevy::prelude::*;
-use crate::jordquest::*;
 use crate::input::InputState;
+use crate::net::{TICKRATE, TickNum};
 
-#[derive(Component)]
-pub struct Player;  // empty player tag
+pub const MAX_PLAYERS: usize = 4;
 
+#[derive(Resource)]
+pub struct PlayerID(pub usize);
+
+#[derive(Component, Default, Copy, Clone)]
+pub struct Player {
+    pub id: usize,
+    pub pos: Vec2,
+    hp: f32,
+    atk_frame: isize,  // -1 means ready, <-1 means cooldown, 0 and up means attacking
+}
+
+// on Setup schedule
 pub fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let input_state = InputState::default();
+    commands.insert_resource(input_state);  // this is the host version!
     commands.spawn((
+        // ONLY UPDATED ON FIXEDUPDATE SCHEDULE
+        Player {
+            id: 0,
+            pos: Vec2::default(),
+            hp: 100.,
+            atk_frame: -1
+        },
+        input_state,
+
+        // ONLY UPDATED ON UPDATE SCHEDULE
+        // right here is where we add a spatial bundle and a bunch of sprite bundle children
         SpriteBundle {
             texture: asset_server.load("jordan.png"),
-            transform: Transform::from_xyz(100., 0., 0.),
+            transform: Transform::from_xyz(0., 0., 0.),
             ..default()
-        },
-        Player,
-        Character { health: 100.0, speed: 150., abilities: vec![
-            Ability {
-                ready_at: 0,
-                duration: 30,
-                ability_type: AbilityType::Bite,
-            }]
         })
     );
 }
 
-pub fn movement(
-    input_state: Res<InputState>,
-    time: Res<Time>,
-    mut player_position: Query<(&mut Transform, &Character), With<Player>>) {
-    let speed = 150.;
-    for (mut transform, ch) in &mut player_position {
-        transform.translation.x += input_state.movement.x * ch.speed * time.delta_seconds();
-        transform.translation.y += input_state.movement.y * ch.speed * time.delta_seconds();
-    }
-}
-
-//TODO needs refactoring for
-//  charge attacks
-//  multiple characters
-//  ai
-//  multiple abilities
-pub fn attack(
-    input_state: Res<InputState>,
-    tick_num: Res<TickNum>,
-    mut characters: Query<&mut Character, With<Player>>) {
-    for mut character in &mut characters {
-        if input_state.attack &&
-            (character.abilities[0].ready_at <= tick_num.0) {
-            character.abilities[0].ready_at += character.abilities[0].duration;
-            // TODO write event stating that this character has used this ability.
+// on FixedUpdate schedule
+pub fn next(
+    mut players: Query<(&mut Player, &mut InputState)>) {
+    let speed = 150. / TICKRATE as f32;
+    let atk_len = 30;
+    let atk_cool = 30;
+    for (mut pl, mut is) in &mut players {
+        pl.pos.x += is.movement.x * speed;
+        pl.pos.y += is.movement.y * speed;
+        if pl.atk_frame == -1 && is.attack {
+            pl.atk_frame = 0;
         }
-    }
-}
-pub fn update_sprite(tick_num: Res<TickNum>, mut query: Query<(&Character, &mut Sprite), With<Player>>) {
-    //TODO in the future this will be where spritesheet animation happens
-    for (ch, mut sp) in &mut query {
-        if tick_num.0 >= ch.abilities[0].ready_at {
-            sp.color = Color::rgb(1., 1., 1.);
+        else if pl.atk_frame > atk_len {
+            pl.atk_frame = -atk_cool;
         }
         else {
-            sp.color = Color::rgb(1., 0., 0.);
+            pl.atk_frame += 1;
         }
     }
+}
 
+// on Update schedule
+pub fn update(mut query: Query<(&mut Transform, &Player)>) {
+    // TODO interpolate position using time until next tick
+    for (mut tf, pl) in &mut query {
+        tf.translation.x = pl.pos.x;
+        tf.translation.y = pl.pos.y;
+        // TODO if atk_frame is attacking, make him red!
+    }
 }

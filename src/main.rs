@@ -3,10 +3,12 @@ mod jordquest;
 mod input;
 mod enemy;
 mod player;
+mod net;
+mod map;
 
 use bevy::prelude::*;
 
-const TITLE: &str = "LMFAOOOOO";
+const TITLE: &str = "JORDQUEST";
 const WIN_W: f32 = 1280.;
 const WIN_H: f32 = 720.;
 

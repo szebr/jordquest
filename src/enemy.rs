@@ -1,47 +1,59 @@
 use bevy::prelude::*;
-use crate::jordquest::*;
 use crate::player::Player;
+use crate::net;
 
-#[derive(Component)]
-pub struct Enemy;
+pub const MAX_ENEMIES: usize = 32;
 
+#[derive(Component, Default, Copy, Clone)]
+pub struct Enemy {
+    id: usize,
+    pos: Vec2
+}
+
+// on Setup schedule
 pub fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
+        // FIXEDUPDATE
+        Enemy {
+            id: 0,
+            pos: Vec2::default()
+        },
+        // UPDATE
         SpriteBundle {
             transform: Transform::from_xyz(0., 100., 0.),
             texture: asset_server.load("horse.png"),
             ..default()
-        },
-        Enemy,
-        Character {
-            health: 100.0,
-            speed: 100.,
-            abilities: vec![
-                Ability {
-                    ready_at: 0,
-                    duration: 30,
-                    ability_type: AbilityType::Bite,
-                }]
         })
     );
 }
 
-pub fn movement(
-    time: Res<Time>,
-    mut enemy_position: Query<(&mut Transform, &Character), (With<Enemy>, Without<Player>)>,
-    player_position: Query<&Transform, (With<Player>, Without<Enemy>)>) {
-    for (mut transform, ch) in &mut enemy_position {
-        let closest_player = &player_position.iter().next();
+// on FixedUpdate schedule
+pub fn next(
+    mut enemies: Query<&mut Enemy, Without<Player>>,
+    players: Query<&Player, Without<Enemy>>
+) {
+    let speed = 100. / net::TICKRATE as f32;
+    for mut en in &mut enemies {
+        let closest_player = &players.iter().next();
         if !closest_player.is_none() {
             //TODO when there are multiple players, find the closest one
-            /*for player in &player_position {
+            /*for pl in &players {
             }*/
             let closest_player = closest_player.unwrap();
-            let movement = closest_player.translation - transform.translation;
+            let movement = closest_player.pos - en.pos;
+            if movement.length() < 0.1 { continue }
             let movement = movement.normalize();
-            transform.translation.x += movement.x * ch.speed * time.delta_seconds();
-            transform.translation.y += movement.y * ch.speed * time.delta_seconds();
+            en.pos.x += movement.x * speed;
+            en.pos.y += movement.y * speed;
         }
     }
+}
 
+// on Update schedule
+pub fn update(mut query: Query<(&mut Transform, &Enemy)>) {
+    // TODO interpolate position using time until next tick
+    for (mut tf, en) in &mut query {
+        tf.translation.x = en.pos.x;
+        tf.translation.y = en.pos.y;
+    }
 }
