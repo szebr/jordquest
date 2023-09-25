@@ -1,5 +1,16 @@
+use bevy::prelude::*;
+
+mod game;
+mod functions;
+mod main_menu;
+use game::GamePlugin;
+use main_menu::MainMenuPlugin;
+
+use crate::game::*;
+use crate::functions::*;
+
 //TODO can these be in one line?
-mod jordquest;
+/*mod jordquest;
 mod input;
 mod enemy;
 mod player;
@@ -10,11 +21,21 @@ use bevy::prelude::*;
 
 const TITLE: &str = "JORDQUEST";
 const WIN_W: f32 = 1280.;
-const WIN_H: f32 = 720.;
+const WIN_H: f32 = 720.;*/
+
+#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
+pub enum AppState{
+    #[default]
+    MainMenu,
+    Game,
+    GameOver
+}
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins.set(WindowPlugin {
+        // Bevy plugin
+        /* 
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: TITLE.into(),
                 resolution: (WIN_W, WIN_H).into(),
@@ -22,7 +43,16 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }), jordquest::JordQuestPlugin))
+        }))*/
+        .add_state::<AppState>()
+        //Defined plugins
+        .add_plugins((
+            //jordquest::JordQuestPlugin,
+            GamePlugin,
+            MainMenuPlugin,
+        ))
+        //.add_systems(Update, transition_to_game_state)
+        //.add_systems(Update, transition_to_main_menu_state)
         .run();
 }
 
