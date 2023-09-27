@@ -4,7 +4,7 @@ mod game;
 mod net;
 mod menus;
 use game::GamePlugin;
-use main_menu::MainMenuPlugin;
+use menus::MainMenuPlugin;
 use net::NetPlugin;
 
 use crate::game::*;

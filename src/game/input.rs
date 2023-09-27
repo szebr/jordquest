@@ -1,5 +1,4 @@
 use bevy::input::ButtonState;
-use bevy::input::keyboard::keyboard_input_system;
 use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
 use crate::player;
@@ -94,7 +93,6 @@ pub fn update_movement_vector(
     mv |= keyboard_input.pressed(key_binds.down) as usize * 0b0010;
     mv |= keyboard_input.pressed(key_binds.left) as usize * 0b0100;
     mv |= keyboard_input.pressed(key_binds.right) as usize * 0b1000;
-    println!("{:?}", MOVE_VECTORS[mv]);
     for (pl, mut is) in &mut players {
         if pl.id == player_id.0 {
             is.movement = MOVE_VECTORS[mv];
