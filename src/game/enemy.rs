@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::prelude::shape::CapsuleUvProfile::Fixed;
 use crate::player::Player;
 use crate::net;
 
@@ -10,8 +11,17 @@ pub struct Enemy {
     pos: Vec2
 }
 
+pub struct EnemyPlugin;
+
+impl Plugin for EnemyPlugin{
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, startup)
+            .add_systems(FixedUpdate, fixed)
+            .add_systems(Update, update);
+    }
+}
 // on Setup schedule
-pub fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // FIXEDUPDATE
         Enemy {
@@ -20,7 +30,7 @@ pub fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         // UPDATE
         SpriteBundle {
-            transform: Transform::from_xyz(0., 100., 0.),
+            transform: Transform::from_xyz(0., 100., 2.),
             texture: asset_server.load("horse.png"),
             ..default()
         })
@@ -28,7 +38,7 @@ pub fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // on FixedUpdate schedule
-pub fn next(
+pub fn fixed(
     mut enemies: Query<&mut Enemy, Without<Player>>,
     players: Query<&Player, Without<Enemy>>
 ) {
