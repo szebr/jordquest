@@ -1,88 +1,88 @@
 use bevy::prelude::*;
+use crate::input::InputState;
+use crate::map;
+use crate::net::TICKRATE;
 
-use crate::components::*;
+pub const PLAYER_SPEED: f32 = 500.;
+pub const MAX_PLAYERS: usize = 4;
+
+#[derive(Resource)]
+pub struct PlayerID(pub usize);
+
+#[derive(Component, Default, Copy, Clone)]
+pub struct Player {
+    pub id: usize,
+    pub pos: Vec2,
+    hp: f32,
+    atk_frame: isize,  // -1 means ready, <-1 means cooldown, 0 and up means attacking
+}
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(Startup, spawn_player)
-        .add_systems(Update, move_player);
+        app.add_systems(Startup, startup)
+            .add_systems(FixedUpdate, fixed)
+            .add_systems(Update, update);
         
     }
 }
 
-pub fn spawn_player(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-){
-    commands
-        .spawn(SpriteBundle {
+// on Setup schedule
+pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(PlayerID {0:0});
+    let input_state = InputState::default();
+    commands.insert_resource(input_state);  // this is the host version!
+    commands.spawn((
+        // ONLY UPDATED ON FIXEDUPDATE SCHEDULE
+        Player {
+            id: 0,
+            pos: Vec2::default(),
+            hp: 100.,
+            atk_frame: -1
+        }, input_state,
+
+        // ONLY UPDATED ON UPDATE SCHEDULE
+        // right here is where we add a spatial bundle and a bunch of sprite bundle children
+        SpriteBundle {
             texture: asset_server.load("jordan.png"),
-            transform: Transform {
-                translation: Vec3::new(0., 0., 900.),
-                ..default()
-            },
+            transform: Transform::from_xyz(0., 0., 1.),
             ..default()
         })
-        .insert(Player);
+    );
 }
 
-pub fn move_player(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut player_query: Query<&mut Transform, With<Player>>,
-    time: Res<Time>,
-){
-    if let Ok(mut transform) = player_query.get_single_mut(){
-        let mut direction = Vec3::ZERO;
-        
-        if keyboard_input.pressed(KeyCode::A){
-            if keyboard_input.pressed(KeyCode::S) {
-                direction += Vec3::new(-1.0, -1.0, 0.0);
-            }
-            else {
-                direction += Vec3::new(-1.0, 0.0, 0.0);
-            }
+// on FixedUpdate schedule
+pub fn fixed(
+    mut players: Query<(&mut Player, &mut InputState)>) {
+    let speed = 150. / TICKRATE as f32;
+    let atk_len = 30;
+    let atk_cool = 30;
+    for (mut pl, mut is) in &mut players {
+        pl.pos.x += is.movement.x * speed;
+        pl.pos.x = f32::max(-(map::LEVEL_W / 2.) + map::TILE_SIZE / 2., pl.pos.x);
+        pl.pos.x = f32::min(map::LEVEL_W / 2. - map::TILE_SIZE / 2., pl.pos.x);
+        pl.pos.y += is.movement.y * speed;
+        pl.pos.y = f32::max(-(map::LEVEL_H / 2.) + map::TILE_SIZE / 2., pl.pos.y);
+        pl.pos.y = f32::min(map::LEVEL_H / 2. - map::TILE_SIZE / 2., pl.pos.y);
+        if pl.atk_frame == -1 && is.attack {
+            pl.atk_frame = 0;
         }
-        if keyboard_input.pressed(KeyCode::D){
-            if keyboard_input.pressed(KeyCode::S) {
-                direction += Vec3::new(1.0, -1.0, 0.0);
-            }
-            else {
-                direction += Vec3::new(1.0, 0.0, 0.0);
-            }
+        else if pl.atk_frame > atk_len {
+            pl.atk_frame = -atk_cool;
         }
-        if keyboard_input.pressed(KeyCode::W){
-            if keyboard_input.pressed(KeyCode::D) {
-                direction += Vec3::new(1.0, 1.0, 0.0);
-            }
-            else if keyboard_input.pressed(KeyCode::A) {
-                direction += Vec3::new(-1.0, 1.0, 0.0);
-            }
-            else {
-                direction += Vec3::new(0.0, 1.0, 0.0);
-            }
+        else {
+            pl.atk_frame += 1;
         }
-        if keyboard_input.pressed(KeyCode::S){
-            direction += Vec3::new(0.0, -1.0, 0.0);
-        }
+    }
+}
 
-        if direction.length() > 0.0 {
-            direction = direction.normalize();
-        }
-
-        let change = direction * PLAYER_SPEED * time.delta_seconds();
-
-        // Check bounds for X axis
-        let new_pos_x = transform.translation + Vec3::new(change.x, 0., 0.);
-        if new_pos_x.x >= -(LEVEL_W / 2.) + TILE_SIZE / 2. && new_pos_x.x <= LEVEL_W / 2. - TILE_SIZE / 2. {
-            transform.translation.x = new_pos_x.x;
-        }
-
-        // Check bounds for Y axis
-        let new_pos_y = transform.translation + Vec3::new(0., change.y, 0.);
-        if new_pos_y.y >= -(LEVEL_H / 2.) + TILE_SIZE / 2. && new_pos_y.y <= LEVEL_H / 2. - TILE_SIZE / 2. {
-            transform.translation.y = new_pos_y.y;
-        }
+// on Update schedule
+pub fn update(mut query: Query<(&mut Transform, &Player)>) {
+    // TODO interpolate position using time until next tick
+    for (mut tf, pl) in &mut query {
+        tf.translation.x = pl.pos.x;
+        tf.translation.y = pl.pos.y;
+        // TODO if atk_frame is attacking, make him red!
     }
 }

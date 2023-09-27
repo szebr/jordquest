@@ -1,9 +1,14 @@
 use bevy::prelude::*;
 
-pub mod components;
-mod player;
-use components::*;
-use player::*;
+pub mod input;
+pub mod player;
+pub mod enemy;
+pub mod camera;
+pub mod map;
+
+pub const TITLE: &str = "JORDQUEST";
+pub const WIN_W: f32 = 1280.;
+pub const WIN_H: f32 = 720.;
 
 pub struct GamePlugin;
 
@@ -18,38 +23,12 @@ impl Plugin for GamePlugin{
             }),
             ..default()
         }))
-        .add_plugins((PlayerPlugin,))
-        .add_systems(Startup, setup)
-        .add_systems(Update, move_camera.after(move_player));
+        .add_plugins((
+            player::PlayerPlugin,
+            enemy::EnemyPlugin,
+            map::MapPlugin,
+            camera::CameraPlugin,
+            input::InputPlugin,
+        ));
     }
-}
-
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    commands.spawn(Camera2dBundle::default());
-
-    let bg_texture_handle = asset_server.load("bg.png");
-
-    commands
-        .spawn(SpriteBundle {
-            texture: bg_texture_handle.clone(),
-            transform: Transform::from_translation(Vec3::splat(0.)),
-            ..default()
-        })
-        .insert(Background);
-}
-
-fn move_camera(
-    player: Query<&Transform, With<Player>>,
-    mut camera: Query<&mut Transform, (Without<Player>, With<Camera>)>,
-) {
-    let pt = player.single();
-    let mut ct = camera.single_mut();
-
-    let x_bound = LEVEL_W / 2. - WIN_W / 2.;
-    let y_bound = LEVEL_H / 2. - WIN_H / 2.;
-    ct.translation.x = pt.translation.x.clamp(-x_bound, x_bound);
-    ct.translation.y = pt.translation.y.clamp(-y_bound, y_bound);
 }

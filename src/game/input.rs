@@ -1,7 +1,18 @@
 use bevy::input::ButtonState;
+use bevy::input::keyboard::keyboard_input_system;
 use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
 use crate::player;
+
+pub struct InputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, startup)
+            .add_systems(Update, handle_mouse_button_events)
+            .add_systems(FixedUpdate, update_movement_vector);
+    }
+}
 
 #[derive(Component, Resource, Default, Clone, Copy)]
 pub struct InputState {
@@ -83,6 +94,7 @@ pub fn update_movement_vector(
     mv |= keyboard_input.pressed(key_binds.down) as usize * 0b0010;
     mv |= keyboard_input.pressed(key_binds.left) as usize * 0b0100;
     mv |= keyboard_input.pressed(key_binds.right) as usize * 0b1000;
+    println!("{:?}", MOVE_VECTORS[mv]);
     for (pl, mut is) in &mut players {
         if pl.id == player_id.0 {
             is.movement = MOVE_VECTORS[mv];
@@ -105,7 +117,7 @@ pub fn handle_mouse_button_events(
     }
 }
 
-pub fn setup(mut commands: Commands) {
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(KeyBinds::new());
     commands.insert_resource(MouseBinds::new());
 }
