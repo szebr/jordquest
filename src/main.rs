@@ -2,8 +2,7 @@ use bevy::prelude::*;
 
 mod game;
 mod net;
-mod functions;
-mod main_menu;
+mod menus;
 use game::GamePlugin;
 use main_menu::MainMenuPlugin;
 use net::NetPlugin;
@@ -11,11 +10,12 @@ use net::NetPlugin;
 use crate::game::*;
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
-pub enum AppState{
+pub enum AppState {
     #[default]
     MainMenu,
     Game,
-    GameOver
+    GameOver,
+    Credits,
 }
 
 fn main() {

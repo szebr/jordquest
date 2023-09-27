@@ -53,7 +53,6 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 // on FixedUpdate schedule
-//TODO check bounds
 pub fn fixed(
     mut players: Query<(&mut Player, &mut InputState)>) {
     let speed = 150. / TICKRATE as f32;

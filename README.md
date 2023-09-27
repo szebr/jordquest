@@ -3,28 +3,29 @@
 by Red Delicious
 
 ## Team Members
+
 * Advanced Topic Subteam 1: Networking
 	* Ian Whitfield
-    * Jordan Brudenell
-    * Ruoheng Xu
+	* Jordan Brudenell
+	* Ruoheng Xu
 
 * Advanced Topic Subteam 2: Procedural Generation
 	* Sam Durigon
-    * Alex Lampe
-    * Brendan Szewczyk
-    * Garrett DiCenzo
+	* Alex Lampe
+	* Brendan Szewczyk
+	* Garrett DiCenzo
 
 ## Game Description
 
 Multiplayer Hack n Slash in a randomly generated arena with PvE camps you can
-kill to earn items, and other players who you can kill to earn points. Most
+kill to earn items, and other players you can kill to earn points. Most
 points at the end of 5 minutes wins!
 
 ## Advanced Topic Description
 
 ### Networking
 
-UDP networking to connect together players with a listen server on the host
+UDP networking connects together players with a listen server on the host
 player's computer. Connecting over LAN directly by IP. Focus on reliability
 and performance.
     
@@ -37,21 +38,22 @@ complexity, and natural appearance.
 ## Midterm Goals
 
 * Networking: Players can see each other in a lobby 
-* ProcGen: Gameplay-complete maps should be produced, not necessarily good. Basic minimap.
+* ProcGen: One static mostly gameplay-complete map should be produced, not necessarily good. Basic minimap.
 * Gameplay: Sword should work to do damage, enemies should be able to kill you
-* Scoring: Score system and timer work
-* UI supports currently built features, game doesn't irreperably crash.
+* Scoring: Score is awarded for killing enemies and a 5 minute timer ends the game when it finishes
+* UI supports currently built features.
 
 ## Final Goals
 
-* 25%: Networking: Complete listen server, network should not be an issue for gameplay
-* 25%: ProcGen: Maps are varied and natural, multiple camp types and decorations
-* 15%: Gameplay: Sword combat finished, at least one extra ability, upgrades work, enemies can kill you and some have abilities too.
-* 5%: Scoring: Working leaderboard with statistics in addition to scoring and timer.
-* 5%: UI supports all features and has visual/auditory feedback
-* 5%: Game runs smoothly and all abilities work together without bugs.
+* 25%: Networking: Complete listen server, network should not be an overbearing and domineering issue for gameplay
+* 25%: ProcGen: Maps are generated so that they appear to be varied. They should also look somewhat natural by not repeating too many objects or entities. There should be 5 different camp types and 10 different decorations. The map size should
+be roughly the size of a League of Legends jungle map. Which is the equivalent of 
+roughly two football sized fields. If the players move 3.5 m/s, the map should be 160x225 m.
+* 20%: Gameplay: Sword combat finished, at least one extra ability, upgrades such as increased damage or reduced damage taken work, enemies should be able to kill you and some enemies will have extra powers such as increased range or health.
+* 15%: UI supports all required features such as play, ability usage, attacks, and viewing upgrades. The game has visual/auditory feedback for players' and enemies' actions as well as environmental sounds such as ambiance and background sounds.
+* 15%: The game runs at an acceptable speed and all abilities work together with minimal to no bugs.
 
 ## Stretch Goals
 
-* Rollback and prediction netcode
-* _Epic_ boss battle
+* Rollback and prediction net code. Specifically this stretch goal should solve much less input lag and a fairer, more singleplayer-feeling experience. Network architecture design will have to be planned around our networked gameplay. The challenges involved in implemented rollback netcode include: detecting a rollback packet, designing the game to play smoothly while being rolled back a few frames from time to time, re-simulating multiple frames on the host upon receiving a rollback packet.
+* Scoring: Working leaderboard with statistics, scoring, and timer. Included on the scoreboard would be the stats names, player kills, monster kills, camps captured, deaths, and k/d ratio. The overall score should increase when the player kills enemy npcs, captures bases, or eliminate enemy players.
