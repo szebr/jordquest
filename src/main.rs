@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 
 mod game;
-mod functions;
-mod main_menu;
+mod menus;
 use game::GamePlugin;
-use main_menu::MainMenuPlugin;
+use menus::MainMenuPlugin;
 
 use crate::game::*;
-use crate::functions::*;
 
 //TODO can these be in one line?
 /*mod jordquest;
@@ -24,11 +22,12 @@ const WIN_W: f32 = 1280.;
 const WIN_H: f32 = 720.;*/
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
-pub enum AppState{
+pub enum AppState {
     #[default]
     MainMenu,
     Game,
-    GameOver
+    GameOver,
+    Credits,
 }
 
 fn main() {
@@ -51,8 +50,7 @@ fn main() {
             GamePlugin,
             MainMenuPlugin,
         ))
-        //.add_systems(Update, transition_to_game_state)
-        //.add_systems(Update, transition_to_main_menu_state)
+
         .run();
 }
 
