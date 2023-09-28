@@ -59,7 +59,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
     }
     
-    //draw the map tiles
+    //TODO: draw the map tiles
 }
 
 fn is_between(x: &usize, lower: usize, upper: usize) -> bool{
