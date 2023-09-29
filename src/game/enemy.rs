@@ -1,12 +1,12 @@
 use bevy::prelude::*;
-use bevy::prelude::shape::CapsuleUvProfile::Fixed;
 use bevy::sprite::collide_aabb::collide;
+use crate::game::player;
 use crate::player::Player;
 use crate::net;
 
-use super::map::TILE_SIZE;
-
 pub const MAX_ENEMIES: usize = 32;
+pub const ENEMY_SIZE: Vec2 = Vec2 { x: 64., y: 64. };
+pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
 #[derive(Component, Default, Copy, Clone)]
 pub struct Enemy {
@@ -45,32 +45,31 @@ pub fn fixed(
     mut enemies: Query<&mut Enemy, Without<Player>>,
     players: Query<&Player, Without<Enemy>>
 ) {
-    let speed = 100. / net::TICKRATE as f32;
     for mut en in &mut enemies {
         let closest_player = &players.iter().next();
         if let Some(player) = closest_player{
-            let player_size = Vec2::new(130.0, 130.0);//size of the player for collision detection
-            let enemy_size = Vec2::new(64.0, 64.0);//size of the enemy for collision detection
-
-            //collision detection
-            if collide(
-                Vec3::new(en.pos.x, en.pos.y, 0.0),
-                enemy_size,
-                Vec3::new(player.pos.x, player.pos.y, 0.0),
-                player_size
-            ).is_some() {
-                continue;//if collision happened, stop moving
-            }
             //TODO when there are multiple players, find the closest one
             /*for pl in &players {
             }*/
-            //let closest_player = closest_player.unwrap();
             let movement = player.pos - en.pos;
             if movement.length() < 0.1 { continue }
             let movement = movement.normalize();
-            en.pos.x += movement.x * speed;
-            en.pos.y += movement.y * speed;
-        }
+            let next = en.pos + movement * ENEMY_SPEED;
+            //TODO same todo as on player.rs, however additionally,
+            // ideally the collision would check for all players and all
+            // other enemies, etc. so we might have to break it out
+            // into a function or something. what's written below
+            // will work for singleplayer and 99% of the time in multiplayer
+            if collide(
+                Vec3::new(next.x, next.y, 0.0),
+                ENEMY_SIZE,
+                Vec3::new(player.pos.x, player.pos.y, 0.0),
+                player::PLAYER_SIZE
+            ).is_some() {
+                continue;//if collision happened, stop moving
+            }
+            en.pos = next;
+       }
     }
 }
 

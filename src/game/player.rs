@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::input::InputState;
-use crate::map;
 use crate::net::TICKRATE;
 use crate::enemy::Enemy;
 
 use super::enemy;
 
-pub const PLAYER_SPEED: f32 = 500.;
+pub const PLAYER_SPEED: f32 = 250. / TICKRATE as f32;
+pub const PLAYER_SIZE: Vec2 = Vec2 { x: 128., y: 128. };
 pub const MAX_PLAYERS: usize = 4;
 
 #[derive(Resource)]
@@ -61,37 +61,30 @@ pub fn fixed(
     mut commands: Commands,
     mut players: Query<(Entity, &mut Player, &mut InputState)>,
     enemys: Query<&Enemy>) {
-    let speed = 150. / TICKRATE as f32;
     let atk_len = 30;
     let atk_cool = 30;
-    for (entity, mut pl, mut is) in &mut players {
-        let prev_pos = pl.pos; // store the position of the player before collision
+    'playerloop: for (entity, mut pl, mut is) in &mut players {
+        let next = pl.pos + is.movement * PLAYER_SPEED;
 
-        pl.pos.x += is.movement.x * speed;
-        pl.pos.y += is.movement.y * speed;
-
-        let mut collision = false;//no collision with the enemy yet
-
-        for enemy in enemys.iter(){
+        for enemy in &enemys {
+            //TODO add collider components which hold their own
+            // size and location data within the player/enemy entities
+            // and use those rather than these boxes made on the fly.
+            // why? monster hitboxes could be larger than their sprite to
+            // make them easier to hit, or we could need multiple colliders
+            // on one entity eventually.
             if collide(
-                Vec3::new(pl.pos.x, pl.pos.y, 0.0),
-                Vec2::new(130.0, 130.0),//player's size for now, probably need a variable later
+                Vec3::new(next.x, next.y, 0.0),
+                PLAYER_SIZE,
                 Vec3::new(enemy.pos.x, enemy.pos.y, 0.0),
-                Vec2::new(64.0, 64.0)
+                enemy::ENEMY_SIZE
             ).is_some(){
-                collision = true;//player collides with the enemy, stop moving
-                break;
+                pl.hp -= 0.5; //deal with damage when they collide with each others
+                println!("hp: {}", pl.hp);//debugging message
+                continue 'playerloop;
             }
         }
-        if collision{//if it collides, stop the player movement to prevent the overlapping of enemy and player
-            pl.hp -= 0.5; //deal with damage when they collide with each others
-            println!("hp: {}", pl.hp);//debugging message
-            pl.pos = prev_pos;
-        }
-        pl.pos.x = f32::max(-(map::LEVEL_W / 2.) + map::TILE_SIZE / 2., pl.pos.x);
-        pl.pos.x = f32::min(map::LEVEL_W / 2. - map::TILE_SIZE / 2., pl.pos.x);
-        pl.pos.y = f32::max(-(map::LEVEL_H / 2.) + map::TILE_SIZE / 2., pl.pos.y);
-        pl.pos.y = f32::min(map::LEVEL_H / 2. - map::TILE_SIZE / 2., pl.pos.y);
+        pl.pos = next;
 
         if pl.atk_frame == -1 && is.attack {
             pl.atk_frame = 0;
