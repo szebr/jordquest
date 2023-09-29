@@ -6,7 +6,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, update);
+            .add_systems(Update, update.after(player::update));
     }
 }
 
