@@ -58,18 +58,20 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // on FixedUpdate schedule
 pub fn fixed(
-    mut players: Query<(&mut Player, &mut InputState)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &mut Player, &mut InputState)>,
     enemys: Query<&Enemy>) {
     let speed = 150. / TICKRATE as f32;
     let atk_len = 30;
     let atk_cool = 30;
-    for (mut pl, mut is) in &mut players {
+    for (entity, mut pl, mut is) in &mut players {
         let prev_pos = pl.pos; // store the position of the player before collision
 
         pl.pos.x += is.movement.x * speed;
         pl.pos.y += is.movement.y * speed;
 
         let mut collision = false;//no collision with the enemy yet
+
         for enemy in enemys.iter(){
             if collide(
                 Vec3::new(pl.pos.x, pl.pos.y, 0.0),
@@ -82,13 +84,14 @@ pub fn fixed(
             }
         }
         if collision{//if it collides, stop the player movement to prevent the overlapping of enemy and player
+            pl.hp -= 0.5; //deal with damage when they collide with each others
+            println!("hp: {}", pl.hp);//debugging message
             pl.pos = prev_pos;
-        }else{
-            pl.pos.x = f32::max(-(map::LEVEL_W / 2.) + map::TILE_SIZE / 2., pl.pos.x);
-            pl.pos.x = f32::min(map::LEVEL_W / 2. - map::TILE_SIZE / 2., pl.pos.x);
-            pl.pos.y = f32::max(-(map::LEVEL_H / 2.) + map::TILE_SIZE / 2., pl.pos.y);
-            pl.pos.y = f32::min(map::LEVEL_H / 2. - map::TILE_SIZE / 2., pl.pos.y);
         }
+        pl.pos.x = f32::max(-(map::LEVEL_W / 2.) + map::TILE_SIZE / 2., pl.pos.x);
+        pl.pos.x = f32::min(map::LEVEL_W / 2. - map::TILE_SIZE / 2., pl.pos.x);
+        pl.pos.y = f32::max(-(map::LEVEL_H / 2.) + map::TILE_SIZE / 2., pl.pos.y);
+        pl.pos.y = f32::min(map::LEVEL_H / 2. - map::TILE_SIZE / 2., pl.pos.y);
 
         if pl.atk_frame == -1 && is.attack {
             pl.atk_frame = 0;
@@ -98,6 +101,9 @@ pub fn fixed(
         }
         else {
             pl.atk_frame += 1;
+        }
+        if pl.hp <= 0. { // player can die
+            commands.entity(entity).despawn(); 
         }
     }
 }
