@@ -58,11 +58,12 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // on FixedUpdate schedule
 pub fn fixed(
-    mut players: Query<(&mut Player, &mut InputState)>,
+    mut commands: Commands,
+    mut players: Query<(Entity, &mut Player, &mut InputState)>,
     enemys: Query<&Enemy>) {
     let atk_len = 30;
     let atk_cool = 30;
-    'playerloop: for (mut pl, mut is) in &mut players {
+    'playerloop: for (entity, mut pl, mut is) in &mut players {
         let next = pl.pos + is.movement * PLAYER_SPEED;
 
         for enemy in &enemys {
@@ -78,6 +79,8 @@ pub fn fixed(
                 Vec3::new(enemy.pos.x, enemy.pos.y, 0.0),
                 enemy::ENEMY_SIZE
             ).is_some(){
+                pl.hp -= 0.5; //deal with damage when they collide with each others
+                println!("hp: {}", pl.hp);//debugging message
                 continue 'playerloop;
             }
         }
@@ -91,6 +94,9 @@ pub fn fixed(
         }
         else {
             pl.atk_frame += 1;
+        }
+        if pl.hp <= 0. { // player can die
+            commands.entity(entity).despawn(); 
         }
     }
 }
