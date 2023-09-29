@@ -1,11 +1,32 @@
 use bevy::prelude::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Biome{
+    Free,
+    Wall,
+    Grass,
+    Camp,
+}
+
+#[derive(Component)]
+pub struct WorldMap{
+    pub map_size: usize,
+    pub tile_size: usize,
+    pub biome_map: [[Biome; MAPSIZE]; MAPSIZE],
+}
+// Set the size of the map in tiles (its a square)
+//CHANGE THIS TO CHANGE MAP SIZE
+const MAPSIZE: usize = 40;
+const TILESIZE: usize = 32;
+
+//THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
 pub const TILE_SIZE: f32 = 100.;
 pub const LEVEL_W: f32 = 1920.;
 pub const LEVEL_H: f32 = 1080.;
 
-#[derive(Component)]
-struct Brick;
+//this wasn't being used
+// #[derive(Component)]
+// struct Brick;
 
 #[derive(Component)]
 struct Background;
@@ -14,14 +35,88 @@ pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, startup);
+        //basic background
+        //app.add_systems(Startup, startup);
+        //new background
+        app.add_systems(Startup, setup);
     }
 }
-fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteBundle {
-            texture: asset_server.load("bg.png"),
-            transform: Transform::default(),
-            ..default()
-        })
-        .insert(Background);
+
+//Replaced RD's code
+// fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+//     commands.spawn(SpriteBundle {
+//             texture: asset_server.load("bg.png"),
+//             transform: Transform::default(),
+//             ..default()
+//         })
+//         .insert(Background);
+// }
+
+pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    
+    let mut world_map = WorldMap{
+        map_size: MAPSIZE,
+        tile_size: TILESIZE,
+        biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
+    };
+    // fill the map with tiles
+    for row in 0..MAPSIZE {
+        for col in 0..MAPSIZE {
+            if row == 0 || row == MAPSIZE - 1 || col == 0 || col == MAPSIZE - 1 {
+                // Set the outer border to `Biome::Wall`
+                world_map.biome_map[row][col] = Biome::Wall;
+            }else if is_between(&row, 10, 20) && is_between(&col, 10, 20){
+                // create a camp near the center of the map
+                world_map.biome_map[row][col] = Biome::Camp;
+            }else {
+                //make every other row basic grass
+                world_map.biome_map[row][col] = Biome::Grass;
+            }
+        }
+    }
+
+    //draw the map tiles
+    //Create this to center the x-positions of the map
+    let mut x_coord: isize = -((MAPSIZE as isize)/2);
+    for row in 0..MAPSIZE {
+        //create this to center the y-positions of the map
+        let mut y_coord: isize = -((MAPSIZE as isize)/2);
+        for col in 0..MAPSIZE {
+            if world_map.biome_map[row][col] == Biome::Wall {
+                //spawn a wall sprite if the current tile is a wall
+                commands.spawn(SpriteBundle {
+                    texture: asset_server.load("wall.png"),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    ..default()
+                })
+                .insert(Background);
+            }else if world_map.biome_map[row][col] == Biome::Grass {
+                //spawn a grass sprite if the current tile is grass
+                commands.spawn(SpriteBundle {
+                    texture: asset_server.load("ground.png"),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    ..default()
+                })
+                .insert(Background);
+            }else if world_map.biome_map[row][col] == Biome::Camp {
+                //spawn a camp sprite if the current tile is a camp
+                commands.spawn(SpriteBundle {
+                    texture: asset_server.load("camp.png"),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    ..default()
+                })
+                .insert(Background);
+            }
+            y_coord+=1;
+        }
+        x_coord+=1;
+    }
+}
+
+fn is_between(x: &usize, lower: usize, upper: usize) -> bool{
+    if *x <= upper && *x >= lower {
+        true
+    }else {
+        false
+    }
 }

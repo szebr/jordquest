@@ -1,12 +1,12 @@
 use bevy::prelude::*;
+mod layout;
+mod interactions;
+mod components;
 
 use crate::AppState;
+use layout::*;
+use interactions::*;
 
-use self::{systems::{layout::*, interactions::*}, components::{MainMenu, CreditsButton}};
-
-
-mod components;
-mod systems;
 
 pub struct MainMenuPlugin;
 
