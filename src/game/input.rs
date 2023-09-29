@@ -3,6 +3,16 @@ use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
 use crate::player;
 
+pub struct InputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, startup)
+            .add_systems(Update, handle_mouse_button_events)
+            .add_systems(FixedUpdate, update_movement_vector);
+    }
+}
+
 #[derive(Component, Resource, Default, Clone, Copy)]
 pub struct InputState {
     pub movement: Vec2,
@@ -105,7 +115,7 @@ pub fn handle_mouse_button_events(
     }
 }
 
-pub fn setup(mut commands: Commands) {
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(KeyBinds::new());
     commands.insert_resource(MouseBinds::new());
 }

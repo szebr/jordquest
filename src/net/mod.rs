@@ -42,8 +42,15 @@ impl TickBuffer {
     }
 }
 
+pub struct NetPlugin;
 
-pub fn setup(mut commands: Commands) {
+impl Plugin for NetPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, startup);
+    }
+}
+
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(FixedTime::new_from_secs(TICKLEN_S));
     commands.insert_resource(TickNum { 0: 0 });
     commands.insert_resource(TickBuffer{
@@ -77,4 +84,11 @@ pub fn tick_client(mut input_state: ResMut<InputState>) {
 
 pub fn increment_tick(mut tick_num: ResMut<TickNum>) {
     tick_num.0 += 1;
+}
+fn is_host() -> bool {
+    true
+}
+
+fn is_client() -> bool {
+    false
 }
