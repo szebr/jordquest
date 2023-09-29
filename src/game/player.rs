@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::input::InputState;
-use crate::map;
 use crate::net::TICKRATE;
 use crate::enemy::Enemy;
 
@@ -83,11 +82,6 @@ pub fn fixed(
             }
         }
         pl.pos = next;
-        // clamp to world bounds
-        pl.pos.x = f32::max(-(map::LEVEL_W / 2.) + map::TILE_SIZE / 2., pl.pos.x);
-        pl.pos.x = f32::min(map::LEVEL_W / 2. - map::TILE_SIZE / 2., pl.pos.x);
-        pl.pos.y = f32::max(-(map::LEVEL_H / 2.) + map::TILE_SIZE / 2., pl.pos.y);
-        pl.pos.y = f32::min(map::LEVEL_H / 2. - map::TILE_SIZE / 2., pl.pos.y);
 
         if pl.atk_frame == -1 && is.attack {
             pl.atk_frame = 0;

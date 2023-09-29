@@ -1,11 +1,8 @@
 use bevy::prelude::*;
-use bevy::prelude::shape::CapsuleUvProfile::Fixed;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::player;
 use crate::player::Player;
 use crate::net;
-
-use super::map::TILE_SIZE;
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 64., y: 64. };
