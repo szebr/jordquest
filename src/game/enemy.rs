@@ -42,12 +42,14 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 // on FixedUpdate schedule
 pub fn fixed(
+    tick: Res<net::TickNum>,
     mut enemies: Query<&mut Enemy, Without<Player>>,
     players: Query<&Player, Without<Enemy>>
 ) {
     for mut en in &mut enemies {
         let closest_player = &players.iter().next();
-        if let Some(player) = closest_player{
+        if let Some(player) = closest_player {
+            let player = &player.buffer[tick.0 as usize - 1];
             //TODO when there are multiple players, find the closest one
             /*for pl in &players {
             }*/

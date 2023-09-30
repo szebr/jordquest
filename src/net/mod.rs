@@ -4,15 +4,15 @@ use crate::input::InputState;
 
 pub const TICKRATE: u8 = 30;
 const TICKLEN_S: f32 = 1. / TICKRATE as f32;
+pub const DELAY: usize = 2;
+pub const BUFFER_SIZE: usize = 32;  // matters for ACK, untested, must be pwr of 2
 
 #[derive(Resource)]
-pub struct TickNum(pub u16);
+pub struct TickNum(pub u16);  // this is the tick we're writing to, NOT playing back
 
 #[derive(Default, Clone, Copy)]
 pub struct GameState {
-    pub players: [player::Player; player::MAX_PLAYERS],
     pub player_count: usize,
-    pub enemies: [enemy::Enemy; enemy::MAX_ENEMIES],
     pub enemy_count: usize
 }
 
