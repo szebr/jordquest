@@ -46,7 +46,9 @@ pub struct NetPlugin;
 
 impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, startup);
+        app.add_systems(Startup, startup)
+            .add_systems(FixedUpdate,
+            increment_tick.before(player::fixed).before(enemy::fixed));
     }
 }
 

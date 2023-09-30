@@ -73,6 +73,7 @@ pub fn fixed(
             if movement.length() < 0.1 { continue }
             let movement = movement.normalize();
             let possible_movement = prev.pos + movement * ENEMY_SPEED;
+            let mut blocked = false;
             //TODO same todo as on player.rs, however additionally,
             // ideally the collision would check for all players and all
             // other enemies, etc. so we might have to break it out
@@ -84,9 +85,11 @@ pub fn fixed(
                 Vec3::new(player.pos.x, player.pos.y, 0.0),
                 player::PLAYER_SIZE
             ).is_some() {
-                continue;//if collision happened, stop moving
+                blocked = true;
             }
-            next.pos = possible_movement;
+            if (!blocked) {
+                next.pos = possible_movement;
+            }
         }
         en.set(tick.0, next);
     }

@@ -133,7 +133,7 @@ pub fn fixed(
             commands.entity(entity).despawn(); 
         }
 
-        pl.buffer[tick.0 as usize] = next;
+        pl.set(tick.0, next);
     }
 }
 
