@@ -8,6 +8,8 @@ pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 64., y: 64. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
+//TODO public struct resource holding enemy count
+
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
     pub pos: Vec2
