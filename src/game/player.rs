@@ -39,6 +39,19 @@ pub struct Player {
     pub buffer: [PlayerTick; net::BUFFER_SIZE],
 }
 
+
+//TODO can't this be a trait or something?
+impl Player {
+    pub fn get(&self, tick: u16) -> &PlayerTick {
+        let i = tick as usize % net::BUFFER_SIZE;
+        &self.buffer[i]
+    }
+
+    pub fn set(&mut self, tick: u16, input: PlayerTick) {
+        let i = tick as usize % net::BUFFER_SIZE;
+        self.buffer[i] = input;
+    }
+}
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
@@ -54,7 +67,6 @@ impl Plugin for PlayerPlugin{
 pub fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    tick_num: Res<TickNum>
 ) {
     commands.insert_resource(PlayerID {0:0});
     let input_state = InputState::default();
@@ -73,7 +85,6 @@ pub fn startup(
     );
 }
 
-// on FixedUpdate schedule
 pub fn fixed(
     mut commands: Commands,
     tick: Res<TickNum>,
@@ -82,11 +93,12 @@ pub fn fixed(
     let atk_len = 30;
     let atk_cool = 30;
     for (entity, mut pl, mut is) in &mut players {
-        let prev: &PlayerTick = &pl.buffer[(tick.0 - 1) as usize % net::BUFFER_SIZE];
+        let prev: &PlayerTick = pl.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
         let possible_move = next.pos + is.movement * PLAYER_SPEED;
         let mut blocked = false;
         for enemy in &enemys {
+            let enemy = enemy.get(tick.0.wrapping_sub(1));
             //TODO add collider components which hold their own
             // size and location data within the player/enemy entities
             // and use those rather than these boxes made on the fly.
@@ -125,14 +137,13 @@ pub fn fixed(
     }
 }
 
-// on Update schedule
 pub fn update(
     tick: Res<TickNum>,
     mut query: Query<(&mut Transform, &Player)>,
 ) {
     // TODO interpolate position using time until next tick
     for (mut tf, pl) in &mut query {
-        let pl = pl.buffer[tick.0 as usize - net::DELAY];
+        let pl = pl.get(tick.0.wrapping_sub(net::DELAY));
         tf.translation.x = pl.pos.x;
         tf.translation.y = pl.pos.y;
         // TODO if atk_frame is attacking, make him red!
