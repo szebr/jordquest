@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use crate::{player, enemy};
 use crate::game::input;
 
 pub const TICKRATE: u8 = 30;
