@@ -16,7 +16,8 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
         .add_systems(OnExit(AppState::MainMenu), despawn_main_menu)
         .add_systems(OnEnter(AppState::Credits), spawn_credits_page)
+        .add_systems(Update, show_popup)
+        .add_systems(OnExit(AppState::Credits), despawn_credits_page)
         .add_systems(Update, interact_with_play_button.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_credits_button.run_if(in_state(AppState::MainMenu)));
-    }
-}
+}}
