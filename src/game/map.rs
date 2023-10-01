@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use csv::ReaderBuilder;
+use std::{error::Error, fs::File};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -16,7 +18,8 @@ pub struct WorldMap{
 }
 // Set the size of the map in tiles (its a square)
 //CHANGE THIS TO CHANGE MAP SIZE
-const MAPSIZE: usize = 40;
+// For test map, may eventually want to make this dependent on map dimensions in csv
+const MAPSIZE: usize = 16;
 const TILESIZE: usize = 32;
 
 //THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
@@ -52,6 +55,45 @@ impl Plugin for MapPlugin {
 //         .insert(Background);
 // }
 
+fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
+    let path = "assets/test_map.csv";
+    let file = File::open(path)?;
+    //let mut reader = csv::Reader::from_reader(file);
+    let mut reader = ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(file);
+
+    let mut row = 0;
+    let mut col = 0;
+
+    for result in reader.records() {
+        let record = result?;
+        for field in record.iter() {
+            match field {
+                "F" => {
+                    map.biome_map[row][col] = Biome::Free;
+                }
+                "W" => {
+                    map.biome_map[row][col] = Biome::Wall;
+                }
+                "G" => {
+                    map.biome_map[row][col] = Biome::Grass;
+                }
+                "C" => {
+                    map.biome_map[row][col] = Biome::Camp;
+                }
+                &_ => {
+
+                }
+            };
+            col += 1;
+        }
+        row += 1;
+        col = 0;
+    }
+    Ok(())
+}
+
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     
     let mut world_map = WorldMap{
@@ -59,6 +101,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
+
+    let _ = read_map(&mut world_map);
+
+/*  Previous hardcoded map generation
     // fill the map with tiles
     for row in 0..MAPSIZE {
         for col in 0..MAPSIZE {
@@ -74,6 +120,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }
         }
     }
+*/
 
     //draw the map tiles
     //Create this to center the x-positions of the map
