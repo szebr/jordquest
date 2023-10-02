@@ -7,8 +7,8 @@ pub fn perlin(x: f32, y: f32) -> f32 {
     let mut yi = y.floor() as usize;
 
     // wrap values around 255 to access permutation table
-    xi = xi & 255;
-    yi = yi & 255;
+    xi = xi % 255;
+    yi = yi % 255;
 
     // pop off floating remainder from x and y
     let xf = x - xi as f32;
@@ -23,7 +23,6 @@ pub fn perlin(x: f32, y: f32) -> f32 {
     let bot_l = Vec2 {x: (xf      ), y: (yf      )};
 
     // get grid point values from permutation table (defined below)
-    // wrap entire value around 255 to ensure we don't flow over ptable
     let val_top_r = P[P[xi + 1] + yi + 1];
     let val_top_l = P[P[xi    ] + yi + 1];
     let val_bot_r = P[P[xi + 1] + yi    ];
@@ -46,7 +45,7 @@ pub fn perlin(x: f32, y: f32) -> f32 {
 
 // find the constant vector to use in calculating the dot product of the constant vectors vs input vectors
 fn constant_vec(v: usize) -> Vec2 {
-    let h = v & 3;
+    let h = v % 3;
     let mut vec = Vec2 {x: 1.0, y: -1.0};
 
     if h == 0 {
