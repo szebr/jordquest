@@ -99,13 +99,17 @@ pub fn fixed(
 
 #[allow(arithmetic_overflow)]
 pub fn update(
+    tick_time: Res<FixedTime>,
     tick: Res<net::TickNum>,
     mut query: Query<(&mut Transform, &Enemy)>
 ) {
     // TODO interpolate position using time until next tick
     for (mut tf, en) in &mut query {
-        let en = en.get(tick.0.wrapping_sub(net::DELAY));
-        tf.translation.x = en.pos.x;
-        tf.translation.y = en.pos.y;
+        let next_state = en.get(tick.0.wrapping_sub(net::DELAY));
+        let prev_state = en.get(tick.0.wrapping_sub(net::DELAY + 1));
+        let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
+        let new_state = prev_state.pos.lerp(next_state.pos, percent);
+        tf.translation.x = new_state.x;
+        tf.translation.y = new_state.y;
     }
 }
