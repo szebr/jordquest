@@ -12,7 +12,8 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
-    pub pos: Vec2
+    pub pos: Vec2,
+    pub health: f32,
 }
 
 #[derive(Component)]
@@ -47,7 +48,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Enemy {
             id: 0,
-            buffer: [EnemyTick{ pos: Vec2::new(300.0, 300.0) }; net::BUFFER_SIZE]
+            buffer: [EnemyTick{ pos: Vec2::new(300.0, 300.0), health: 10.0, }; net::BUFFER_SIZE]
         },
         SpriteBundle {
             transform: Transform::from_xyz(0., 100., 2.),
@@ -105,7 +106,7 @@ pub fn update(
 ) {
     // TODO interpolate position using time until next tick
     for (mut tf, en) in &mut query {
-        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?:w
+        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?
         let next_state = en.get(tick.0.wrapping_sub(net::DELAY));
         let prev_state = en.get(tick.0.wrapping_sub(net::DELAY + 1));
         let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
