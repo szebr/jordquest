@@ -137,14 +137,18 @@ pub fn fixed(
 }
 
 pub fn update(
+    tick_time: Res<FixedTime>,
     tick: Res<net::TickNum>,
     mut query: Query<(&mut Transform, &Player)>,
 ) {
-    // TODO interpolate position using time until next tick
     for (mut tf, pl) in &mut query {
-        let pl = pl.get(tick.0.wrapping_sub(net::DELAY));
-        tf.translation.x = pl.pos.x;
-        tf.translation.y = pl.pos.y;
+        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?:w
+        let next_state = pl.get(tick.0.wrapping_sub(net::DELAY));
+        let prev_state = pl.get(tick.0.wrapping_sub(net::DELAY + 1));
+        let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
+        let new_state = prev_state.pos.lerp(next_state.pos, percent);
+        tf.translation.x = new_state.x;
+        tf.translation.y = new_state.y;
         // TODO if atk_frame is attacking, make him red!
     }
 }
