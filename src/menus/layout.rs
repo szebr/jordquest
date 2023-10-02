@@ -363,6 +363,79 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 });
         });
+
+        parent.spawn(
+            (
+                TextBundle{
+                    style: Style{
+                        width: Val::Px(400.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Enter your port number here: ",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: BLACK },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                },
+                HostPortInput{
+                    port:String::new(),
+                }
+            )
+        );
+
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                HostPortSaveBut{},
+                NetworkAdresses{
+                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                },
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Host now",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+
         //back to main menu
         parent.spawn(
             (
