@@ -13,6 +13,8 @@ use crate::game::*;
 pub enum AppState {
     #[default]
     MainMenu,
+    Hosting,
+    Joining,
     Game,
     GameOver,
     Credits,
