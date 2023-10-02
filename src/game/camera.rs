@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::player;
+use crate::map;
 
 pub struct CameraPlugin;
 
@@ -25,6 +26,28 @@ fn update(
             if pl.id == id.0 {
                 ctf.translation.x = ptf.translation.x;
                 ctf.translation.y = ptf.translation.y;
+
+                // TODO: Replace 1280 and 720 with window size instead of hardcoding
+                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (1280/2) as isize) as f32;
+                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (1280/2) as isize) as f32;
+
+                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (720/2) as isize) as f32;
+                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (720/2) as isize) as f32;
+
+                // Clamp camera view to map borders
+                if ctf.translation.x < clamp_neg_x {
+                    ctf.translation.x = clamp_neg_x
+                }
+                if ctf.translation.x > clamp_pos_x {
+                    ctf.translation.x = clamp_pos_x
+                }
+
+                if ctf.translation.y < clamp_neg_y {
+                    ctf.translation.y = clamp_neg_y
+                }
+                if ctf.translation.y > clamp_pos_y {
+                    ctf.translation.y = clamp_pos_y
+                }
                 break
             }
         }
