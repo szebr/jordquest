@@ -19,8 +19,8 @@ pub struct WorldMap{
 // Set the size of the map in tiles (its a square)
 //CHANGE THIS TO CHANGE MAP SIZE
 // For test map, may eventually want to make this dependent on map dimensions in csv
-const MAPSIZE: usize = 16;
-const TILESIZE: usize = 32;
+pub const MAPSIZE: usize = 64;
+pub const TILESIZE: usize = 32;
 
 //THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
 pub const TILE_SIZE: f32 = 100.;
@@ -122,15 +122,17 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 */
 
-    //draw the map tiles
-    //Create this to center the x-positions of the map
+    // TODO: Determine what causes the map to be drawn rotated 90 degrees ccw
+    // TODO: Fix map drawing offset by half a tile toward the negative x and y
+    // Draw the map tiles
+    // Create this to center the x-positions of the map
     let mut x_coord: isize = -((MAPSIZE as isize)/2);
     for row in 0..MAPSIZE {
-        //create this to center the y-positions of the map
+        // Create this to center the y-positions of the map
         let mut y_coord: isize = -((MAPSIZE as isize)/2);
         for col in 0..MAPSIZE {
             if world_map.biome_map[row][col] == Biome::Wall {
-                //spawn a wall sprite if the current tile is a wall
+                // Spawn a wall sprite if the current tile is a wall
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("wall.png"),
                     transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
@@ -138,7 +140,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Background);
             }else if world_map.biome_map[row][col] == Biome::Grass {
-                //spawn a grass sprite if the current tile is grass
+                // Spawn a grass sprite if the current tile is grass
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("ground.png"),
                     transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
@@ -146,7 +148,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Background);
             }else if world_map.biome_map[row][col] == Biome::Camp {
-                //spawn a camp sprite if the current tile is a camp
+                // Spawn a camp sprite if the current tile is a camp
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("camp.png"),
                     transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
