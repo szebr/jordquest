@@ -3,10 +3,10 @@ use bevy::prelude::*;
 use crate::menus::components::*;
 use crate::AppState;
 
-pub fn interact_with_play_button(
+pub fn interact_with_host_button(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<PlayButton>),
+        (Changed<Interaction>, With<HostButton>),
     >,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {
@@ -14,7 +14,53 @@ pub fn interact_with_play_button(
         match *interaction {
             Interaction::Pressed => {
                 *background_color = Color::GRAY.into();
-                app_state_next_state.set(AppState::Game);
+                app_state_next_state.set(AppState::Hosting);
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
+pub fn interact_with_join_button(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<JoinButton>),
+    >,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                *background_color = Color::GRAY.into();
+                app_state_next_state.set(AppState::Joining);
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
+pub fn interact_with_back_button(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<BackToMainMenu>),
+    >,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                *background_color = Color::GRAY.into();
+                app_state_next_state.set(AppState::MainMenu);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();

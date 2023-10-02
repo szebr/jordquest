@@ -174,7 +174,7 @@ pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 });
         });
-
+        //host butt
         parent.spawn(
             (
                 ButtonBundle{
@@ -194,7 +194,7 @@ pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
                     ..default()
                 },
-                PlayButton{},
+                HostButton{},
             )
         )
         .with_children(|parent|{
@@ -202,7 +202,44 @@ pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>)
                 TextBundle{
                     text: Text {
                         sections: vec![TextSection::new(
-                            "Play",
+                            "Host",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+        //join butt
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                JoinButton{},
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Join a session",
                             TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
                         )],
                         alignment: TextAlignment::Center,
@@ -253,6 +290,237 @@ pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>)
     .id();
 
     main_menu_entity
+}
+
+pub fn spawn_host_page(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+){
+    let host_page_entity = build_host_page(&mut commands, &asset_server);
+}
+
+pub fn despawn_host_page(
+    mut commands: Commands, 
+    host_page_entity: Query<Entity, With<HostPage>>,
+){
+    if let Ok(host_page_entity) = host_page_entity.get_single() {
+        commands.entity(host_page_entity).despawn_recursive();
+    }
+}
+
+pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+    let host_page_entity = commands
+        .spawn(
+            (NodeBundle {
+                style: Style{
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                background_color: Color:: WHITE.into(),
+                ..default()
+        },
+        HostPage{},
+
+    ))
+    .with_children(|parent|{
+        //title
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(600.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(60.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: WHITE.into(),
+                    ..default()
+                },
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Hosting",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 64.0, color: Color:: RED },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+        //back to main menu
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                BackToMainMenu{},
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Back",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+    })
+
+    .id();
+
+    host_page_entity
+}
+
+pub fn spawn_join_page(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+){
+    let join_page_entity = build_join_page(&mut commands, &asset_server);
+}
+
+pub fn despawn_join_page(
+    mut commands: Commands, 
+    join_page_entity: Query<Entity, With<JoinPage>>,
+){
+    if let Ok(join_page_entity) = join_page_entity.get_single() {
+        commands.entity(join_page_entity).despawn_recursive();
+    }
+}
+
+pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+    let join_page_entity = commands
+        .spawn(
+            (NodeBundle {
+                style: Style{
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                background_color: Color:: WHITE.into(),
+                ..default()
+        },
+        JoinPage{},
+
+    ))
+    .with_children(|parent|{
+        //title
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(600.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(60.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: WHITE.into(),
+                    ..default()
+                },
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Joining",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 64.0, color: Color:: RED },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                BackToMainMenu{},
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Back",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+        
+    })
+
+    .id();
+
+    join_page_entity
 }
 
 pub fn build_credits_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {

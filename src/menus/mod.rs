@@ -18,6 +18,13 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnEnter(AppState::Credits), spawn_credits_page)
         .add_systems(Update, show_popup)
         .add_systems(OnExit(AppState::Credits), despawn_credits_page)
-        .add_systems(Update, interact_with_play_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_credits_button.run_if(in_state(AppState::MainMenu)));
+        .add_systems(OnEnter(AppState::Hosting), spawn_host_page)
+        .add_systems(OnExit(AppState::Hosting), despawn_host_page)
+        .add_systems(OnEnter(AppState::Joining), spawn_join_page)
+        .add_systems(OnExit(AppState::Joining), despawn_join_page)
+        .add_systems(Update, interact_with_host_button.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_join_button.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_credits_button.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Hosting)))
+        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Joining)));
 }}
