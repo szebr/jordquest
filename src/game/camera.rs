@@ -35,18 +35,29 @@ fn update(
                 let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (720/2) as isize) as f32;
 
                 // Clamp camera view to map borders
-                if ctf.translation.x < clamp_neg_x {
-                    ctf.translation.x = clamp_neg_x
+                // Center camera in axis if map dimensions < window size
+                if map::MAPSIZE * map::TILESIZE < 1280 {
+                    ctf.translation.x = 0.
                 }
-                if ctf.translation.x > clamp_pos_x {
-                    ctf.translation.x = clamp_pos_x
+                else {
+                    if ctf.translation.x < clamp_neg_x {
+                        ctf.translation.x = clamp_neg_x
+                    }
+                    if ctf.translation.x > clamp_pos_x {
+                        ctf.translation.x = clamp_pos_x
+                    }
                 }
 
-                if ctf.translation.y < clamp_neg_y {
-                    ctf.translation.y = clamp_neg_y
+                if map::MAPSIZE * map::TILESIZE < 720 {
+                    ctf.translation.y = 0.
                 }
-                if ctf.translation.y > clamp_pos_y {
-                    ctf.translation.y = clamp_pos_y
+                else {
+                    if ctf.translation.y < clamp_neg_y {
+                        ctf.translation.y = clamp_neg_y
+                    }
+                    if ctf.translation.y > clamp_pos_y {
+                        ctf.translation.y = clamp_pos_y
+                    }
                 }
                 break
             }
