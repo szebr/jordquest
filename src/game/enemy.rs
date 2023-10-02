@@ -105,6 +105,7 @@ pub fn update(
 ) {
     // TODO interpolate position using time until next tick
     for (mut tf, en) in &mut query {
+        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?:w
         let next_state = en.get(tick.0.wrapping_sub(net::DELAY));
         let prev_state = en.get(tick.0.wrapping_sub(net::DELAY + 1));
         let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
