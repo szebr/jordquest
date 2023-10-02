@@ -123,19 +123,20 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 */
 
     // TODO: Determine what causes the map to be drawn rotated 90 degrees ccw
-    // TODO: Fix map drawing offset by half a tile toward the negative x and y
     // Draw the map tiles
+    // Adding 0.5 to x_coord and y_coord will put (0,0) in the actual center of the map,
+    // in between tiles, rather than in the center of a tile
     // Create this to center the x-positions of the map
-    let mut x_coord: isize = -((MAPSIZE as isize)/2);
+    let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
     for row in 0..MAPSIZE {
         // Create this to center the y-positions of the map
-        let mut y_coord: isize = -((MAPSIZE as isize)/2);
+        let mut y_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
         for col in 0..MAPSIZE {
             if world_map.biome_map[row][col] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("wall.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
                     ..default()
                 })
                 .insert(Background);
@@ -143,7 +144,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Spawn a grass sprite if the current tile is grass
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("ground.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
                     ..default()
                 })
                 .insert(Background);
@@ -151,14 +152,14 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Spawn a camp sprite if the current tile is a camp
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("camp.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as isize) as f32, (y_coord*TILESIZE as isize) as f32, 0.0),
+                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
                     ..default()
                 })
                 .insert(Background);
             }
-            y_coord+=1;
+            y_coord+=1.0;
         }
-        x_coord+=1;
+        x_coord+=1.0;
     }
 }
 
