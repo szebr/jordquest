@@ -99,6 +99,23 @@ pub fn save_host_input(
     }
 }
 
+pub fn update_join_port_input(
+    mut char_events: EventReader<ReceivedCharacter>,
+    mut query: Query<(&mut Text, &mut JoinPortInput)>,
+) {
+    let mut new_char = None;
+    for event in char_events.iter() {
+        new_char = Some(event.char);
+    }
+
+    if let Some(new_char) = new_char {
+        for (mut text, mut join_port_input) in query.iter_mut() {
+            text.sections[0].value.push(new_char);
+            join_port_input.port.push(new_char);
+            println!("Current port value: {}", join_port_input.port);
+        }
+    }
+}
 
 
 pub fn interact_with_back_button(

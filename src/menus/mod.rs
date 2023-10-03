@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, input::common_conditions::input_pressed};
 mod layout;
 mod interactions;
 mod components;
@@ -28,5 +28,6 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Hosting)))
         .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Joining)))
         .add_systems(Update, update_host_input)
-        .add_systems(Update, save_host_input);
+        .add_systems(Update, save_host_input)
+        .add_systems(Update, update_join_port_input);
 }}
