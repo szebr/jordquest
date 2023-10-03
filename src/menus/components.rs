@@ -32,6 +32,10 @@ pub struct HostPortInput {
 #[derive(Component)]
 pub struct HostPortSaveBut {}//host port save button to save what the user typed in into the network address field
 
+#[derive(Component)]
+pub struct Switch{
+    pub port: bool,
+}
 
 #[derive(Component)]
 pub struct JoinPortInput {
