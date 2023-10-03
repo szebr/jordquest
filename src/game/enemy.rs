@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::player;
+use crate::net::lerp::PositionBuffer;
 use crate::player::Player;
 use crate::net;
 
@@ -12,7 +13,7 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
-    pub pos: Vec2
+    pub health: f32,
 }
 
 #[derive(Component)]
@@ -47,10 +48,11 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Enemy {
             id: 0,
-            buffer: [EnemyTick{ pos: Vec2::new(300.0, 300.0) }; net::BUFFER_SIZE]
+            buffer: [EnemyTick{ health: 10.0, }; net::BUFFER_SIZE]
         },
+        PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
         SpriteBundle {
-            transform: Transform::from_xyz(0., 100., 2.),
+            transform: Transform::from_xyz(0., 0., 2.),
             texture: asset_server.load("horse.png"),
             ..default()
         })
@@ -59,22 +61,22 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 pub fn fixed(
     tick: Res<net::TickNum>,
-    mut enemies: Query<&mut Enemy, Without<Player>>,
-    players: Query<&Player, Without<Enemy>>
+    mut enemies: Query<(&Enemy, &mut PositionBuffer), Without<Player>>,
+    players: Query<(&Player, &PositionBuffer), Without<Enemy>>
 ) {
-    for mut en in &mut enemies {
-        let prev = en.get(tick.0.wrapping_sub(1));
+    for (en, mut bp) in &mut enemies {
+        let prev = bp.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
         let closest_player = &players.iter().next();
         if let Some(player) = closest_player {
-            let player = player.get(tick.0.wrapping_sub(1));
+            let player_pos = player.1.get(tick.0.wrapping_sub(1));
             //TODO when there are multiple players, find the closest one
             /*for pl in &players {
             }*/
-            let movement = player.pos - prev.pos;
+            let movement = *player_pos - *prev;
             if movement.length() < 0.1 { continue }
             let movement = movement.normalize();
-            let possible_movement = prev.pos + movement * ENEMY_SPEED;
+            let possible_movement = *prev + movement * ENEMY_SPEED;
             let mut blocked = false;
             //TODO same todo as on player.rs, however additionally,
             // ideally the collision would check for all players and all
@@ -84,33 +86,19 @@ pub fn fixed(
             if collide(
                 Vec3::new(possible_movement.x, possible_movement.y, 0.0),
                 ENEMY_SIZE,
-                Vec3::new(player.pos.x, player.pos.y, 0.0),
+                Vec3::new(player_pos.x, player_pos.y, 0.0),
                 player::PLAYER_SIZE
             ).is_some() {
                 blocked = true;
             }
-            if (!blocked) {
-                next.pos = possible_movement;
+            if !blocked {
+                next = possible_movement;
             }
         }
-        en.set(tick.0, next);
+        bp.set(tick.0, next);
     }
 }
 
-#[allow(arithmetic_overflow)]
 pub fn update(
-    tick_time: Res<FixedTime>,
-    tick: Res<net::TickNum>,
-    mut query: Query<(&mut Transform, &Enemy)>
 ) {
-    // TODO interpolate position using time until next tick
-    for (mut tf, en) in &mut query {
-        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?:w
-        let next_state = en.get(tick.0.wrapping_sub(net::DELAY));
-        let prev_state = en.get(tick.0.wrapping_sub(net::DELAY + 1));
-        let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
-        let new_state = prev_state.pos.lerp(next_state.pos, percent);
-        tf.translation.x = new_state.x;
-        tf.translation.y = new_state.y;
-    }
 }

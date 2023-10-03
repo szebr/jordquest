@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use crate::game::input;
 
+use self::lerp::lerp_pos;
+
+pub mod lerp;
+
 pub const TICKRATE: u8 = 30;
 const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
@@ -15,7 +19,8 @@ impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate,
-            increment_tick.before(input::update_movement_vector));
+            increment_tick.before(input::update_movement_vector))
+            .add_systems(Update, lerp_pos);
     }
 }
 
