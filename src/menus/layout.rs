@@ -542,8 +542,151 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                 TextBundle{
                     text: Text {
                         sections: vec![TextSection::new(
-                            "Joining",
+                            "Join an existing session",
                             TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 64.0, color: Color:: RED },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+
+        parent.spawn(
+            (
+                TextBundle{
+                    style: Style{
+                        width: Val::Px(400.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Enter your the number here: ",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: BLACK },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                },
+                JoinPortInput{
+                    port:String::new(),
+                }
+            )
+        );
+
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                Switch{
+                    port: true,
+                },
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Switch input field",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+        });
+
+        parent.spawn(
+            (
+                TextBundle{
+                    style: Style{
+                        width: Val::Px(400.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Enter the IP number here: ",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: BLACK },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                },
+                JoinIPInput{
+                    IP:String::new(),
+                }
+            )
+        );
+
+        parent.spawn(
+            (
+                ButtonBundle{
+                    style: Style{
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0)
+                        },
+                        justify_content:JustifyContent::Center,
+                        align_items:AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                JoinSaveBut{},
+                NetworkAdresses{
+                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                },
+            )
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                TextBundle{
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Join now",
+                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
                         )],
                         alignment: TextAlignment::Center,
                         ..default()
