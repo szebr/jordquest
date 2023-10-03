@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use crate::{enemy, net, input};
+use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
+
+use super::enemy::Enemy;
 
 pub const PLAYER_SPEED: f32 = 250. / net::TICKRATE as f32;
 const PLAYER_DEFAULT_HP: f32 = 100.;
@@ -14,7 +16,6 @@ pub struct PlayerID(pub usize);
 
 #[derive(Copy, Clone)]
 pub struct PlayerTick {
-    pub pos: Vec2,
     hp: f32,
     atk_frame: isize,  // -1 means ready, <-1 means cooldown, 0 and up means attacking
     pub input: input::InputState
@@ -23,7 +24,6 @@ pub struct PlayerTick {
 impl Default for PlayerTick {
     fn default() -> Self {
         PlayerTick {
-            pos: Vec2::default(),
             hp: PLAYER_DEFAULT_HP,
             atk_frame: -1,
             input: input::InputState::default()
@@ -36,7 +36,6 @@ pub struct Player {
     pub id: usize,
     pub buffer: [PlayerTick; net::BUFFER_SIZE],
 }
-
 
 //TODO can't this be a trait or something?
 impl Player {
@@ -74,6 +73,7 @@ pub fn startup(
             id: 0,
             buffer: [PlayerTick::default(); net::BUFFER_SIZE],
         },
+        PositionBuffer([Vec2::splat(0.0); net::BUFFER_SIZE]),
         //TODO replace with spatialbundle parent with spritebundle and collider children
         SpriteBundle {
             texture: asset_server.load("jordan.png"),
@@ -84,20 +84,21 @@ pub fn startup(
 }
 
 pub fn fixed(
-    mut commands: Commands,
-    tick: Res<net::TickNum>,
-    mut players: Query<(Entity, &mut Player)>,
-    enemys: Query<&enemy::Enemy>) {
+        mut commands: Commands,
+        tick: Res<net::TickNum>,
+        mut players: Query<(Entity, &mut Player, &mut PositionBuffer)>,
+        enemys: Query<&PositionBuffer, (With<Enemy>, Without<Player>)>,
+    ) {
     let atk_len = 30;
     let atk_cool = 30;
     // TODO change death effect to remove entity req
-    for (entity, mut pl) in &mut players {
-        let prev: &PlayerTick = pl.get(tick.0.wrapping_sub(1));
+    for (entity, mut pl, mut player_pos) in &mut players {
+        let prev = player_pos.get(tick.0.wrapping_sub(1)).clone();
         let mut next = pl.get(tick.0).clone();  // this has already been updated by input
-        let possible_move = prev.pos + next.input.movement * PLAYER_SPEED;
+        let possible_move = prev + next.input.movement * PLAYER_SPEED;
         let mut blocked = false;
-        for enemy in &enemys {
-            let enemy = enemy.get(tick.0.wrapping_sub(1));
+        for enemy_pos in &enemys {
+            let enemy_pos = enemy_pos.get(tick.0.wrapping_sub(1));
             //TODO add collider components which hold their own
             // size and location data within the player/enemy entities
             // and use those rather than these boxes made on the fly.
@@ -107,7 +108,7 @@ pub fn fixed(
             if collide(
                 Vec3::new(possible_move.x, possible_move.y, 0.0),
                 PLAYER_SIZE,
-                Vec3::new(enemy.pos.x, enemy.pos.y, 0.0),
+                Vec3::new(enemy_pos.x, enemy_pos.y, 0.0),
                 enemy::ENEMY_SIZE
             ).is_some(){
                 //TODO this should happen in enemy.rs not here
@@ -115,8 +116,11 @@ pub fn fixed(
                 next.hp -= 0.5; //deal with damage when they collide with each others
             }
         }
-        if !blocked {
-            next.pos = possible_move;
+        if blocked {
+            player_pos.set(tick.0, prev);
+        }
+        else {
+            player_pos.set(tick.0, possible_move);
         }
 
         if next.atk_frame == -1 && next.input.attack {
@@ -137,18 +141,5 @@ pub fn fixed(
 }
 
 pub fn update(
-    tick_time: Res<FixedTime>,
-    tick: Res<net::TickNum>,
-    mut query: Query<(&mut Transform, &Player)>,
 ) {
-    for (mut tf, pl) in &mut query {
-        // TODO: Can we break Lerping out into a separate functionality so we don't have this cloned between enemy and player files?:w
-        let next_state = pl.get(tick.0.wrapping_sub(net::DELAY));
-        let prev_state = pl.get(tick.0.wrapping_sub(net::DELAY + 1));
-        let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
-        let new_state = prev_state.pos.lerp(next_state.pos, percent);
-        tf.translation.x = new_state.x;
-        tf.translation.y = new_state.y;
-        // TODO if atk_frame is attacking, make him red!
-    }
 }
