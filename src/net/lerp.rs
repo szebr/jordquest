@@ -42,12 +42,12 @@ pub fn lerp_pos(
 /// the current ticknum
 /// the fixedtime resource's duration (Res<FixedTime>.period)
 /// a directional vector
-/// and a speed for the unit
+/// and a speed for the unit (in pixels per second)
 pub fn move_unit(bp: &mut PositionBuffer, tick: u16, timestep: Duration, dir: &Vec2, speed: f32) {
     let dir = dir.normalize_or_zero();
-    let prev = bp.get(tick.wrapping_sub(1));
+    let prev = bp.get(tick.wrapping_sub(1)).clone();
     let new_pos: Vec2 = dir.mul(timestep.as_secs_f32() * speed);
-    bp.set(tick, *prev+new_pos);
+    bp.set(tick, prev+new_pos);
 }
 // TODO: check collusion and zero out movement if it would collide?
 
