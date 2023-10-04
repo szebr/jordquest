@@ -18,25 +18,35 @@ fn startup(mut commands: Commands) {
 fn update(
     players: Query<(&Transform, &player::Player), Without<Camera>>,
     id: Res<player::PlayerID>,
+    window: Query<&Window>,
     mut camera_tfs: Query<&mut Transform, (With<Camera>, Without<player::Player>)>,
 ) {
-    // might have multiple cameras when we get into minimaps
+    // initalize resolution with expected defaults
+    let mut win_x = super::WIN_W;
+    let mut win_y = super::WIN_H;
+
+    // should only have one window? not entirely sure how to unwrap this otherwise
+    for w in &window {
+        win_x = w.resolution.width();
+        win_y = w.resolution.height();
+    }
+
+    // might have multiple cameras when we get into minimaps?
     for mut ctf in &mut camera_tfs {
         for (ptf, pl) in &players {
             if pl.id == id.0 {
                 ctf.translation.x = ptf.translation.x;
                 ctf.translation.y = ptf.translation.y;
 
-                // TODO: Replace 1280 and 720 with window size instead of hardcoding
-                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (1280/2) as isize) as f32;
-                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (1280/2) as isize) as f32;
+                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (win_x/2.) as isize) as f32;
+                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (win_x/2.) as isize) as f32;
 
-                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (720/2) as isize) as f32;
-                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (720/2) as isize) as f32;
+                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (win_y/2.) as isize) as f32;
+                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (win_y/2.) as isize) as f32;
 
                 // Clamp camera view to map borders
                 // Center camera in axis if map dimensions < window size
-                if map::MAPSIZE * map::TILESIZE < 1280 {
+                if map::MAPSIZE * map::TILESIZE < win_x as usize {
                     ctf.translation.x = 0.
                 }
                 else {
@@ -48,7 +58,7 @@ fn update(
                     }
                 }
 
-                if map::MAPSIZE * map::TILESIZE < 720 {
+                if map::MAPSIZE * map::TILESIZE < win_y as usize {
                     ctf.translation.y = 0.
                 }
                 else {
