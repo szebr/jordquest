@@ -70,7 +70,7 @@ pub fn update_host_input(
 }
 
 pub fn save_host_input(
-    mut net_address_query: Query<&mut NetworkAdresses>,
+    mut net_address_query: Query<&mut NetworkAddresses>,
     host_port_query: Query<&HostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
@@ -178,7 +178,7 @@ pub fn update_join_ip_input(
 }
 
 pub fn save_join_input(
-    mut net_address_query: Query<&mut NetworkAdresses>,
+    mut net_address_query: Query<&mut NetworkAddresses>,
     join_port_query: Query<&JoinPortInput>,
     join_ip_query: Query<&JoinIPInput>,
     mut button_query: Query<
@@ -198,8 +198,8 @@ pub fn save_join_input(
                 }
                 for join_ip_input in join_ip_query.iter() {
                     for mut net_address in net_address_query.iter_mut() {
-                        net_address.IPAdress = join_ip_input.IP.clone();
-                        println!("Current IP value: {}", net_address.IPAdress);
+                        net_address.IPAddress = join_ip_input.IP.clone();
+                        println!("Current IP value: {}", net_address.IPAddress);
                     }
                 }
                 app_state_next_state.set(AppState::Game);
