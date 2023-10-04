@@ -142,15 +142,15 @@ const P: [usize; 512] =
 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180];
 
 // function to shuffle permutation table and return new array of shuffled values
-pub fn shuffle() -> [u32; 512] {
+pub fn shuffle() -> [u32; 256] {
     // use rand crate to generate random numbers
     let mut rng = rand::thread_rng();
     let mut i = 0;
     // must create a new array because P is a const
     let mut new_array = P;
-    // swap values in permutation table 512 times
-    while i < 512 {
-        let j = rng.gen_range(0..512);
+    // swap values in permutation table 256 times
+    while i < 256 {
+        let j = rng.gen_range(0..256);
         let temp = P[i];
         new_array[i] = P[j];
         new_array[j] = temp;
