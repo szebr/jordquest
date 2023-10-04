@@ -63,7 +63,6 @@ impl MouseBinds {
 
 // this lookup table prevents square root math at runtime for movement
 // each cardinal direction is given a bit and or'd together to create the index
-//TODO make a sqrt2 const
 const DIAG: f32 = std::f32::consts::SQRT_2 / 2.;
 const MOVE_VECTORS: [Vec2; 16] = [
     Vec2 { x:0., y:0. },  // 0000
