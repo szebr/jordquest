@@ -79,7 +79,7 @@ pub fn spawn_credits_page(
         transform: Transform::from_xyz(0., 0., -0.3),
         ..default()
     })
-    .insert(PopupTimer(Timer::from_seconds(27., TimerMode::Once)));
+    .insert(PopupTimer(Timer::from_seconds(21., TimerMode::Once)));
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.2,0.2,0.2),
@@ -95,7 +95,7 @@ pub fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Trans
     for (mut timer, mut transform) in popup.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            transform.translation.z += 1.;
+            transform.translation.z += 5.;
         }
     }
 }
@@ -416,8 +416,8 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 HostPortSaveBut{},
-                NetworkAdresses{
-                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                NetworkAddresses{
+                    host: String::new(), port: String::new(), IPAddress: String::new(),
                 },
             )
         )
@@ -675,8 +675,8 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 JoinSaveBut{},
-                NetworkAdresses{
-                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                NetworkAddresses{
+                    host: String::new(), port: String::new(), IPAddress: String::new(),
                 },
             )
         )
