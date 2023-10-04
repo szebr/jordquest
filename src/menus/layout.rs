@@ -416,8 +416,8 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 HostPortSaveBut{},
-                NetworkAdresses{
-                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                NetworkAddresses{
+                    host: String::new(), port: String::new(), IPAddress: String::new(),
                 },
             )
         )
@@ -675,8 +675,8 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 JoinSaveBut{},
-                NetworkAdresses{
-                    host: String::new(), port: String::new(), IPAdress: String::new(),
+                NetworkAddresses{
+                    host: String::new(), port: String::new(), IPAddress: String::new(),
                 },
             )
         )
