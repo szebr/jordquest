@@ -149,5 +149,5 @@ pub fn shuffle(seed: u64) -> [usize; 256] {
         new_array[j] = temp;
     }
     // return the new array
-    return new_array;
+    new_array
 }
