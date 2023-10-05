@@ -1,7 +1,9 @@
+use rand_chacha::ChaChaRng;
+use rand::SeedableRng;
 // an implementation of perlin noise
 // this implementation does not include frequency, which exists outside the main function
 // it is also HEAVILY commented for a clear explanation of what's going on in the algorithm
-pub fn perlin(x: f32, y: f32) -> f32 {
+pub fn perlin(x: f32, y: f32, seed: u64) -> f32 {
     // find the "floor" of these floating point numbers
     let mut xi = x.floor() as usize;
     let mut yi = y.floor() as usize;
@@ -22,11 +24,16 @@ pub fn perlin(x: f32, y: f32) -> f32 {
     let bot_r = Vec2 {x: (xf - 1.0), y: (yf      )};
     let bot_l = Vec2 {x: (xf      ), y: (yf      )};
 
+    // get permutation table from seed value on each run
+    // temporary: replacing this with struct implementation
+    // that stores shuffled struct
+    let p: [usize; 256] = shuffle(seed);
+    
     // get grid point values from permutation table (defined below)
-    let val_top_r = P[(P[(xi + 1) & 255] + yi + 1) & 255];
-    let val_top_l = P[(P[(xi    ) & 255] + yi + 1) & 255];
-    let val_bot_r = P[(P[(xi + 1) & 255] + yi    ) & 255];
-    let val_bot_l = P[(P[(xi    ) & 255] + yi    ) & 255];
+    let val_top_r = p[(p[(xi + 1) & 255] + yi + 1) & 255];
+    let val_top_l = p[(p[(xi    ) & 255] + yi + 1) & 255];
+    let val_bot_r = p[(p[(xi + 1) & 255] + yi    ) & 255];
+    let val_bot_l = p[(p[(xi    ) & 255] + yi    ) & 255];
 
     // find dot products between input vectors and appropriate constant vectors
     let dot_top_l = top_l.dot(constant_vec(val_top_l));
@@ -91,7 +98,7 @@ impl Vec2 {
 // USAGE:
 // a = 1.0-3.0?   f = 0.005      o = 8-9?
 // might have to play around with these values to find the most natural map layout
-pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize) -> f32 {
+pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize, seed: u64) -> f32 {
     if o == 0 {
         0.0
     }
@@ -99,7 +106,8 @@ pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize) -> f32 {
         a * (perlin(x * f, y * f) + fbm(x, y, 
             a * 0.5, // multiply amplitude by decimal (ex. 0.5) to decrease it
             f * 2.0, // double frequency to increase frequency
-            o - 1))
+            o - 1,
+            seed))
     }
 }
 
@@ -128,9 +136,9 @@ const P: [usize; 256] =
 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180];
 
 // function to shuffle permutation table and return new array of shuffled values
-pub fn shuffle() -> [usize; 256] {
-    // use rand crate to generate random numbers
-    let mut rng = rand::thread_rng();
+pub fn shuffle(seed: u64) -> [usize; 256] {
+    // use rand_chacha crate to generate random numbers
+    let mut rng = ChaChaRng::seed_from_u64(seed);
     // must create a new array because P is a const
     let mut new_array = P;
     // swap values in permutation table 256 times
