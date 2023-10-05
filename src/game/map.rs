@@ -69,7 +69,6 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
     for result in reader.records() {
         let record = result?;
         for field in record.iter() {
-            print!("{}", field);
             match field {
                 "F" => {
                     map.biome_map[row][col] = Biome::Free;
@@ -91,7 +90,6 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
         }
         row += 1;
         col = 0;
-        println!();
     }
     Ok(())
 }
@@ -117,7 +115,6 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let mut y_coord: f32 = ((MAPSIZE as f32)/2.) - 0.5;
         for col in 0..MAPSIZE {
             if world_map.biome_map[col][row] == Biome::Wall {
-                print!("W");
                 // Spawn a wall sprite if the current tile is a wall
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("wall.png"),
@@ -126,7 +123,6 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Background);
             }else if world_map.biome_map[col][row] == Biome::Grass {
-                print!("G");
                 // Spawn a grass sprite if the current tile is grass
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("ground.png"),
@@ -135,7 +131,6 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Background);
             }else if world_map.biome_map[col][row] == Biome::Camp {
-                print!("C");
                 // Spawn a camp sprite if the current tile is a camp
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("camp.png"),
@@ -146,7 +141,6 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }
             y_coord-=1.0;
         }
-        println!();
         x_coord+=1.0;
     }
     commands.insert_resource(world_map);
