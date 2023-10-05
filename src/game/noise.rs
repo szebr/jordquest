@@ -1,14 +1,16 @@
+use rand_chacha::ChaChaRng;
+use rand::SeedableRng;
 // an implementation of perlin noise
 // this implementation does not include frequency, which exists outside the main function
 // it is also HEAVILY commented for a clear explanation of what's going on in the algorithm
-pub fn perlin(x: f32, y: f32) -> f32 {
+pub fn perlin(x: f32, y: f32, seed: u64) -> f32 {
     // find the "floor" of these floating point numbers
     let mut xi = x.floor() as usize;
     let mut yi = y.floor() as usize;
 
     // wrap values around 255 to access permutation table
-    xi = xi % 255;
-    yi = yi % 255;
+    xi = xi & 255;
+    yi = yi & 255;
 
     // pop off floating remainder from x and y
     let xf = x - xi as f32;
@@ -22,11 +24,16 @@ pub fn perlin(x: f32, y: f32) -> f32 {
     let bot_r = Vec2 {x: (xf - 1.0), y: (yf      )};
     let bot_l = Vec2 {x: (xf      ), y: (yf      )};
 
+    // get permutation table from seed value on each run
+    // temporary: replacing this with struct implementation
+    // that stores shuffled struct
+    let p: [usize; 256] = shuffle(seed);
+    
     // get grid point values from permutation table (defined below)
-    let val_top_r = P[(P[xi + 1] + yi + 1) % 255];
-    let val_top_l = P[(P[xi    ] + yi + 1) % 255];
-    let val_bot_r = P[(P[xi + 1] + yi    ) % 255];
-    let val_bot_l = P[(P[xi    ] + yi    ) % 255];
+    let val_top_r = p[(p[(xi + 1) & 255] + yi + 1) & 255];
+    let val_top_l = p[(p[(xi    ) & 255] + yi + 1) & 255];
+    let val_bot_r = p[(p[(xi + 1) & 255] + yi    ) & 255];
+    let val_bot_l = p[(p[(xi    ) & 255] + yi    ) & 255];
 
     // find dot products between input vectors and appropriate constant vectors
     let dot_top_l = top_l.dot(constant_vec(val_top_l));
@@ -38,9 +45,9 @@ pub fn perlin(x: f32, y: f32) -> f32 {
     let u = fade(x); let v = fade(y);
 
     // lerp through all dot products to get noise value at coordinate
-    lerp(u, 
-        lerp(v, dot_bot_l, dot_top_l), 
-        lerp(v, dot_bot_r, dot_top_r))
+    lerp(lerp(dot_bot_l, dot_top_l, v), 
+         lerp(dot_bot_r, dot_top_r, v),
+         u)
 }
 
 // find the constant vector to use in calculating the dot product of the constant vectors vs input vectors
@@ -63,7 +70,7 @@ fn constant_vec(v: usize) -> Vec2 {
 
 // linearly interpolate between a and b, "lerp"
 fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    a + (t * (b - a))
+    a + t * (b - a)
 }
 
 // fade function (also called an ease curve -- smooths out lerp)
@@ -88,16 +95,19 @@ impl Vec2 {
 
 // fractal brownian motion -- use this instead of perlin() for map generation.
 // a = amplitude, f = frequency, o = octaves
+// USAGE:
+// a = 1.0-3.0?   f = 0.005      o = 8-9?
 // might have to play around with these values to find the most natural map layout
-pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize) -> f32 {
+pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize, seed: u64) -> f32 {
     if o == 0 {
         0.0
     }
     else {
-        a * perlin(x * f, y * f) + fbm(x, y, 
+        a * (perlin(x * f, y * f) + fbm(x, y, 
             a * 0.5, // multiply amplitude by decimal (ex. 0.5) to decrease it
             f * 2.0, // double frequency to increase frequency
-            o - 1)
+            o - 1,
+            seed))
     }
 }
 
@@ -108,7 +118,7 @@ pub fn fbm(x: f32, y: f32, a: f32, f: f32, o: usize) -> f32 {
 
 // permutation table -- shuffle the table to generate new noise fields
 // taken from Ken Perlin's implementation
-const P: [usize; 512] = 
+const P: [usize; 256] = 
 [151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7,
 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247,
 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33,
@@ -126,20 +136,18 @@ const P: [usize; 512] =
 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180];
 
 // function to shuffle permutation table and return new array of shuffled values
-pub fn shuffle() -> [u32; 256] {
-    // use rand crate to generate random numbers
-    let mut rng = rand::thread_rng();
-    let mut i = 0;
+pub fn shuffle(seed: u64) -> [usize; 256] {
+    // use rand_chacha crate to generate random numbers
+    let mut rng = ChaChaRng::seed_from_u64(seed);
     // must create a new array because P is a const
     let mut new_array = P;
     // swap values in permutation table 256 times
-    while i < 255 {
-        let j = rng.gen_range(0..255);
+    for i in 0..256 {
+        let j = rng.gen_range(0..256);
         let temp = P[i];
         new_array[i] = P[j];
         new_array[j] = temp;
-        i += 1;
     }
     // return the new array
-    return new_array;
+    new_array
 }
