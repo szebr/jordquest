@@ -10,7 +10,7 @@ pub enum Biome{
     Camp,
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 pub struct WorldMap{
     pub map_size: usize,
     pub tile_size: usize,
@@ -69,6 +69,7 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
     for result in reader.records() {
         let record = result?;
         for field in record.iter() {
+            print!("{}", field);
             match field {
                 "F" => {
                     map.biome_map[row][col] = Biome::Free;
@@ -90,6 +91,7 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
         }
         row += 1;
         col = 0;
+        println!();
     }
     Ok(())
 }
@@ -104,24 +106,6 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let _ = read_map(&mut world_map);
 
-/*  Previous hardcoded map generation
-    // fill the map with tiles
-    for row in 0..MAPSIZE {
-        for col in 0..MAPSIZE {
-            if row == 0 || row == MAPSIZE - 1 || col == 0 || col == MAPSIZE - 1 {
-                // Set the outer border to `Biome::Wall`
-                world_map.biome_map[row][col] = Biome::Wall;
-            }else if is_between(&row, 10, 20) && is_between(&col, 10, 20){
-                // create a camp near the center of the map
-                world_map.biome_map[row][col] = Biome::Camp;
-            }else {
-                //make every other row basic grass
-                world_map.biome_map[row][col] = Biome::Grass;
-            }
-        }
-    }
-*/
-
     // TODO: Determine what causes the map to be drawn rotated 90 degrees ccw
     // Draw the map tiles
     // Adding 0.5 to x_coord and y_coord will put (0,0) in the actual center of the map,
@@ -130,9 +114,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
     for row in 0..MAPSIZE {
         // Create this to center the y-positions of the map
-        let mut y_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
+        let mut y_coord: f32 = ((MAPSIZE as f32)/2.) - 0.5;
         for col in 0..MAPSIZE {
-            if world_map.biome_map[row][col] == Biome::Wall {
+            if world_map.biome_map[col][row] == Biome::Wall {
+                print!("W");
                 // Spawn a wall sprite if the current tile is a wall
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("wall.png"),
@@ -140,7 +125,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .insert(Background);
-            }else if world_map.biome_map[row][col] == Biome::Grass {
+            }else if world_map.biome_map[col][row] == Biome::Grass {
+                print!("G");
                 // Spawn a grass sprite if the current tile is grass
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("ground.png"),
@@ -148,7 +134,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .insert(Background);
-            }else if world_map.biome_map[row][col] == Biome::Camp {
+            }else if world_map.biome_map[col][row] == Biome::Camp {
+                print!("C");
                 // Spawn a camp sprite if the current tile is a camp
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("camp.png"),
@@ -157,10 +144,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .insert(Background);
             }
-            y_coord+=1.0;
+            y_coord-=1.0;
         }
+        println!();
         x_coord+=1.0;
     }
+    commands.insert_resource(world_map);
 }
 
 fn is_between(x: &usize, lower: usize, upper: usize) -> bool{
