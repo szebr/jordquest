@@ -6,7 +6,7 @@ pub mod enemy;
 pub mod camera;
 pub mod map;
 
-pub const TITLE: &str = "JORDQUEST";
+pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES, CAMPS, AND... ANOTHER PLAYER!? CAN I EARN ENOUGH UPGRADES TO BE VICTORIOUS AND FILL MY DIAPER?";
 pub const WIN_W: f32 = 1280.;
 pub const WIN_H: f32 = 720.;
 
