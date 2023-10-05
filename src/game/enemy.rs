@@ -45,22 +45,22 @@ impl Plugin for EnemyPlugin{
 }
 // on Setup schedule
 pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpatialBundle {
-        transform: Transform::from_xyz(0., 0., 2.),
-        ..default()
-    }).with_children(|parent| {
-        parent.spawn((
-            Enemy {
-                id: 0,
-                buffer: [EnemyTick{ health: 10.0, }; net::BUFFER_SIZE]
-            },
-            PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
-            SpriteBundle {
-                transform: Transform::from_xyz(0., 0., 2.),
-                texture: asset_server.load("horse.png"),
-                ..default()
-            }
-        ));
+    commands.spawn((
+        SpatialBundle {
+            transform: Transform::from_xyz(0., 0., 2.),
+            ..default()
+        },
+        Enemy {
+            id: 0,
+            buffer: [EnemyTick{ health: 10.0, }; net::BUFFER_SIZE]
+        },
+        PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
+    )).with_children(|parent| {
+        parent.spawn(SpriteBundle {
+            transform: Transform::from_xyz(0., 0., 2.),
+            texture: asset_server.load("horse.png"),
+            ..default()
+        });
     });
 }
 
