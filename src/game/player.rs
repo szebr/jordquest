@@ -68,19 +68,25 @@ pub fn startup(
     asset_server: Res<AssetServer>,
 ) {
     commands.insert_resource(PlayerID {0:0});
-    commands.spawn((
-        Player {
-            id: 0,
-            buffer: [PlayerTick::default(); net::BUFFER_SIZE],
-        },
-        PositionBuffer([Vec2::splat(0.0); net::BUFFER_SIZE]),
-        //TODO replace with spatialbundle parent with spritebundle and collider children
-        SpriteBundle {
-            texture: asset_server.load("jordan.png"),
-            transform: Transform::from_xyz(0., 0., 1.),
-            ..default()
-        })
-    );
+    commands.spawn(SpatialBundle {
+        transform: Transform::from_xyz(0., 0., 1.),
+        ..default()
+    }).with_children(|parent| {
+        parent.spawn((
+            Player {
+                id: 0,
+                buffer: [PlayerTick::default(); net::BUFFER_SIZE],
+            },
+            PositionBuffer([Vec2::splat(0.0); net::BUFFER_SIZE]),
+            //TODO replace with spatialbundle parent with spritebundle and collider children
+            SpriteBundle {
+                texture: asset_server.load("jordan.png"),
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            })
+        );
+
+    });
 }
 
 pub fn fixed(
