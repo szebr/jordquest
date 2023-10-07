@@ -10,22 +10,23 @@ pub enum Biome{
     Camp,
 }
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct WorldMap{
     pub map_size: usize,
     pub tile_size: usize,
     pub biome_map: [[Biome; MAPSIZE]; MAPSIZE],
 }
+
 // Set the size of the map in tiles (its a square)
 //CHANGE THIS TO CHANGE MAP SIZE
 // For test map, may eventually want to make this dependent on map dimensions in csv
 pub const MAPSIZE: usize = 64;
 pub const TILESIZE: usize = 32;
 
-//THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
-pub const TILE_SIZE: f32 = 100.;
-pub const LEVEL_W: f32 = 1920.;
-pub const LEVEL_H: f32 = 1080.;
+// //THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
+// pub const TILE_SIZE: f32 = 100.;
+// pub const LEVEL_W: f32 = 1920.;
+// pub const LEVEL_H: f32 = 1080.;
 
 //this wasn't being used
 // #[derive(Component)]
@@ -118,38 +119,65 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 // Spawn a wall sprite if the current tile is a wall
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("wall.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
+                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
                     ..default()
-                })
-                .insert(Background);
+                });
+                
             }else if world_map.biome_map[col][row] == Biome::Grass {
                 // Spawn a grass sprite if the current tile is grass
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("ground.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
+                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
                     ..default()
-                })
-                .insert(Background);
+                });
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
                 commands.spawn(SpriteBundle {
                     texture: asset_server.load("camp.png"),
-                    transform: Transform::from_xyz((x_coord*TILESIZE as f32), (y_coord*TILESIZE as f32), 0.0),
+                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
                     ..default()
-                })
-                .insert(Background);
+                });
             }
             y_coord-=1.0;
         }
         x_coord+=1.0;
     }
-    commands.insert_resource(world_map);
 }
 
-fn is_between(x: &usize, lower: usize, upper: usize) -> bool{
-    if *x <= upper && *x >= lower {
-        true
-    }else {
-        false
-    }
+pub fn get_surrounding_tiles(
+    player: Vec2,
+    map: [[Biome; MAPSIZE]; MAPSIZE],
+) -> [[Biome; 3]; 3] {
+    
+    //align the player's x position to be the leftmost pixel of a given tile
+    let player_x_whole = player.x.floor() as isize;
+    let x_aligned = {
+        if player_x_whole % TILESIZE as isize != 0{
+            player_x_whole - (player_x_whole % TILESIZE as isize)
+        }else{
+            player_x_whole 
+        }
+    };
+    //convert aligned x pos of player into a col of map array
+    let tile_col:usize = ((x_aligned/TILESIZE as isize) + (MAPSIZE as isize/2)) as usize;
+    
+    //align the player's y position to be the topmost pixel of a given tile
+    let player_y_whole = player.y.floor() as isize;
+    let y_aligned = {
+        if player_y_whole % TILESIZE as isize != 0{
+            player_y_whole + (player_y_whole % TILESIZE as isize)
+        }else{
+            player_y_whole
+        }
+    };
+    //convert aligned y pos of player into a row of map array
+    let tile_row:usize = ((MAPSIZE as isize/2) - (y_aligned/TILESIZE as isize)) as usize;
+    
+    //return an array of enums for the 9 surrounding tiles
+    let tiles: [[Biome; 3]; 3] = [
+        [map[tile_col-1][tile_row-1], map[tile_col][tile_row-1], map[tile_col+1][tile_row-1]],
+        [map[tile_col-1][tile_row], map[tile_col][tile_row], map[tile_col+1][tile_row]],
+        [map[tile_col-1][tile_row+1], map[tile_col][tile_row+1], map[tile_col+1][tile_row+1]]
+    ];
+    tiles
 }
