@@ -145,8 +145,8 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 pub fn get_surrounding_tiles(
-    player: Vec2,
-    map: [[Biome; MAPSIZE]; MAPSIZE],
+    player: &Vec2,
+    map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> [[Biome; 3]; 3] {
     
     //align the player's x position to be the leftmost pixel of a given tile
