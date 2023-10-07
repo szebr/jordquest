@@ -25,8 +25,8 @@ fn main() {
         .add_state::<AppState>()
         .add_plugins((
             GamePlugin,
-            MainMenuPlugin,
             NetPlugin,
+            MainMenuPlugin,
         ))
         .run();
 }

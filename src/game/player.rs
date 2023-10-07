@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
+use bevy::window::PrimaryWindow;
 use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
 
 use super::enemy::Enemy;
@@ -37,6 +38,13 @@ pub struct Player {
     pub buffer: [PlayerTick; net::BUFFER_SIZE],
 }
 
+#[derive(Component)]
+pub struct Weapon{}
+
+#[derive(Component)]
+struct DespawnWeaponTimer(Timer);
+
+
 //TODO can't this be a trait or something?
 impl Player {
     pub fn get(&self, tick: u16) -> &PlayerTick {
@@ -57,7 +65,9 @@ impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed.before(enemy::fixed))
-            .add_systems(Update, update);
+            .add_systems(Update, update)
+            .add_systems(Update, spawn_weapon_on_click)
+            .add_systems(Update, despawn_after_timer);
         
     }
 }
@@ -86,6 +96,54 @@ pub fn startup(
                 ..default()
         });
     });
+}
+
+pub fn spawn_weapon_on_click(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    query: Query<Entity, With<Player>>,
+) {
+
+    if !mouse_button_inputs.just_pressed(MouseButton::Left) {
+        return;
+    }
+    let window = window_query.get_single().unwrap();
+    for player_entity in query.iter() {
+        let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+        let cursor_position = window.cursor_position().unwrap();
+        let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
+    
+        let direction_vector = cursor_position_in_world.normalize();
+        let weapon_direction = direction_vector.y.atan2(direction_vector.x);
+    
+        commands.entity(player_entity).with_children(|parent| {
+            parent.spawn(SpriteBundle {
+                texture: asset_server.load("sword01.png").into(),
+                transform: Transform {
+                    translation: Vec3::new(100.0, 0.0, 1.0),
+                    rotation: Quat::from_rotation_z(weapon_direction),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+        });
+    }
+    
+}
+
+fn despawn_after_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+) {
+    for (entity, mut despawn_timer) in query.iter_mut() {
+        despawn_timer.0.tick(time.delta());
+        if despawn_timer.0.finished() {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 pub fn fixed(
