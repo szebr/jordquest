@@ -416,9 +416,6 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 HostPortSaveBut{},
-                NetworkAddresses{
-                    host: String::new(), port: String::new(), IPAddress: String::new(),
-                },
             )
         )
         .with_children(|parent|{
@@ -476,7 +473,6 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
     })
 
     .id();
-
     host_page_entity
 }
 
@@ -675,9 +671,6 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 JoinSaveBut{},
-                NetworkAddresses{
-                    host: String::new(), port: String::new(), IPAddress: String::new(),
-                },
             )
         )
         .with_children(|parent|{
@@ -735,7 +728,6 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
     })
 
     .id();
-
     join_page_entity
 }
 

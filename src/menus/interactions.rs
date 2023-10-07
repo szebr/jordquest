@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 use crate::menus::components::*;
 use crate::AppState;
+use crate::menus::NetworkAddresses;
 
 pub fn interact_with_host_button(
     mut button_query: Query<
@@ -70,7 +71,7 @@ pub fn update_host_input(
 }
 
 pub fn save_host_input(
-    mut net_address_query: Query<&mut NetworkAddresses>,
+    mut net_address: ResMut<NetworkAddresses>,
     host_port_query: Query<&HostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
@@ -82,10 +83,8 @@ pub fn save_host_input(
         match *interaction {
             Interaction::Pressed => {
                 for host_port_input in host_port_query.iter() {
-                    for mut net_address in net_address_query.iter_mut() {
-                        net_address.host = host_port_input.port.clone();
-                        println!("Current port value: {}", net_address.host);
-                    }
+                    net_address.host = host_port_input.port.clone();
+                    println!("Current port value: {}", net_address.host);
                 }
                 app_state_next_state.set(AppState::Game);
             }
@@ -178,7 +177,7 @@ pub fn update_join_ip_input(
 }
 
 pub fn save_join_input(
-    mut net_address_query: Query<&mut NetworkAddresses>,
+    mut net_address: ResMut<NetworkAddresses>,
     join_port_query: Query<&JoinPortInput>,
     join_ip_query: Query<&JoinIPInput>,
     mut button_query: Query<
@@ -191,16 +190,12 @@ pub fn save_join_input(
         match *interaction {
             Interaction::Pressed => {
                 for join_port_input in join_port_query.iter() {
-                    for mut net_address in net_address_query.iter_mut() {
-                        net_address.port = join_port_input.port.clone();
-                        println!("Current port value: {}", net_address.port);
-                    }
+                    net_address.port = join_port_input.port.clone();
+                    println!("Current port value: {}", net_address.port);
                 }
                 for join_ip_input in join_ip_query.iter() {
-                    for mut net_address in net_address_query.iter_mut() {
-                        net_address.IPAddress = join_ip_input.IP.clone();
-                        println!("Current IP value: {}", net_address.IPAddress);
-                    }
+                    net_address.IPAddress = join_ip_input.IP.clone();
+                    println!("Current IP value: {}", net_address.IPAddress);
                 }
                 app_state_next_state.set(AppState::Game);
             }

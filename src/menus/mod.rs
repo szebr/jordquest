@@ -7,6 +7,12 @@ use crate::AppState;
 use layout::*;
 use interactions::*;
 
+#[derive(Resource)]
+pub struct NetworkAddresses {
+    pub host: String, //host port
+    pub port: String,
+    pub IPAddress: String,
+}
 
 pub struct MainMenuPlugin;
 
@@ -32,5 +38,12 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, update_join_port_input)
         .add_systems(Update, update_join_ip_input)
         .add_systems(Update, switch_input_joinpage)
-        .add_systems(Update, save_join_input);
+        .add_systems(Update, save_join_input)
+        .add_systems(Startup, startup);
 }}
+
+pub fn startup(mut commands: Commands) {
+    commands.insert_resource( NetworkAddresses {
+        host: String::new(), port: String::new(), IPAddress: String::new(),
+    });
+}
