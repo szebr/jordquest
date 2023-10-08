@@ -7,7 +7,7 @@ use super::enemy::Enemy;
 
 pub const PLAYER_SPEED: f32 = 250. / net::TICKRATE as f32;
 const PLAYER_DEFAULT_HP: f32 = 100.;
-pub const PLAYER_SIZE: Vec2 = Vec2 { x: 128., y: 128. };
+pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 
 //TODO public struct resource holding player count
@@ -76,6 +76,7 @@ impl Plugin for PlayerPlugin{
 pub fn startup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     commands.insert_resource(PlayerID {0:0});
     commands.spawn((
@@ -89,9 +90,14 @@ pub fn startup(
             ..default()
         }
     )).with_children(|parent| {
+        let entity_handle = asset_server.load("entity_sheet.png");
+        let entity_atlas = TextureAtlas::from_grid(entity_handle, Vec2::splat(32.), 2, 6, None, None);
+        let entity_atlas_handle = texture_atlases.add(entity_atlas);
+
         parent.spawn(
-            SpriteBundle {
-                texture: asset_server.load("jordan.png"),
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas_handle,
+                sprite: TextureAtlasSprite { index: 0, ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
         });
