@@ -103,26 +103,31 @@ pub fn spawn_weapon_on_click(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    query: Query<Entity, With<Player>>,
+    query: Query<(Entity, &Transform), With<Player>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
         return;
     }
     let window = window_query.get_single().unwrap();
-    for player_entity in query.iter() {
+    for (player_entity,player_transform) in query.iter() {
         let window_size = Vec2::new(window.width() as f32, window.height() as f32);
         let cursor_position = window.cursor_position().unwrap();
         let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
     
         let direction_vector = cursor_position_in_world.normalize();
         let weapon_direction = direction_vector.y.atan2(direction_vector.x);
+
+        let circle_radius = 100.0;// position spawning the sword, make it variable later
+        let offset_x = circle_radius * weapon_direction.cos();
+        let offset_y = circle_radius * weapon_direction.sin();
+        let offset = Vec2::new(offset_x, offset_y);
     
         commands.entity(player_entity).with_children(|parent| {
             parent.spawn(SpriteBundle {
                 texture: asset_server.load("sword01.png").into(),
                 transform: Transform {
-                    translation: Vec3::new(100.0, 0.0, 1.0),
+                    translation: Vec3::new(offset.x, offset.y, 1.0),
                     rotation: Quat::from_rotation_z(weapon_direction),
                     ..Default::default()
                 },
