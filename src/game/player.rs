@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
-use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
+use crate::{enemy, net::{self, lerp::PositionBuffer}, input, Atlas, AppState};
 
 use super::enemy::Enemy;
 
@@ -65,20 +65,23 @@ impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed.before(enemy::fixed))
-            .add_systems(Update, update)
-            .add_systems(Update, spawn_weapon_on_click)
-            .add_systems(Update, despawn_after_timer);
-        
+            .add_systems(Update,
+            (update,
+            spawn_weapon_on_click,
+            despawn_after_timer))
+            .add_systems(OnEnter(AppState::Game), spawn_player);
+
     }
 }
 
-// on Setup schedule
-pub fn startup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(PlayerID {0:0});
+}
+
+pub fn spawn_player(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>
+) {
     commands.spawn((
         Player{
             id: 0,
@@ -90,17 +93,13 @@ pub fn startup(
             ..default()
         }
     )).with_children(|parent| {
-        let entity_handle = asset_server.load("entity_sheet.png");
-        let entity_atlas = TextureAtlas::from_grid(entity_handle, Vec2::splat(32.), 2, 6, None, None);
-        let entity_atlas_handle = texture_atlases.add(entity_atlas);
-
         parent.spawn(
             SpriteSheetBundle {
-                texture_atlas: entity_atlas_handle,
+                texture_atlas: entity_atlas.handle.clone(),
                 sprite: TextureAtlasSprite { index: 0, ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
-        });
+            });
     });
 }
 
