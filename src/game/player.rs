@@ -12,8 +12,8 @@ pub const MAX_PLAYERS: usize = 4;
 
 //TODO public struct resource holding player count
 
-#[derive(Resource)]
-pub struct PlayerID(pub usize);
+#[derive(Component)]
+pub struct LocalPlayer;
 
 #[derive(Copy, Clone)]
 pub struct PlayerTick {
@@ -78,7 +78,6 @@ pub fn startup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    commands.insert_resource(PlayerID {0:0});
     commands.spawn((
         Player{
             id: 0,

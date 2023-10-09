@@ -2,6 +2,7 @@ use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::input::mouse::MouseButtonInput;
 use crate::{player, net};
+use crate::game::player::LocalPlayer;
 
 pub struct InputPlugin;
 
@@ -110,20 +111,16 @@ pub fn handle_mouse_button_events(
     mut er: EventReader<MouseButtonInput>,
     mouse_binds: Res<MouseBinds>,
     tick: Res<net::TickNum>,
-    player_id: Res<player::PlayerID>,
-    mut players: Query<&mut player::Player>,
+    mut players: Query<&mut player::Player, With<LocalPlayer>>,
 ) {
-    // :O epic nesting
     for mut pl in &mut players {
-        if pl.id == player_id.0 {
-            for e in er.iter() {
-                if e.button == mouse_binds.attack {
-                    //TODO might be better to mutate in place
-                    let mut pt = pl.get(tick.0 - 1).clone();
-                    pt.input.attack = e.state == ButtonState::Pressed;
-                    pl.set(tick.0, pt);
-                    // TODO if you click and release within one tick, the input will be missed!!
-                }
+        for e in er.iter() {
+            if e.button == mouse_binds.attack {
+                //TODO might be better to mutate in place
+                let mut pt = pl.get(tick.0 - 1).clone();
+                pt.input.attack = e.state == ButtonState::Pressed;
+                pl.set(tick.0, pt);
+                // TODO if you click and release within one tick, the input will be missed!!
             }
         }
     }
