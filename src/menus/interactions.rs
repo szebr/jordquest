@@ -196,16 +196,16 @@ pub fn update_join_ip_input(
             for (mut text, mut join_ip_input) in query.iter_mut() {
                 if new_char != '\u{8}' {
                     text.sections[0].value.push(new_char);
-                    join_ip_input.IP.push(new_char);
+                    join_ip_input.ip.push(new_char);
                 }
                 //println!("Current port value: {}", host_port_input.port);
                 if keyboard_input.just_pressed(KeyCode::Back) {
-                    if !join_ip_input.IP.is_empty() {
+                    if !join_ip_input.ip.is_empty() {
                         //println!("Current port value: {}", host_port_input.port);
                         //println!("Before: {:?}", text.sections[0].value);
                         text.sections[0].value.pop();
                         //println!("After: {:?}", text.sections[0].value);
-                        join_ip_input.IP.pop();
+                        join_ip_input.ip.pop();
                     }
                 }
             }
