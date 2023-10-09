@@ -1,5 +1,7 @@
 use bevy::prelude::Component;
 
+use crate::AppState;
+
 #[derive(Component)]
 pub struct MainMenu {}
 
@@ -11,6 +13,119 @@ pub struct JoinPage {}
 
 #[derive(Component)]
 pub struct CreditsPage {}
+
+pub trait InputType: Component {
+    fn push_char(&mut self, ch: char);
+    fn pop_char(&mut self);
+    fn is_empty(&self) -> bool;
+    fn is_active(switch: &Switch) -> bool;
+    fn is_valid(active: bool) -> bool;
+}
+
+impl InputType for HostPortInput {
+    fn push_char(&mut self, ch: char) {
+        self.port.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.port.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.port.is_empty()
+    }
+
+    fn is_active(_switch: &Switch) -> bool {
+        true
+    }
+
+    fn is_valid(_active: bool) -> bool {
+        true
+    }
+}
+
+impl InputType for JoinPortInput {
+    fn push_char(&mut self, ch: char) {
+        self.port.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.port.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.port.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.port
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for JoinIPInput {
+    fn push_char(&mut self, ch: char) {
+        self.ip.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.ip.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.ip.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.port
+    }
+
+    fn is_valid(active: bool) -> bool {
+        !active
+    }
+}
+
+pub trait ButtonTypeTrait {
+    type Marker: Component;
+    fn app_state() -> AppState;
+}
+
+pub struct HostButtonType;
+impl ButtonTypeTrait for HostButtonType {
+    type Marker = HostButton;
+    fn app_state() -> AppState {
+        AppState::Hosting
+    }
+}
+
+pub struct JoinButtonType;
+impl ButtonTypeTrait for JoinButtonType {
+    type Marker = JoinButton;
+    fn app_state() -> AppState {
+        AppState::Joining
+    }
+}
+
+pub struct BackButtonType;
+impl ButtonTypeTrait for BackButtonType {
+    type Marker = BackToMainMenu;
+    fn app_state() -> AppState {
+        AppState::MainMenu
+    }
+}
+
+pub struct CreditsButtonType;
+impl ButtonTypeTrait for CreditsButtonType {
+    type Marker = CreditsButton;
+    fn app_state() -> AppState {
+        AppState::Credits
+    }
+}
+
+
 
 #[derive(Component)]
 pub struct HostButton {}//host button to go to the host page
