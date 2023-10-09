@@ -9,9 +9,9 @@ use interactions::*;
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
-    pub host: String, //host port
-    pub port: String,
-    pub IPAddress: String,
+    pub host_port: String, //host port
+    pub client_port: String,
+    pub ip: String,
 }
 
 pub struct MainMenuPlugin;
@@ -44,6 +44,6 @@ impl Plugin for MainMenuPlugin{
 
 pub fn startup(mut commands: Commands) {
     commands.insert_resource( NetworkAddresses {
-        host: String::new(), port: String::new(), IPAddress: String::new(),
+        host_port: String::new(), client_port: String::new(), ip: String::new(),
     });
 }

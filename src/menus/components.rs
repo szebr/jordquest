@@ -44,7 +44,7 @@ pub struct JoinPortInput {
 
 #[derive(Component)]
 pub struct JoinIPInput {
-    pub IP: String,
+    pub ip: String,
 } //joining IP input field
 
 #[derive(Component)]

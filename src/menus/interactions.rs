@@ -65,12 +65,12 @@ pub fn update_host_input(
         for (mut text, mut host_port_input) in query.iter_mut() {
             text.sections[0].value.push(new_char);
             host_port_input.port.push(new_char);
-            //println!("Current port value: {}", host_port_input.port);
         }
     }
 }
 
 pub fn save_host_input(
+    mut is_host: ResMut<crate::net::IsHost>,
     mut net_address: ResMut<NetworkAddresses>,
     host_port_query: Query<&HostPortInput>,
     mut button_query: Query<
@@ -83,8 +83,8 @@ pub fn save_host_input(
         match *interaction {
             Interaction::Pressed => {
                 for host_port_input in host_port_query.iter() {
-                    net_address.host = host_port_input.port.clone();
-                    println!("Current port value: {}", net_address.host);
+                    net_address.host_port = host_port_input.port.clone();
+                    is_host.0 = true;
                 }
                 app_state_next_state.set(AppState::Game);
             }
@@ -145,7 +145,6 @@ pub fn update_join_port_input(
             for (mut text, mut join_port_input) in query.iter_mut() {
                 text.sections[0].value.push(new_char);
                 join_port_input.port.push(new_char);
-                //println!("Current port value: {}", join_port_input.port);
             }
         }
     }
@@ -169,14 +168,14 @@ pub fn update_join_ip_input(
         if let Some(new_char) = new_char {
             for (mut text, mut join_port_input) in query.iter_mut() {
                 text.sections[0].value.push(new_char);
-                join_port_input.IP.push(new_char);
-                //println!("Current IP value: {}", join_port_input.IP);
+                join_port_input.ip.push(new_char);
             }
         }
     }
 }
 
 pub fn save_join_input(
+    mut is_host: ResMut<crate::net::IsHost>,
     mut net_address: ResMut<NetworkAddresses>,
     join_port_query: Query<&JoinPortInput>,
     join_ip_query: Query<&JoinIPInput>,
@@ -190,13 +189,12 @@ pub fn save_join_input(
         match *interaction {
             Interaction::Pressed => {
                 for join_port_input in join_port_query.iter() {
-                    net_address.port = join_port_input.port.clone();
-                    println!("Current port value: {}", net_address.port);
+                    net_address.client_port = join_port_input.port.clone();
                 }
                 for join_ip_input in join_ip_query.iter() {
-                    net_address.IPAddress = join_ip_input.IP.clone();
-                    println!("Current IP value: {}", net_address.IPAddress);
+                    net_address.ip = join_ip_input.ip.clone();
                 }
+                is_host.0 = false;
                 app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {

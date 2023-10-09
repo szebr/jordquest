@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
+use serde::{Deserialize, Serialize};
 use crate::game::player;
 use crate::net::lerp::PositionBuffer;
 use crate::player::Player;
@@ -14,6 +15,14 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
     pub health: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct EnemyInfo {
+    pub pos: Vec2,
+    pub dir: f32,
+    pub hp: f32,
+    pub attacking: bool
 }
 
 #[derive(Component)]
@@ -57,7 +66,6 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
     )).with_children(|parent| {
         parent.spawn(SpriteBundle {
-            transform: Transform::from_xyz(0., 0., 2.),
             texture: asset_server.load("horse.png"),
             ..default()
         });

@@ -646,7 +646,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 JoinIPInput{
-                    IP:String::new(),
+                    ip:String::new(),
                 }
             )
         );
