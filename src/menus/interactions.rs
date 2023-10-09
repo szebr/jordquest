@@ -54,6 +54,7 @@ pub fn interact_with_join_button(
 
 pub fn update_host_input(
     mut char_events: EventReader<ReceivedCharacter>,
+    keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Text, &mut HostPortInput)>,
 ) {
     let mut new_char = None;
@@ -63,8 +64,20 @@ pub fn update_host_input(
 
     if let Some(new_char) = new_char {
         for (mut text, mut host_port_input) in query.iter_mut() {
-            text.sections[0].value.push(new_char);
-            host_port_input.port.push(new_char);
+            if new_char != '\u{8}' {
+                text.sections[0].value.push(new_char);
+                host_port_input.port.push(new_char);
+            }
+            //println!("Current port value: {}", host_port_input.port);
+            if keyboard_input.just_pressed(KeyCode::Back) {
+                if !host_port_input.port.is_empty() {
+                    //println!("Current port value: {}", host_port_input.port);
+                    //println!("Before: {:?}", text.sections[0].value);
+                    text.sections[0].value.pop();
+                    //println!("After: {:?}", text.sections[0].value);
+                    host_port_input.port.pop();
+                }
+            }
         }
     }
 }
@@ -129,6 +142,7 @@ pub fn switch_input_joinpage(
 pub fn update_join_port_input(
     mut char_events: EventReader<ReceivedCharacter>,
     mut query: Query<(&mut Text, &mut JoinPortInput)>,
+    keyboard_input: Res<Input<KeyCode>>,
     mut switch_query: Query<&Switch>,
 ) {
     let mut active = false;
@@ -142,9 +156,21 @@ pub fn update_join_port_input(
         }
 
         if let Some(new_char) = new_char {
-            for (mut text, mut join_port_input) in query.iter_mut() {
-                text.sections[0].value.push(new_char);
-                join_port_input.port.push(new_char);
+            for (mut text, mut host_port_input) in query.iter_mut() {
+                if new_char != '\u{8}' {
+                    text.sections[0].value.push(new_char);
+                    host_port_input.port.push(new_char);
+                }
+                //println!("Current port value: {}", host_port_input.port);
+                if keyboard_input.just_pressed(KeyCode::Back) {
+                    if !host_port_input.port.is_empty() {
+                        //println!("Current port value: {}", host_port_input.port);
+                        //println!("Before: {:?}", text.sections[0].value);
+                        text.sections[0].value.pop();
+                        //println!("After: {:?}", text.sections[0].value);
+                        host_port_input.port.pop();
+                    }
+                }
             }
         }
     }
@@ -152,6 +178,7 @@ pub fn update_join_port_input(
 
 pub fn update_join_ip_input(
     mut char_events: EventReader<ReceivedCharacter>,
+    keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Text, &mut JoinIPInput)>,
     mut switch_query: Query<&Switch>,
 ) {
@@ -166,9 +193,21 @@ pub fn update_join_ip_input(
         }
 
         if let Some(new_char) = new_char {
-            for (mut text, mut join_port_input) in query.iter_mut() {
-                text.sections[0].value.push(new_char);
-                join_port_input.ip.push(new_char);
+            for (mut text, mut join_ip_input) in query.iter_mut() {
+                if new_char != '\u{8}' {
+                    text.sections[0].value.push(new_char);
+                    join_ip_input.IP.push(new_char);
+                }
+                //println!("Current port value: {}", host_port_input.port);
+                if keyboard_input.just_pressed(KeyCode::Back) {
+                    if !join_ip_input.IP.is_empty() {
+                        //println!("Current port value: {}", host_port_input.port);
+                        //println!("Before: {:?}", text.sections[0].value);
+                        text.sections[0].value.pop();
+                        //println!("After: {:?}", text.sections[0].value);
+                        join_ip_input.IP.pop();
+                    }
+                }
             }
         }
     }

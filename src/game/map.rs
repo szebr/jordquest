@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use csv::ReaderBuilder;
 use std::{error::Error, fs::File};
+use rand::Rng;
+use crate::noise::Perlin;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -57,40 +59,36 @@ impl Plugin for MapPlugin {
 // }
 
 fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
-    let path = "assets/test_map.csv";
-    let file = File::open(path)?;
-    //let mut reader = csv::Reader::from_reader(file);
-    let mut reader = ReaderBuilder::new()
-        .has_headers(false)
-        .from_reader(file);
+    // new perlin noise generator with random u64 as seed
+    let mut rng = rand::thread_rng();
+    let random_u64: u64 = rng.gen();
+    // seed, amplitude, frequency, octaves
+    let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
 
-    let mut row = 0;
-    let mut col = 0;
+    for row in 0..MAPSIZE {
+        for col in 0..MAPSIZE {
+            let v = perlin.noise(row,col);
+            /*let r = (255 as f64 * v);
+            let y: u32 = r as u32;
+            let t = y % 85 as u32;
+            let x = y - t;*/
 
-    for result in reader.records() {
-        let record = result?;
-        for field in record.iter() {
-            match field {
-                "F" => {
-                    map.biome_map[row][col] = Biome::Free;
-                }
-                "W" => {
-                    map.biome_map[row][col] = Biome::Wall;
-                }
-                "G" => {
-                    map.biome_map[row][col] = Biome::Grass;
-                }
-                "C" => {
-                    map.biome_map[row][col] = Biome::Camp;
-                }
-                &_ => {
-
-                }
-            };
-            col += 1;
+            if v < 0.4 {
+                map.biome_map[row][col] = Biome::Free;
+            }
+            if v < 0.7 {
+                map.biome_map[row][col] = Biome::Grass;
+            }
+            else {
+                map.biome_map[row][col] = Biome::Camp;
+            }
+            if row % (MAPSIZE-1) == 0 {
+                map.biome_map[row][col] = Biome::Wall;
+            }
+            if col % (MAPSIZE-1) == 0 {
+                map.biome_map[row][col] = Biome::Wall;;
+            }
         }
-        row += 1;
-        col = 0;
     }
     Ok(())
 }

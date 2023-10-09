@@ -1,18 +1,32 @@
 use bevy::prelude::*;
 use crate::player;
 use crate::map;
+use crate::AppState;
+
+pub const PROJ_SCALE: f32 = 0.5;
+
+#[derive(Component)]
+pub struct GameCamera;
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, update.after(player::update));
+            .add_systems(Update, update.after(player::update))
+            .add_systems(OnEnter(AppState::Game), zoom_cam.after(startup));
     }
 }
 
 fn startup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), GameCamera,));
+}
+
+fn zoom_cam(
+    mut query: Query<&mut OrthographicProjection, With<GameCamera>>,
+) {
+    let mut proj = query.single_mut();
+    proj.scale = PROJ_SCALE;
 }
 
 fn update(
@@ -38,11 +52,11 @@ fn update(
                 ctf.translation.x = ptf.translation.x;
                 ctf.translation.y = ptf.translation.y;
 
-                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (win_x/2.) as isize) as f32;
-                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (win_x/2.) as isize) as f32;
+                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_x * PROJ_SCALE)/2.) as isize) as f32;
+                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_x * PROJ_SCALE)/2.) as isize) as f32;
 
-                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (win_y/2.) as isize) as f32;
-                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (win_y/2.) as isize) as f32;
+                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_y * PROJ_SCALE)/2.) as isize) as f32;
+                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_y * PROJ_SCALE)/2.) as isize) as f32;
 
                 // Clamp camera view to map borders
                 // Center camera in axis if map dimensions < window size

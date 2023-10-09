@@ -2,13 +2,13 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
 use serde::{Deserialize, Serialize};
-use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
+use crate::{enemy, net::{self, lerp::PositionBuffer}, input, Atlas, AppState};
 
 use super::enemy::Enemy;
 
 pub const PLAYER_SPEED: f32 = 250. / net::TICKRATE as f32;
 const PLAYER_DEFAULT_HP: f32 = 100.;
-pub const PLAYER_SIZE: Vec2 = Vec2 { x: 128., y: 128. };
+pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 
 //TODO public struct resource holding player count
@@ -75,19 +75,23 @@ impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed.before(enemy::fixed))
-            .add_systems(Update, update)
-            .add_systems(Update, spawn_weapon_on_click)
-            .add_systems(Update, despawn_after_timer);
-        
+            .add_systems(Update,
+            (update,
+            spawn_weapon_on_click,
+            despawn_after_timer))
+            .add_systems(OnEnter(AppState::Game), spawn_player);
+
     }
 }
 
-// on Setup schedule
-pub fn startup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(PlayerID {0:0});
+}
+
+pub fn spawn_player(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>
+) {
     commands.spawn((
         Player{
             id: 0,
@@ -100,11 +104,12 @@ pub fn startup(
         }
     )).with_children(|parent| {
         parent.spawn(
-            SpriteBundle {
-                texture: asset_server.load("jordan.png"),
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: 0, ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
-        });
+            });
     });
 }
 
@@ -113,26 +118,31 @@ pub fn spawn_weapon_on_click(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    query: Query<Entity, With<Player>>,
+    query: Query<(Entity, &Transform), With<Player>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
         return;
     }
     let window = window_query.get_single().unwrap();
-    for player_entity in query.iter() {
+    for (player_entity,player_transform) in query.iter() {
         let window_size = Vec2::new(window.width() as f32, window.height() as f32);
         let cursor_position = window.cursor_position().unwrap();
         let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
     
         let direction_vector = cursor_position_in_world.normalize();
         let weapon_direction = direction_vector.y.atan2(direction_vector.x);
+
+        let circle_radius = 100.0;// position spawning the sword, make it variable later
+        let offset_x = circle_radius * weapon_direction.cos();
+        let offset_y = circle_radius * weapon_direction.sin();
+        let offset = Vec2::new(offset_x, offset_y);
     
         commands.entity(player_entity).with_children(|parent| {
             parent.spawn(SpriteBundle {
                 texture: asset_server.load("sword01.png").into(),
                 transform: Transform {
-                    translation: Vec3::new(100.0, 0.0, 1.0),
+                    translation: Vec3::new(offset.x, offset.y, 1.0),
                     rotation: Quat::from_rotation_z(weapon_direction),
                     ..Default::default()
                 },
