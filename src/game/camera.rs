@@ -51,11 +51,11 @@ fn update(
             ctf.translation.x = ptf.translation.x;
             ctf.translation.y = ptf.translation.y;
 
-                let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_x * PROJ_SCALE)/2.) as isize) as f32;
-                let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_x * PROJ_SCALE)/2.) as isize) as f32;
+            let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_x * PROJ_SCALE)/2.) as isize) as f32;
+            let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_x * PROJ_SCALE)/2.) as isize) as f32;
 
-                let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_y * PROJ_SCALE)/2.) as isize) as f32;
-                let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_y * PROJ_SCALE)/2.) as isize) as f32;
+            let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + ((win_y * PROJ_SCALE)/2.) as isize) as f32;
+            let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - ((win_y * PROJ_SCALE)/2.) as isize) as f32;
 
             // Clamp camera view to map borders
             // Center camera in axis if map dimensions < window size
