@@ -1,12 +1,9 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use crate::game::player;
-use crate::net::lerp::PositionBuffer;
-use crate::player::Player;
-use crate::net;
+use crate::{game::player, net::lerp::PositionBuffer, player::Player, net, Atlas, AppState};
 
 pub const MAX_ENEMIES: usize = 32;
-pub const ENEMY_SIZE: Vec2 = Vec2 { x: 64., y: 64. };
+pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
 //TODO public struct resource holding enemy count
@@ -40,11 +37,16 @@ impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed)
-            .add_systems(Update, update);
+            .add_systems(Update, update)
+            .add_systems(OnEnter(AppState::Game), spawn_enemy);
     }
 }
+
+pub fn startup(mut commands: Commands) {
+}
+
 // on Setup schedule
-pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
     commands.spawn((
         SpatialBundle {
             transform: Transform::from_xyz(0., 0., 2.),
@@ -56,11 +58,13 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
     )).with_children(|parent| {
-        parent.spawn(SpriteBundle {
-            transform: Transform::from_xyz(0., 0., 2.),
-            texture: asset_server.load("horse.png"),
-            ..default()
-        });
+        parent.spawn(
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: 10, ..default()},
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            });
     });
 }
 
