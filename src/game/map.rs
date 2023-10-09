@@ -12,7 +12,7 @@ pub enum Biome{
     Camp,
 }
 
-#[derive(Component)]
+#[derive(Resource)]
 pub struct WorldMap{
     pub map_size: usize,
     pub tile_size: usize,
@@ -140,10 +140,11 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }
         x_coord+=1.0;
     }
+    commands.insert_resource(world_map);
 }
 
 pub fn get_surrounding_tiles(
-    player: &Vec2,
+    player: &Vec3,
     map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> [[Biome; 3]; 3] {
     
