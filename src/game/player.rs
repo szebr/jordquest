@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
-use crate::{enemy, net::{self, lerp::PositionBuffer}, input, Atlas};
+use crate::{enemy, net::{self, lerp::PositionBuffer}, input, Atlas, AppState};
 
 use super::enemy::Enemy;
 
@@ -65,19 +65,23 @@ impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed.before(enemy::fixed))
-            .add_systems(Update, update)
-            .add_systems(Update, spawn_weapon_on_click)
-            .add_systems(Update, despawn_after_timer);
-        
+            .add_systems(Update,
+            (update,
+            spawn_weapon_on_click,
+            despawn_after_timer))
+            .add_systems(OnEnter(AppState::Game), spawn_player);
+
     }
 }
 
-// on Setup schedule
-pub fn startup(
-    mut commands: Commands,
-    entity_atlas: Res<Atlas>,
-) {
+pub fn startup(mut commands: Commands) {
     commands.insert_resource(PlayerID {0:0});
+}
+
+pub fn spawn_player(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>
+) {
     commands.spawn((
         Player{
             id: 0,
@@ -95,7 +99,7 @@ pub fn startup(
                 sprite: TextureAtlasSprite { index: 0, ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
-        });
+            });
     });
 }
 
