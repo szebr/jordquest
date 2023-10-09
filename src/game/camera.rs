@@ -14,7 +14,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, update.after(player::update))
+            .add_systems(Update, update.after(player::move_player))
             .add_systems(OnEnter(AppState::Game), zoom_cam.after(startup));
     }
 }
