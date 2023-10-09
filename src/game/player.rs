@@ -167,6 +167,7 @@ pub fn fixed(
         mut players: Query<(Entity, &mut Player, &mut PositionBuffer)>,
         enemys: Query<&PositionBuffer, (With<Enemy>, Without<Player>)>,
     ) {
+    // TODO Pull current position into positionbuffer
     let atk_len = 30;
     let atk_cool = 30;
     // TODO change death effect to remove entity req

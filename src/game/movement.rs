@@ -36,6 +36,9 @@ pub fn move_unit(
         if let Some(Collision) = collide(new_pos, this_collider.0, transform.translation, collider.0) {
             // TODO: update movement vector to account for the collision?
             can_move = false;
+            // if we've found out we can't move, we can break for now
+            // if we end up trying to update movement in here, will have to not break here in case we collide in multiple places?
+            break;
         } else {
             // can move
         }
