@@ -2,10 +2,12 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
+use crate::game::{map, movement};
+use crate::game::movement::Collider;
 
 use super::enemy::Enemy;
 
-pub const PLAYER_SPEED: f32 = 250. / net::TICKRATE as f32;
+pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: f32 = 100.;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
@@ -64,10 +66,12 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(Startup, startup)
-            .add_systems(FixedUpdate, fixed.before(enemy::fixed))
+            //.add_systems(FixedUpdate, fixed.before(enemy::fixed))
             .add_systems(Update, update)
             .add_systems(Update, spawn_weapon_on_click)
-            .add_systems(Update, despawn_after_timer);
+            .add_systems(Update, despawn_after_timer)
+            .add_systems(Update, move_player)
+        ;
         
     }
 }
@@ -87,7 +91,9 @@ pub fn startup(
         SpatialBundle{
             transform: Transform::from_xyz(0., 0., 1.),
             ..default()
-        }
+        },
+        Collider(PLAYER_SIZE),
+        LocalPlayer,
     )).with_children(|parent| {
         let entity_handle = asset_server.load("entity_sheet.png");
         let entity_atlas = TextureAtlas::from_grid(entity_handle, Vec2::splat(32.), 2, 6, None, None);
@@ -189,12 +195,6 @@ pub fn fixed(
                 next.hp -= 0.5; //deal with damage when they collide with each others
             }
         }
-        if blocked {
-            player_pos.set(tick.0, prev);
-        }
-        else {
-            player_pos.set(tick.0, possible_move);
-        }
 
         if next.atk_frame == -1 && next.input.attack {
             next.atk_frame = 0;
@@ -205,6 +205,8 @@ pub fn fixed(
         else {
             next.atk_frame += 1;
         }
+
+        // TODO: Make health a component?
         if next.hp <= 0. { // player can die
             commands.entity(entity).despawn(); 
         }
@@ -215,4 +217,23 @@ pub fn fixed(
 
 pub fn update(
 ) {
+}
+
+/// Player movement function. Runs on Update schedule.
+pub fn move_player(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut players: Query<(&Player, &mut Transform, &Collider), With<LocalPlayer>>,
+    other_colliders: Query<(&Transform, &Collider), Without<LocalPlayer>>,
+    map: Res<map::WorldMap>,
+    time: Res<Time>,
+    key_binds: Res<input::KeyBinds>
+) {
+    let mut mv: usize = keyboard_input.pressed(key_binds.up) as usize * 0b0001;
+    mv |= keyboard_input.pressed(key_binds.down) as usize * 0b0010;
+    mv |= keyboard_input.pressed(key_binds.left) as usize * 0b0100;
+    mv |= keyboard_input.pressed(key_binds.right) as usize * 0b1000;
+    for (pl, transform, collider) in players.iter_mut() {
+        let movement = input::MOVE_VECTORS[mv];
+        movement::move_unit(transform.into_inner(), collider, &map, &time, &other_colliders, &movement, PLAYER_SPEED);
+    }
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
+use crate::game::movement::Collider;
 use crate::game::player;
 use crate::net::lerp::PositionBuffer;
 use crate::player::Player;
@@ -55,6 +56,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
             buffer: [EnemyTick{ health: 10.0, }; net::BUFFER_SIZE]
         },
         PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
+        Collider(ENEMY_SIZE),
     )).with_children(|parent| {
         parent.spawn(SpriteBundle {
             transform: Transform::from_xyz(0., 0., 2.),

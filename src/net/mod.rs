@@ -18,8 +18,7 @@ pub struct NetPlugin;
 impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(FixedUpdate,
-            increment_tick.before(input::update_movement_vector))
+            .add_systems(FixedUpdate, increment_tick)
             .add_systems(Update, lerp_pos);
     }
 }
