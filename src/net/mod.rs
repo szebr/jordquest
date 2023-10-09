@@ -65,7 +65,7 @@ impl Plugin for NetPlugin {
         (startup,
         host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
             .add_systems(FixedUpdate,
-                         (increment_tick.before(input::update_movement_vector),
+                         (increment_tick,
                          client::fixed.run_if(is_client),
                          host::fixed.run_if(is_host)))
             .add_systems(Update,

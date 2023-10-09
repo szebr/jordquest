@@ -1,7 +1,12 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
+use crate::game::movement::Collider;
+use crate::game::player;
+use crate::net::lerp::PositionBuffer;
+use crate::player::Player;
+use crate::net;
+use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
-use crate::{game::player, net::lerp::PositionBuffer, player::Player, net, Atlas, AppState};
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -66,6 +71,7 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
             buffer: [EnemyTick{ health: 10.0, }; net::BUFFER_SIZE]
         },
         PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
+        Collider(ENEMY_SIZE),
     )).with_children(|parent| {
         parent.spawn(
             SpriteSheetBundle {
