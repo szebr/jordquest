@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
+use serde::{Deserialize, Serialize};
 use crate::{enemy, net::{self, lerp::PositionBuffer}, input, Atlas, AppState};
 
 use super::enemy::Enemy;
@@ -31,6 +32,15 @@ impl Default for PlayerTick {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct PlayerInfo {
+    pub pos: Vec2,
+    pub dir: f32,
+    pub hp: f32,
+    pub attacking: bool
+}
+
 
 #[derive(Component)]
 pub struct Player {

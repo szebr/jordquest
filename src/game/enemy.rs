@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
+use serde::{Deserialize, Serialize};
 use crate::{game::player, net::lerp::PositionBuffer, player::Player, net, Atlas, AppState};
 
 pub const MAX_ENEMIES: usize = 32;
@@ -11,6 +12,14 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
     pub health: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct EnemyInfo {
+    pub pos: Vec2,
+    pub dir: f32,
+    pub hp: f32,
+    pub attacking: bool
 }
 
 #[derive(Component)]
