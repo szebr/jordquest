@@ -550,41 +550,9 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
 
         parent.spawn(
             (
-                TextBundle{
-                    style: Style{
-                        width: Val::Px(400.0),
-                        height: Val::Px(80.0),
-                        margin: UiRect {
-                            left: Val::Px(8.),
-                            right: Val::Px(8.),
-                            top: Val::Px(0.0),
-                            bottom: Val::Px(8.0)
-                        },
-                        justify_content:JustifyContent::Center,
-                        align_items:AlignItems::Center,
-                        ..default()
-                    },
-                    text: Text {
-                        sections: vec![TextSection::new(
-                            "Enter your the number here: ",
-                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: BLACK },
-                        )],
-                        alignment: TextAlignment::Center,
-                        ..default()
-                    },
-                    ..default()
-                },
-                JoinPortInput{
-                    port:String::new(),
-                }
-            )
-        );
-
-        parent.spawn(
-            (
                 ButtonBundle{
                     style: Style{
-                        width: Val::Px(200.0),
+                        width: Val::Px(500.0),
                         height: Val::Px(80.0),
                         margin: UiRect {
                             left: Val::Px(8.),
@@ -600,30 +568,37 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                     ..default()
                 },
                 Switch{
-                    port: true,
-                },
+                    port: false,
+                    ip:false,
+                },JoinPortBut{},
             )
         )
         .with_children(|parent|{
             parent.spawn(
-                TextBundle{
-                    text: Text {
-                        sections: vec![TextSection::new(
-                            "Switch input field",
-                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 20.0, color: Color:: WHITE },
-                        )],
-                        alignment: TextAlignment::Center,
+                (
+                    TextBundle{
+                        text: Text {
+                            sections: vec![TextSection::new(
+                                "Port#: ",
+                                TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: WHITE },
+                            )],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
                         ..default()
                     },
-                    ..default()
-                });
+                    JoinPortInput{
+                        port:String::new(),
+                    }
+                )
+            );
         });
 
         parent.spawn(
             (
-                TextBundle{
+                ButtonBundle{
                     style: Style{
-                        width: Val::Px(400.0),
+                        width: Val::Px(500.0),
                         height: Val::Px(80.0),
                         margin: UiRect {
                             left: Val::Px(8.),
@@ -635,21 +610,35 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                         align_items:AlignItems::Center,
                         ..default()
                     },
-                    text: Text {
-                        sections: vec![TextSection::new(
-                            "Enter the IP number here: ",
-                            TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: BLACK },
-                        )],
-                        alignment: TextAlignment::Center,
-                        ..default()
-                    },
+                    background_color: Color:: rgb(0.15, 0.15, 0.15).into(),
                     ..default()
                 },
-                JoinIPInput{
-                    ip:String::new(),
-                }
+                Switch{
+                    port: false,
+                    ip:false,
+                },JoinIpBut{},
             )
-        );
+        )
+        .with_children(|parent|{
+            parent.spawn(
+                (
+                    TextBundle{
+                        text: Text {
+                            sections: vec![TextSection::new(
+                                "IP#: ",
+                                TextStyle { font: asset_server.load("fonts/FiraSans-Bold.ttf"), font_size: 24.0, color: Color:: WHITE },
+                            )],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    JoinIPInput{
+                        ip:String::new(),
+                    }
+                )
+            );
+        });
 
         parent.spawn(
             (
