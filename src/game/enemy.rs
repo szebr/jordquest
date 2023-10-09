@@ -6,6 +6,7 @@ use crate::net::lerp::PositionBuffer;
 use crate::player::Player;
 use crate::net;
 use crate::{Atlas, AppState};
+use serde::{Deserialize, Serialize};
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -16,6 +17,14 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 #[derive(Copy, Clone)]
 pub struct EnemyTick {
     pub health: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct EnemyInfo {
+    pub pos: Vec2,
+    pub dir: f32,
+    pub hp: f32,
+    pub attacking: bool
 }
 
 #[derive(Component)]

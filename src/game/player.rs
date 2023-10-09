@@ -5,6 +5,7 @@ use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
 use crate::game::{map, movement};
 use crate::game::movement::Collider;
 use crate::{Atlas, AppState};
+use serde::{Deserialize, Serialize};
 
 use super::enemy::Enemy;
 
@@ -34,6 +35,15 @@ impl Default for PlayerTick {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct PlayerInfo {
+    pub pos: Vec2,
+    pub dir: f32,
+    pub hp: f32,
+    pub attacking: bool
+}
+
 
 #[derive(Component)]
 pub struct Player {
