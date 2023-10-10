@@ -40,6 +40,8 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, update_host_input)
         .add_systems(Update, save_host_input)
         .add_systems(Update, update_join_port_input)
+        .add_systems(Update, update_join_host_port_input)
+        .add_systems(Update, join_host_port_but)
         .add_systems(Update, update_join_ip_input)
         .add_systems(Update, join_port_but)
         .add_systems(Update, join_ip_but)

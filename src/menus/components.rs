@@ -47,6 +47,28 @@ impl InputType for HostPortInput {
     }
 }
 
+impl InputType for JoinHostPortInput {
+    fn push_char(&mut self, ch: char) {
+        self.port.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.port.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.port.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.host_port
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
 impl InputType for JoinPortInput {
     fn push_char(&mut self, ch: char) {
         self.port.push(ch);
@@ -163,8 +185,17 @@ pub struct HostPortSaveBut {}//host port save button to save what the user typed
 
 #[derive(Component)]
 pub struct Switch{
+    pub host_port: bool,
     pub port: bool,
     pub ip: bool,
+}
+
+#[derive(Component)]
+pub struct JoinHostPortBut {}
+
+#[derive(Component)]
+pub struct JoinHostPortInput {
+    pub port: String,
 }
 
 #[derive(Component)]
