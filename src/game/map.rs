@@ -1,6 +1,9 @@
-use bevy::prelude::*;
-use csv::ReaderBuilder;
-use std::{error::Error, fs::File};
+use bevy::{prelude::*, utils::HashMap};
+use std::{
+    error::Error, 
+    // fs::File, 
+    // thread::spawn
+};
 use rand::Rng;
 use crate::noise::Perlin;
 
@@ -8,9 +11,30 @@ use crate::noise::Perlin;
 pub enum Biome{
     Free,
     Wall,
-    Grass,
+    Ground,
     Camp,
 }
+
+#[derive(PartialEq, Eq, Hash)]
+enum SheetTypes{
+    Ground,
+    Camp,
+    Wall,
+}
+
+struct SheetData {
+    len: usize,
+    handle: Handle<TextureAtlas>,
+}
+
+#[derive(Component)]
+struct Ground;
+
+#[derive(Component)]
+struct Camp;
+
+#[derive(Component)]
+struct Wall;
 
 #[derive(Resource)]
 pub struct WorldMap{
@@ -21,18 +45,8 @@ pub struct WorldMap{
 
 // Set the size of the map in tiles (its a square)
 //CHANGE THIS TO CHANGE MAP SIZE
-// For test map, may eventually want to make this dependent on map dimensions in csv
-pub const MAPSIZE: usize = 64;
-pub const TILESIZE: usize = 32;
-
-// //THESE ARE CURRENTLY ONLY HERE SO THAT THE CAMERA WORKS, I HAVEN'T DONE ANYTHING WITH THAT YET
-// pub const TILE_SIZE: f32 = 100.;
-// pub const LEVEL_W: f32 = 1920.;
-// pub const LEVEL_H: f32 = 1080.;
-
-//this wasn't being used
-// #[derive(Component)]
-// struct Brick;
+pub const MAPSIZE: usize = 512;
+pub const TILESIZE: usize = 16;
 
 #[derive(Component)]
 struct Background;
@@ -47,16 +61,6 @@ impl Plugin for MapPlugin {
         app.add_systems(Startup, setup);
     }
 }
-
-//Replaced RD's code
-// fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
-//     commands.spawn(SpriteBundle {
-//             texture: asset_server.load("bg.png"),
-//             transform: Transform::default(),
-//             ..default()
-//         })
-//         .insert(Background);
-// }
 
 fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
     // new perlin noise generator with random u64 as seed
@@ -77,7 +81,7 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
                 map.biome_map[row][col] = Biome::Free;
             }
             if v < 0.7 {
-                map.biome_map[row][col] = Biome::Grass;
+                map.biome_map[row][col] = Biome::Ground;
             }
             else {
                 map.biome_map[row][col] = Biome::Camp;
@@ -86,61 +90,100 @@ fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
                 map.biome_map[row][col] = Biome::Wall;
             }
             if col % (MAPSIZE-1) == 0 {
-                map.biome_map[row][col] = Biome::Wall;;
+                map.biome_map[row][col] = Biome::Wall;
             }
         }
     }
     Ok(())
 }
 
-pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn setup(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
     
+    //Initialize the WorldMap Component
     let mut world_map = WorldMap{
         map_size: MAPSIZE,
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
+    
+    //Initialize the tilesheets for ground and camp
+    let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall]
+        .into_iter()
+        .map(|s|{
+            let (fname, cols, rows) = match s {
+                SheetTypes::Camp => ("camptilesheet.png", 50, 1),
+                SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
+                SheetTypes::Wall => ("wall.png", 2, 2),
+            };
+            let handle = asset_server.load(fname);
+            let atlas = 
+                TextureAtlas::from_grid(handle, Vec2::splat(TILESIZE as f32), cols, rows, None, None);
+            (
+                s,
+                SheetData {
+                    len: atlas.textures.len(),
+                    handle: texture_atlases.add(atlas),
+                },
+            )
+        })
+        .collect();
 
     let _ = read_map(&mut world_map);
 
-    // TODO: Determine what causes the map to be drawn rotated 90 degrees ccw
-    // Draw the map tiles
-    // Adding 0.5 to x_coord and y_coord will put (0,0) in the actual center of the map,
-    // in between tiles, rather than in the center of a tile
+    //create an rng to randomly choose a tile from the tilesheet
+    let mut rng = rand::thread_rng();
     // Create this to center the x-positions of the map
     let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
     for row in 0..MAPSIZE {
         // Create this to center the y-positions of the map
         let mut y_coord: f32 = ((MAPSIZE as f32)/2.) - 0.5;
         for col in 0..MAPSIZE {
+            let sheet_index = rng.gen_range(0..50);
+
             if world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
-                commands.spawn(SpriteBundle {
-                    texture: asset_server.load("wall.png"),
-                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
-                    ..default()
-                });
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Wall], sheet_index, Wall, &x_coord, &y_coord);
+
                 
-            }else if world_map.biome_map[col][row] == Biome::Grass {
-                // Spawn a grass sprite if the current tile is grass
-                commands.spawn(SpriteBundle {
-                    texture: asset_server.load("ground.png"),
-                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
-                    ..default()
-                });
+            }else if world_map.biome_map[col][row] == Biome::Ground {
+                // Spawn a Ground sprite if the current tile is Ground
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Ground], sheet_index, Ground, &x_coord, &y_coord);
+
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
-                commands.spawn(SpriteBundle {
-                    texture: asset_server.load("camp.png"),
-                    transform: Transform::from_xyz(x_coord*TILESIZE as f32, y_coord*TILESIZE as f32, 0.0),
-                    ..default()
-                });
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Camp], sheet_index, Camp, &x_coord, &y_coord);
             }
             y_coord-=1.0;
         }
         x_coord+=1.0;
     }
     commands.insert_resource(world_map);
+}
+
+fn spawn_tile<T>(
+    commands: &mut Commands,
+    data: &SheetData,
+    index: usize,
+    component: T,
+    x: &f32,
+    y: &f32,
+) where
+    T: Component,
+{
+    commands.spawn(SpriteSheetBundle{
+        texture_atlas: data.handle.clone(),
+        transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
+        sprite: TextureAtlasSprite {
+            index: index % data.len,
+            ..default()
+        },
+        ..default()
+    })
+    .insert(component);
 }
 
 pub fn get_surrounding_tiles(
