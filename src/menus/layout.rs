@@ -596,6 +596,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                         ..default()
                     },
                     Switch {
+                        host_port: false,
                         port: false,
                         ip: false,
                     },
@@ -606,7 +607,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                         TextBundle {
                             text: Text {
                                 sections: vec![TextSection::new(
-                                    "Port#: ",
+                                    "Your Port#: ",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 24.0,
@@ -619,6 +620,55 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                             ..default()
                         },
                         JoinPortInput {
+                            port: String::new(),
+                        },
+                    ));
+                });
+
+                parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(80.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                    },
+                    JoinHostPortBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Hosting Port#: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        JoinHostPortInput {
                             port: String::new(),
                         },
                     ));
@@ -644,6 +694,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
                         ..default()
                     },
                     Switch {
+                        host_port: false,
                         port: false,
                         ip: false,
                     },
