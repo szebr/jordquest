@@ -29,7 +29,9 @@ impl Plugin for GamePlugin{
                 ..default()
             }),
             ..default()
-        }))
+        })
+            .set(ImagePlugin::default_nearest())
+        )
         .add_systems(Startup, startup)
         .add_plugins((
             player::PlayerPlugin,
