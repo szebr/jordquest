@@ -80,11 +80,11 @@ impl InputType for JoinIPInput {
     }
 
     fn is_active(switch: &Switch) -> bool {
-        switch.port
+        switch.ip
     }
 
     fn is_valid(active: bool) -> bool {
-        !active
+        active
     }
 }
 
@@ -150,7 +150,14 @@ pub struct HostPortSaveBut {}//host port save button to save what the user typed
 #[derive(Component)]
 pub struct Switch{
     pub port: bool,
+    pub ip: bool,
 }
+
+#[derive(Component)]
+pub struct JoinPortBut {}
+
+#[derive(Component)]
+pub struct JoinIpBut {}
 
 #[derive(Component)]
 pub struct JoinPortInput {

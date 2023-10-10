@@ -23,7 +23,6 @@ pub fn interact_with_button<B: ButtonTypeTrait>(
         }
     }
 }
-
 pub fn interact_with_host_button(
     button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<HostButton>)>,
     app_state_next_state: ResMut<NextState<AppState>>,
@@ -112,7 +111,6 @@ pub fn update_join_ip_input(
 ) {
     update_input::<JoinIPInput>(char_events, keyboard_input, query, Some(switch_query));
 }
-
 pub fn save_host_input(
     mut is_host: ResMut<crate::net::IsHost>,
     mut net_address: ResMut<NetworkAddresses>,
@@ -141,11 +139,10 @@ pub fn save_host_input(
         }
     }
 }
-
-pub fn switch_input_joinpage(
+pub fn join_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Switch>),
+        (Changed<Interaction>, With<JoinPortBut>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -153,11 +150,8 @@ pub fn switch_input_joinpage(
         match *interaction {
             Interaction::Pressed => {
                 for mut switch in switch_query.iter_mut() {
-                    if switch.port {
-                        switch.port = false;
-                    }else {
-                        switch.port = true;
-                    }
+                    switch.ip = false;
+                    switch.port = true;
                 }
             }
             Interaction::Hovered => {
@@ -169,7 +163,30 @@ pub fn switch_input_joinpage(
         }
     }
 }
-
+pub fn join_ip_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<JoinIpBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.ip = true;
+                    switch.port = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
 pub fn save_join_input(
     mut is_host: ResMut<crate::net::IsHost>,
     mut net_address: ResMut<NetworkAddresses>,
