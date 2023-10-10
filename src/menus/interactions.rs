@@ -44,6 +44,13 @@ pub fn interact_with_back_button(
     interact_with_button::<BackButtonType>(button_query, app_state_next_state);
 }
 
+pub fn interact_with_controls_button(
+    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<ControlsButton>)>,
+    app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    interact_with_button::<ControlsButtonType>(button_query, app_state_next_state);
+}
+
 pub fn interact_with_credits_button(
     button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<CreditsButton>)>,
     app_state_next_state: ResMut<NextState<AppState>>,
