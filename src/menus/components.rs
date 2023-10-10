@@ -12,6 +12,9 @@ pub struct HostPage {}
 pub struct JoinPage {}
 
 #[derive(Component)]
+pub struct ControlsPage {}
+
+#[derive(Component)]
 pub struct CreditsPage {}
 
 pub trait InputType: Component {
@@ -117,6 +120,14 @@ impl ButtonTypeTrait for BackButtonType {
     }
 }
 
+pub struct ControlsButtonType;
+impl ButtonTypeTrait for ControlsButtonType {
+    type Marker = ControlsButton;
+    fn app_state() -> AppState {
+        AppState::Controls
+    }
+}
+
 pub struct CreditsButtonType;
 impl ButtonTypeTrait for CreditsButtonType {
     type Marker = CreditsButton;
@@ -132,6 +143,9 @@ pub struct HostButton {}//host button to go to the host page
 
 #[derive(Component)]
 pub struct JoinButton {}//join button to go to the join page
+
+#[derive(Component)]
+pub struct ControlsButton {}
 
 #[derive(Component)]
 pub struct CreditsButton {}

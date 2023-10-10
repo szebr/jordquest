@@ -15,6 +15,7 @@ pub enum AppState {
     MainMenu,
     Hosting,
     Joining,
+    Controls,
     Game,
     GameOver,
     Credits,
