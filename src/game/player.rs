@@ -81,8 +81,8 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update,
             (update,
             spawn_weapon_on_click,
-            despawn_after_timer,
-            move_player))
+            despawn_after_timer))
+            .add_systems(Update, (move_player).run_if(in_state(AppState::Game)))
             .add_systems(OnEnter(AppState::Game), spawn_player);
 
     }
@@ -174,15 +174,17 @@ fn despawn_after_timer(
 pub fn fixed(
         mut commands: Commands,
         tick: Res<net::TickNum>,
-        mut players: Query<(Entity, &mut Player, &mut PositionBuffer)>,
+        mut players: Query<(Entity, &mut Player, &mut PositionBuffer, &Transform), With<LocalPlayer>>,
         enemys: Query<&PositionBuffer, (With<Enemy>, Without<Player>)>,
     ) {
-    // TODO Pull current position into positionbuffer
     let atk_len = 30;
     let atk_cool = 30;
     // TODO change death effect to remove entity req
-    for (entity, mut pl, mut player_pos) in &mut players {
-        let prev = player_pos.get(tick.0.wrapping_sub(1)).clone();
+    for (entity, mut pl, mut player_pos_buffer, current_pos) in &mut players {
+        // pull current position into positionbuffer
+        player_pos_buffer.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+
+        let prev = player_pos_buffer.get(tick.0.wrapping_sub(1)).clone();
         let mut next = pl.get(tick.0).clone();  // this has already been updated by input
         let possible_move = prev + next.input.movement * PLAYER_SPEED;
         let mut blocked = false;
@@ -230,6 +232,7 @@ pub fn update(
 }
 
 /// Player movement function. Runs on Update schedule.
+// TODO: Should this be in movement.rs? Would that make sense?
 pub fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     mut players: Query<(&Player, &mut Transform, &Collider), With<LocalPlayer>>,
@@ -242,8 +245,47 @@ pub fn move_player(
     mv |= keyboard_input.pressed(key_binds.down) as usize * 0b0010;
     mv |= keyboard_input.pressed(key_binds.left) as usize * 0b0100;
     mv |= keyboard_input.pressed(key_binds.right) as usize * 0b1000;
-    for (pl, transform, collider) in players.iter_mut() {
-        let movement = input::MOVE_VECTORS[mv];
-        movement::move_unit(transform.into_inner(), collider, &map, &time, &other_colliders, &movement, PLAYER_SPEED);
+    let dir = input::MOVE_VECTORS[mv];
+    let mut can_move = true;
+
+    // should only be a single entry in this query (with localplayer)
+    // TODO: I'd like to be able to use this line BUT it panics when trying to launch because the player isn't spawned in
+    let player = players.single_mut();
+    let player_struct = player.0;
+    let mut pos = player.1.into_inner();
+    let collider = player.2;
+
+    let new_pos = Vec3 {
+        x: pos.translation.x + dir.x * PLAYER_SPEED * time.delta_seconds(),
+        y: pos.translation.y + dir.y * PLAYER_SPEED * time.delta_seconds(),
+        z: 0.0,
+    };
+
+    // check collision against entities
+    for (other_position, other_collider) in other_colliders.iter() {
+        if let Some(collision) = collide(new_pos, collider.0, other_position.translation, other_collider.0) {
+            // TODO: update movement vector to account for the collision?
+            can_move = false;
+            // if we've found out we can't move, we can break for now
+            // if we end up trying to update movement in here, will have to not break here in case we collide in multiple places?
+            break;
+        } else {
+            // can move
+        }
+    }
+
+    // check collision against map tiles
+    // TODO: Need to do some math to figure out where the entity is relative to the tile
+    // TODO: This crashes if you try to move outside of the map
+    /*
+    let nearby = get_surrounding_tiles(&new_pos, &map.biome_map);
+    if nearby[1][1] == Biome::Wall {
+        can_move = false;
+    }
+    */
+
+    if can_move {
+        pos.translation.x = new_pos.x;
+        pos.translation.y = new_pos.y;
     }
 }
