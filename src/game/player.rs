@@ -93,7 +93,8 @@ pub fn startup(mut commands: Commands) {
 
 pub fn spawn_player(
     mut commands: Commands,
-    entity_atlas: Res<Atlas>
+    entity_atlas: Res<Atlas>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn((
         Player{
@@ -115,6 +116,16 @@ pub fn spawn_player(
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             });
+        })
+    .with_children(|parent| {
+        parent.spawn( SpriteBundle {
+            texture: asset_server.load("healthbar.png").into(),
+            transform: Transform {
+                translation: Vec3::new(0., 24., 1.),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
     });
 }
 
