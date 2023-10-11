@@ -21,7 +21,7 @@ pub struct Atlas{
 
 impl Atlas {
     fn coord_to_index(&self, x: i32, y: i32) -> usize {
-        let mut index: i32 = ((y as f32 * ENTITY_SHEET_DIMS[1]) + (x as f32 * ENTITY_SHEET_DIMS[0])) as i32;
+        let mut index: i32 = ((y as f32 * ENTITY_SHEET_DIMS[1]) + x as f32) as i32;
         if index < 0 || index > ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32 {
             index = ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32;
         }
@@ -62,7 +62,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
         Vec2::splat(32.), 
         ENTITY_SHEET_DIMS[1] as usize, 
         ENTITY_SHEET_DIMS[0] as usize, 
-        None, 
+        Some(Vec2::new(1., 1.)), 
         None
     );
     let entity_atlas_handle = texture_atlases.add(entity_tex_atlas);
