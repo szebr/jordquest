@@ -12,9 +12,21 @@ pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES,
 pub const WIN_W: f32 = 1280.;
 pub const WIN_H: f32 = 720.;
 
+pub const ENTITY_SHEET_DIMS: Vec2 = Vec2 {x: 6., y: 4.}; // (rows, columns)
+
 #[derive(Resource)]
 pub struct Atlas{
     pub handle: Handle<TextureAtlas>
+}
+
+impl Atlas {
+    fn coord_to_index(&self, x: i32, y: i32) -> usize {
+        let mut index: i32 = ((y as f32 * ENTITY_SHEET_DIMS[1]) + (x as f32 * ENTITY_SHEET_DIMS[0])) as i32;
+        if index < 0 || index > ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32 {
+            index = ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32;
+        }
+        return index as usize;
+    }
 }
 
 pub struct GamePlugin;
@@ -45,7 +57,14 @@ impl Plugin for GamePlugin{
 
 pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>){
     let entity_handle = asset_server.load("entity_sheet.png");
-    let entity_tex_atlas = TextureAtlas::from_grid(entity_handle, Vec2::splat(32.), 2, 6, None, None);
+    let entity_tex_atlas = TextureAtlas::from_grid(
+        entity_handle, 
+        Vec2::splat(32.), 
+        ENTITY_SHEET_DIMS[1] as usize, 
+        ENTITY_SHEET_DIMS[0] as usize, 
+        None, 
+        None
+    );
     let entity_atlas_handle = texture_atlases.add(entity_tex_atlas);
     let entity_atlas = Atlas{handle: entity_atlas_handle};
     commands.insert_resource(entity_atlas);

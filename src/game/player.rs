@@ -112,7 +112,7 @@ pub fn spawn_player(
         parent.spawn(
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: 0, ..default()},
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 0), ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             });
