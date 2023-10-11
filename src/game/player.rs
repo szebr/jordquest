@@ -121,7 +121,7 @@ pub fn spawn_player(
         parent.spawn( SpriteBundle {
             texture: asset_server.load("healthbar.png").into(),
             transform: Transform {
-                translation: Vec3::new(0., 24., 1.),
+                translation: Vec3::new(0., 24., 2.),
                 ..Default::default()
             },
             ..Default::default()
