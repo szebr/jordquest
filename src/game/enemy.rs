@@ -76,7 +76,7 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
         parent.spawn(
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: 10, ..default()},
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 5), ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             });
