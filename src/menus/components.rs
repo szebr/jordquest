@@ -6,6 +6,9 @@ use crate::AppState;
 pub struct MainMenu {}
 
 #[derive(Component)]
+pub struct InGameMenu {}
+
+#[derive(Component)]
 pub struct HostPage {}
 
 #[derive(Component)]
@@ -16,6 +19,8 @@ pub struct ControlsPage {}
 
 #[derive(Component)]
 pub struct CreditsPage {}
+
+
 
 pub trait InputType: Component {
     fn push_char(&mut self, ch: char);
