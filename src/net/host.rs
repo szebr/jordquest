@@ -92,16 +92,20 @@ pub fn update(
             } => {
                 let mut found_connection = false;
                 let mut added_connection = false;
-                for &mut conn in &mut conns.0 {
+                for mut conn in &mut conns.0 {
                     if conn.is_some() {
-                        let conn = Some(conn);
-                         if conn == origin {
+                        let conn = conn.unwrap();
+                         if conn.socket == origin {
                              found_connection = true;
                          }
                     }
                     else {
                         added_connection = true;
-                        *conn = Some(origin);
+                        let _ = conn.insert(Connection {
+                            socket: origin,
+                            ack: 0,
+                            ack_bits: 0,
+                        });
                         // TODO add player to gamestate
                     }
                 }
@@ -110,8 +114,8 @@ pub fn update(
                         protocol: net::MAGIC_NUMBER,
                         contents: net::PacketContents::ServerFull
                     };
-                    let ser = serialize(&packet).expect("couldn't serialize").as_slice();
-                    sock.send_to(ser, origin).expect("send failed");
+                    let ser = serialize(&packet).expect("couldn't serialize");
+                    sock.send_to(ser.as_slice(), origin).expect("send failed");
                     continue
                 }
 
@@ -123,10 +127,11 @@ pub fn update(
             net::PacketContents::Disconnect => {
                 // for disconnect packet, check if they are still connected and remove their connection
                 // TODO remove player from gamestate
-                for &mut conn in &mut conns.0 {
-                    if let conn = Some(conn) {
-                        if conn == origin {
-                            *conn = None;
+                for mut conn in &mut conns.0 {
+                    if conn.is_some() {
+                        let s = conn.unwrap().socket;
+                        if s == origin {
+                            conn.take();
                         }
                     }
                 }
