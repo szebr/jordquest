@@ -9,9 +9,17 @@ use crate::AppState;
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 pub const MINIMAP_PROJ_SCALE: f32 = 8.;
 
-const MINIMAP_POSITION: UVec2 = UVec2::new(992, 32);
 const MINIMAP_DIMENSIONS: UVec2 = UVec2::new(256, 256);
-const MINIMAP_BORDER_TRANSLATION: Vec3 = Vec3::new(240., 100., 5.);
+const MINIMAP_PAD: UVec2 = UVec2::new(32, 32); // How many pixels between top right of window and top right of minimap (not border)
+const MINIMAP_POSITION: UVec2 = UVec2::new(
+    super::WIN_W as u32 - MINIMAP_DIMENSIONS.x - MINIMAP_PAD.x,
+    MINIMAP_PAD.y
+);
+const MINIMAP_BORDER_TRANSLATION: Vec3 = Vec3::new(
+    ((super::WIN_W / 2.) as u32 - MINIMAP_PAD.x - (MINIMAP_DIMENSIONS.x / 2)) as f32 * GAME_PROJ_SCALE,
+    ((super::WIN_H / 2.) as u32 - MINIMAP_PAD.y - (MINIMAP_DIMENSIONS.y / 2)) as f32 * GAME_PROJ_SCALE,
+    5.
+);
 
 #[derive(Component)]
 pub struct GameCamera;
@@ -47,14 +55,6 @@ fn startup(
     )).with_children(|parent|{
             parent.spawn((
                 Camera2dBundle {
-                    camera: Camera {
-                        viewport: Some(Viewport {
-                            physical_position: UVec2::new(0, 0),
-                            physical_size: UVec2::new(super::WIN_W as u32, super::WIN_H as u32),
-                            ..default()
-                        }),
-                        ..default()
-                    },
                     projection: OrthographicProjection{near: -1000., scale: GAME_PROJ_SCALE, ..default()},
                     ..default()
                 },
@@ -65,7 +65,7 @@ fn startup(
                     texture: asset_server.load("minimap_border.png"),
                     transform: Transform {
                         translation: MINIMAP_BORDER_TRANSLATION,
-                        scale: Vec3::new(0.5, 0.5, 1.),
+                        scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -108,22 +108,11 @@ fn spawn_minimap_cam(mut commands: Commands) {
 
 fn update(
     players: Query<(&Transform, &player::Player), (With<LocalPlayer>, Without<Camera>)>,
-    window: Query<&Window>,
     mut orthocam: Query<(&Parent, &OrthographicProjection, &Camera), (With<Camera>, Without<player::Player>)>,
     mut spatial_bundle_tf: Query<&mut Transform, (With<SpatialCameraBundle>, Without<player::Player>)>
 ) {
-    // initalize resolution with expected defaults
-    let mut win_x = super::WIN_W;
-    let mut win_y = super::WIN_H;
-
-    // should only have one window? not entirely sure how to unwrap this otherwise
-    for w in &window {
-        win_x = w.resolution.width();
-        win_y = w.resolution.height();
-    }
-
     for (parent, ortho_proj, cam) in &mut orthocam {
-        for (ptf, pl) in &players {
+        for (ptf, _pl) in &players {
             let sbtf = spatial_bundle_tf.get_mut(parent.get());
 
             match sbtf {
@@ -153,7 +142,7 @@ fn update(
 
                     // Clamp camera view to map borders
                     // Center camera in axis if map dimensions < window size
-                    if map::MAPSIZE * map::TILESIZE < win_x as usize {
+                    if map::MAPSIZE * map::TILESIZE < super::WIN_W as usize {
                         sb.translation.x = 0.
                     }
                     else {
@@ -165,7 +154,7 @@ fn update(
                         }
                     }
 
-                    if map::MAPSIZE * map::TILESIZE < win_y as usize {
+                    if map::MAPSIZE * map::TILESIZE < super::WIN_H as usize {
                         sb.translation.y = 0.
                     }
                     else {
