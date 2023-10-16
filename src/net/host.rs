@@ -103,6 +103,7 @@ pub fn update(
                     else {
                         added_connection = true;
                         *conn = Some(origin);
+                        // TODO add player to gamestate
                     }
                 }
                 if !found_connection && !added_connection {
@@ -117,6 +118,14 @@ pub fn update(
             },
             net::PacketContents::Disconnect => {
                 // for disconnect packet, check if they are still connected and remove their connection
+                // TODO remove player from gamestate
+                for &mut conn in &mut conns.0 {
+                    if let conn = Some(conn) {
+                        if conn == origin {
+                            *conn = None;
+                        }
+                    }
+                }
             },
             p => panic!("client sent unexpected packet {:?}", p)
         }
