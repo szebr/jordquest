@@ -15,7 +15,7 @@ pub struct Perlin {
 impl Perlin {
     pub fn new(seed: u64, amp: f64, freq: f64, oct: usize) -> Self {
         let p = Self::shuffle(seed);
-        println!("{:?}", p);
+        //println!("{:?}", p);
         Self { p, amp, freq, oct }
     }
 
