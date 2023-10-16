@@ -107,7 +107,12 @@ pub fn update(
                     }
                 }
                 if !found_connection && !added_connection {
-                    // TODO respond with server full
+                    let packet = net::Packet {
+                        protocol: net::MAGIC_NUMBER,
+                        contents: net::PacketContents::ServerFull
+                    };
+                    let ser = serialize(&packet).expect("couldn't serialize").as_slice();
+                    sock.send_to(ser, origin).expect("send failed");
                     continue
                 }
 
