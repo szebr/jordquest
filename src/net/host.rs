@@ -2,8 +2,7 @@ use std::net::*;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
 use crate::game::{enemy, player};
-use crate::menus;
-use crate::net;
+use crate::{menus, net};
 
 #[derive(Copy, Clone)]
 pub struct Connection {

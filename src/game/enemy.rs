@@ -49,14 +49,9 @@ pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, startup)
-            .add_systems(FixedUpdate, fixed)
-            .add_systems(Update, update)
+        app.add_systems(FixedUpdate, fixed)
             .add_systems(OnEnter(AppState::Game), spawn_enemy);
     }
-}
-
-pub fn startup(mut commands: Commands) {
 }
 
 // on Setup schedule
@@ -121,8 +116,4 @@ pub fn fixed(
         }
         bp.set(tick.0, next);
     }
-}
-
-pub fn update(
-) {
 }

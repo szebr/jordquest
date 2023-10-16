@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net::{self, lerp::PositionBuffer}, input};
-use crate::game::{map, movement};
+use crate::game::map;
 use crate::game::movement::Collider;
 use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
@@ -76,19 +76,14 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(Startup, startup)
-            .add_systems(FixedUpdate, fixed.before(enemy::fixed))
+        app.add_systems(FixedUpdate, fixed.before(enemy::fixed))
             .add_systems(Update,
-            (update,
-            spawn_weapon_on_click,
+            (spawn_weapon_on_click,
             despawn_after_timer))
             .add_systems(Update, (move_player).run_if(in_state(AppState::Game)))
             .add_systems(OnEnter(AppState::Game), spawn_player);
 
     }
-}
-
-pub fn startup(mut commands: Commands) {
 }
 
 pub fn spawn_player(
@@ -236,10 +231,6 @@ pub fn fixed(
 
         pl.set(tick.0, next);
     }
-}
-
-pub fn update(
-) {
 }
 
 /// Player movement function. Runs on Update schedule.
