@@ -1,5 +1,4 @@
 use std::net::*;
-use std::str::FromStr;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
 use crate::game::{enemy, player};
@@ -12,6 +11,7 @@ pub struct Connection {
     pub ack: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
     pub ack_bits: u32
 }
+
 #[derive(Resource)]
 pub struct Connections(pub [Option<Connection>; player::MAX_PLAYERS]);
 
@@ -69,7 +69,10 @@ pub fn fixed(
     }
 }
 
-pub fn update(mut sock: ResMut<net::Socket>) {
+pub fn update(
+    mut sock: ResMut<net::Socket>,
+    mut conns: ResMut<Connections>
+) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     loop {
@@ -88,9 +91,25 @@ pub fn update(mut sock: ResMut<net::Socket>) {
             net::PacketContents::ClientTick {
                 seq_num, pos, dir, triggers
             } => {
-                // if this is a new origin, check if server is full
-                //   if full, respond with ServerFull
-                //   otherwise add this origin to your connection list
+                let mut found_connection = false;
+                let mut added_connection = false;
+                for &mut conn in &mut conns.0 {
+                    if conn.is_some() {
+                        let conn = Some(conn);
+                         if conn == origin {
+                             found_connection = true;
+                         }
+                    }
+                    else {
+                        added_connection = true;
+                        *conn = Some(origin);
+                    }
+                }
+                if !found_connection && !added_connection {
+                    // TODO respond with server full
+                    continue
+                }
+
                 // for ClientTickPacket, check if they missed the window first, otherwise
                 //   limit their movement vector to their speed
                 //   and then update the buffer with their inputs.
