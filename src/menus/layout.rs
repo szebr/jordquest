@@ -4,6 +4,10 @@ use bevy::prelude::DerefMut;
 use bevy::prelude::Timer;
 use bevy::prelude::*;
 
+pub const SCREEN_WIDTH: f32 = 1280.0;
+pub const SCREEN_HEIGHT: f32 = 720.0;
+pub const PADDING: f32 = 20.0;
+
 #[derive(Component, Deref, DerefMut)]
 pub struct PopupTimer(Timer);
 
@@ -972,4 +976,246 @@ pub fn build_controls_page(commands: &mut Commands, asset_server: &Res<AssetServ
         })  
         .id();
     controls_page_entity
+}
+
+pub fn build_credits_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+    // let image_names = vec![
+    //     "brendan_credits_slide.png",
+    //     "CreditAlexLampe.png",
+    //     "CreditGarrettDiCenzo.jpg",
+    //     "CreditIanWhitfield.png",
+    //     "CreditJordanBrudenell.png",
+    //     "CreditRuohengXu.jpg",
+    //     "CreditSamDurigon.png"
+    // ];
+
+    let credits_page_entity = commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                background_color: Color::WHITE.into(),
+                ..default()
+            },
+            CreditsPage {},
+        ))
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("brendan_credits_slide.png"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(0),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditAlexLampe.png"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(1),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditGarrettDiCenzo.jpg"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(2),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditIanWhitfield.png"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(3),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditJordanBrudenell.png"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(4),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditRuohengXu.jpg"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(5),
+        //             ..default()
+        //         });
+        // })
+        // .with_children(|parent|{
+        //     parent.spawn(
+        //         ImageBundle {
+        //             style: Style{
+        //                 width: Val::Percent(100.0),
+        //                 height: Val::Percent(100.0),
+        //                 ..default()
+        //             },
+        //             image: UiImage{
+        //                 texture: asset_server.load("CreditSamDurigon.png"),
+        //                 ..default()
+        //             },
+        //             z_index: ZIndex::Local(6),
+        //             ..default()
+        //         });
+        // })
+        .id();
+
+    credits_page_entity
+}
+
+pub fn spawn_in_game_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let in_game_menu_entity = build_in_game_menu(&mut commands, &asset_server);
+}
+
+pub fn despawn_in_game_menu(mut commands: Commands, in_game_menu_entity: Query<Entity, With<JoinPage>>) {
+    if let Ok(in_game_menu_entity) = in_game_menu_entity.get_single() {
+        commands.entity(in_game_menu_entity).despawn_recursive();
+    }
+}
+
+#[derive(Component)]
+pub struct GameTimer {
+    remaining_time: f32, // time in seconds
+}
+
+
+pub fn build_in_game_menu(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+    let in_game_menu_entity = commands
+        .spawn(NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            // Score Display
+            parent.spawn(TextBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(PADDING),
+                    top: Val::Px(SCREEN_HEIGHT - PADDING - 64.0),
+                    ..Default::default()
+                },
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "Score: 0", //TODO dynamic binding of score attribute of the player
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 64.0,
+                            color: Color::RED,
+                        },
+                    )],
+                    alignment: TextAlignment::Left,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+
+            // Timer Display
+            let timer_entity = parent.spawn(TextBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(SCREEN_WIDTH / 2.0 - 100.0),
+                    top: Val::Px(PADDING),
+                    ..Default::default()
+                },
+                text: Text {
+                    sections: vec![TextSection::new(
+                        "5:00",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 64.0,
+                            color: Color::WHITE,
+                        },
+                    )],
+                    alignment: TextAlignment::Center,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }).insert(GameTimer {
+                remaining_time: 5.0 * 60.0,
+            });
+        })
+        .id();
+
+    in_game_menu_entity
+}
+
+pub fn update_time_remaining_system(mut query: Query<(&mut GameTimer, &mut Text)>) {
+    for (mut timer, mut text) in query.iter_mut() {
+        if timer.remaining_time > 0.0 {
+            timer.remaining_time -= 0.005; // TODO This assumes 1s per step, adjust accordingly for the sync
+
+            let minutes = (timer.remaining_time / 60.0) as i32;
+            let seconds = (timer.remaining_time % 60.0) as i32;
+
+            text.sections[0].value = format!("{:02}:{:02}", minutes, seconds);
+        } else {
+            // TODO Handle game over logic
+        }
+    }
 }

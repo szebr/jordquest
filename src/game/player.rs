@@ -139,7 +139,7 @@ pub fn spawn_weapon_on_click(
         let direction_vector = cursor_position_in_world.normalize();
         let weapon_direction = direction_vector.y.atan2(direction_vector.x);
 
-        let circle_radius = 100.0;// position spawning the sword, make it variable later
+        let circle_radius = 50.0;// position spawning the sword, make it variable later
         let offset_x = circle_radius * weapon_direction.cos();
         let offset_y = circle_radius * weapon_direction.sin();
         let offset = Vec2::new(offset_x, offset_y);
