@@ -20,6 +20,7 @@ pub struct Atlas{
 }
 
 impl Atlas {
+    // TODO this should take usize or isize instead of i32 I think
     fn coord_to_index(&self, x: i32, y: i32) -> usize {
         let mut index: i32 = ((y as f32 * ENTITY_SHEET_DIMS[1]) + x as f32) as i32;
         if index < 0 || index > ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32 {
@@ -50,7 +51,6 @@ impl Plugin for GamePlugin{
             enemy::EnemyPlugin,
             map::MapPlugin,
             camera::CameraPlugin,
-            input::InputPlugin,
         ));
     }
 }

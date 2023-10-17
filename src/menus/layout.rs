@@ -8,7 +8,7 @@ use bevy::prelude::*;
 pub struct PopupTimer(Timer);
 
 pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let main_menu_entity = build_main_menu(&mut commands, &asset_server);
+    build_main_menu(&mut commands, &asset_server);
 }
 
 pub fn despawn_main_menu(mut commands: Commands, main_menu_query: Query<Entity, With<MainMenu>>) {
@@ -330,7 +330,7 @@ pub fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Trans
 }
 
 pub fn spawn_host_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let host_page_entity = build_host_page(&mut commands, &asset_server);
+     build_host_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_host_page(mut commands: Commands, host_page_entity: Query<Entity, With<HostPage>>) {
@@ -512,7 +512,7 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
 }
 
 pub fn spawn_join_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let join_page_entity = build_join_page(&mut commands, &asset_server);
+    build_join_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_join_page(mut commands: Commands, join_page_entity: Query<Entity, With<JoinPage>>) {
@@ -804,7 +804,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
 }
 
 pub fn spawn_controls_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let controls_page_entity = build_controls_page(&mut commands, &asset_server);
+     build_controls_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_controls_page(
@@ -972,148 +972,4 @@ pub fn build_controls_page(commands: &mut Commands, asset_server: &Res<AssetServ
         })  
         .id();
     controls_page_entity
-}
-
-pub fn build_credits_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
-    // let image_names = vec![
-    //     "brendan_credits_slide.png",
-    //     "CreditAlexLampe.png",
-    //     "CreditGarrettDiCenzo.jpg",
-    //     "CreditIanWhitfield.png",
-    //     "CreditJordanBrudenell.png",
-    //     "CreditRuohengXu.jpg",
-    //     "CreditSamDurigon.png"
-    // ];
-
-    let credits_page_entity = commands
-        .spawn((
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                background_color: Color::WHITE.into(),
-                ..default()
-            },
-            CreditsPage {},
-        ))
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("brendan_credits_slide.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(0),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditAlexLampe.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(1),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditGarrettDiCenzo.jpg"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(2),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditIanWhitfield.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(3),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditJordanBrudenell.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(4),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditRuohengXu.jpg"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(5),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditSamDurigon.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(6),
-        //             ..default()
-        //         });
-        // })
-        .id();
-
-    credits_page_entity
 }
