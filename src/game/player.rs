@@ -124,7 +124,7 @@ pub fn spawn_weapon_on_click(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    query: Query<(Entity, &Transform), With<Player>>,
+    query: Query<(Entity, &Transform), With<LocalPlayer>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
