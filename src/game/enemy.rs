@@ -45,6 +45,15 @@ impl Enemy {
     }
 }
 
+#[derive(Component)]
+pub struct Weapon{}
+
+#[derive(Component)]
+struct DespawnWeaponTimer(Timer);
+
+#[derive(Component)]
+pub struct SpawnWeaponTimer(Timer);
+
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin{
@@ -52,6 +61,8 @@ impl Plugin for EnemyPlugin{
         app.add_systems(Startup, startup)
             .add_systems(FixedUpdate, fixed)
             .add_systems(Update, update)
+            .add_systems(Update, spawn_weapon)
+            .add_systems(Update, despawn_after_timer) 
             .add_systems(OnEnter(AppState::Game), spawn_enemy);
     }
 }
@@ -72,6 +83,7 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
         },
         PositionBuffer([Vec2::splat(300.0); net::BUFFER_SIZE]),
         Collider(ENEMY_SIZE),
+        SpawnWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     )).with_children(|parent| {
         parent.spawn(
             SpriteSheetBundle {
@@ -81,6 +93,42 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
                 ..default()
             });
     });
+}
+
+pub fn spawn_weapon(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnWeaponTimer), With<Enemy>>,
+) {
+    for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
+        spawn_timer.0.tick(time.delta());
+        if spawn_timer.0.finished() {
+            commands.entity(enemy_entity).with_children(|parent| {
+                parent.spawn(SpriteBundle {
+                    texture: asset_server.load("EnemyAttack01.png").into(),
+                    transform: Transform {
+                        translation: Vec3::new(0.0, 0.0, 2.0),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+            });
+        }
+    }
+}
+
+fn despawn_after_timer(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+) {
+    for (entity, mut despawn_timer) in query.iter_mut() {
+        despawn_timer.0.tick(time.delta());
+        if despawn_timer.0.finished() {
+            commands.entity(entity).despawn();
+        }
+    }
 }
 
 pub fn fixed(
