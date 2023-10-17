@@ -9,8 +9,8 @@ pub fn lerp_pos(
     mut query: Query<(&mut Transform, &PosBuffer), Without<LocalPlayer>>,
 ) {
     for (mut tf, bp) in &mut query {
-        let next_state = bp.get(tick.0.wrapping_sub(net::DELAY));
-        let prev_state = bp.get(tick.0.wrapping_sub(net::DELAY + 1));
+        let next_state = bp.0.get(tick.0.wrapping_sub(net::DELAY));
+        let prev_state = bp.0.get(tick.0.wrapping_sub(net::DELAY + 1));
         let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
         let new_state = prev_state.lerp(*next_state, percent);
         tf.translation.x = new_state.x;
