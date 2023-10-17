@@ -2,12 +2,16 @@ use bevy::prelude::*;
 
 pub const BUFFER_LEN: usize = 32;
 
-pub struct CircularBuffer<T: Default>([T; BUFFER_LEN]);
+pub struct CircularBuffer<T: Default + Copy>([T; BUFFER_LEN]);
 
-impl<T: Default> CircularBuffer<T> {
+impl<T: Default + Copy> CircularBuffer<T> {
 
     pub fn new() -> CircularBuffer<T> {
         return CircularBuffer([T::default(); BUFFER_LEN]);
+    }
+
+    pub fn new_from(item: T) -> CircularBuffer<T> {
+        return CircularBuffer([item; BUFFER_LEN]);
     }
 
     pub fn get(&self, tick: u16) -> &T {
