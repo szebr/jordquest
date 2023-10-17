@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 
-pub mod input;
 pub mod player;
 pub mod enemy;
 pub mod camera;
@@ -69,4 +68,6 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let entity_atlas_handle = texture_atlases.add(entity_tex_atlas);
     let entity_atlas = Atlas{handle: entity_atlas_handle};
     commands.insert_resource(entity_atlas);
+
+    commands.insert_resource(movement::KeyBinds::new());
 }
