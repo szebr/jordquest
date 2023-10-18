@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-pub mod input;
 pub mod player;
 pub mod enemy;
 pub mod camera;
 pub mod map;
 pub mod noise;
 pub mod movement;
+pub mod buffers;
 
 pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES, CAMPS, AND... ANOTHER PLAYER!? CAN I EARN ENOUGH UPGRADES TO BE VICTORIOUS AND FILL MY DIAPER?";
 pub const WIN_W: f32 = 1280.;
@@ -20,6 +20,7 @@ pub struct Atlas{
 }
 
 impl Atlas {
+    // TODO this should take usize or isize instead of i32 I think
     fn coord_to_index(&self, x: i32, y: i32) -> usize {
         let mut index: i32 = ((y as f32 * ENTITY_SHEET_DIMS[1]) + x as f32) as i32;
         if index < 0 || index > ((ENTITY_SHEET_DIMS[0] * ENTITY_SHEET_DIMS[1]) - 1.) as i32 {
@@ -50,7 +51,6 @@ impl Plugin for GamePlugin{
             enemy::EnemyPlugin,
             map::MapPlugin,
             camera::CameraPlugin,
-            input::InputPlugin,
         ));
     }
 }
@@ -68,4 +68,6 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let entity_atlas_handle = texture_atlases.add(entity_tex_atlas);
     let entity_atlas = Atlas{handle: entity_atlas_handle};
     commands.insert_resource(entity_atlas);
+
+    commands.insert_resource(movement::KeyBinds::new());
 }

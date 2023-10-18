@@ -4,6 +4,7 @@ use bevy::render::camera::Viewport;
 use crate::game::player::LocalPlayer;
 use crate::player;
 use crate::map;
+use crate::movement;
 use crate::AppState;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
@@ -38,7 +39,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, update.after(player::move_player))
+            .add_systems(Update, update.after(movement::move_player))
             .add_systems(OnEnter(AppState::Game), spawn_minimap_cam.after(startup));
     }
 }

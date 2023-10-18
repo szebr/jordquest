@@ -12,7 +12,7 @@ pub const PADDING: f32 = 20.0;
 pub struct PopupTimer(Timer);
 
 pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let main_menu_entity = build_main_menu(&mut commands, &asset_server);
+    build_main_menu(&mut commands, &asset_server);
 }
 
 pub fn despawn_main_menu(mut commands: Commands, main_menu_query: Query<Entity, With<MainMenu>>) {
@@ -334,7 +334,7 @@ pub fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Trans
 }
 
 pub fn spawn_host_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let host_page_entity = build_host_page(&mut commands, &asset_server);
+     build_host_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_host_page(mut commands: Commands, host_page_entity: Query<Entity, With<HostPage>>) {
@@ -516,7 +516,7 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
 }
 
 pub fn spawn_join_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let join_page_entity = build_join_page(&mut commands, &asset_server);
+    build_join_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_join_page(mut commands: Commands, join_page_entity: Query<Entity, With<JoinPage>>) {
@@ -808,7 +808,7 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
 }
 
 pub fn spawn_controls_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let controls_page_entity = build_controls_page(&mut commands, &asset_server);
+     build_controls_page(&mut commands, &asset_server);
 }
 
 pub fn despawn_controls_page(
@@ -1219,4 +1219,3 @@ pub fn update_time_remaining_system(mut query: Query<(&mut GameTimer, &mut Text)
         }
     }
 }
-
