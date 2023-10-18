@@ -10,7 +10,7 @@ use crate::game::{enemy, player};
 use crate::game::player::UserCmd;
 
 
-pub const TICKRATE: u8 = 30;
+pub const TICKRATE: u8 = 10;
 const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
 pub const MAX_PACKET_LEN: usize = 4096;  // probably should check if this is the size of a HostTick
