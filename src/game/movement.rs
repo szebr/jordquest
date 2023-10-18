@@ -86,7 +86,6 @@ pub fn move_player(
             // TODO this is a temporary "push away" collision resolution.
             //can_move = false;
             new_pos = pos.translation + pos.translation.sub(other_position.translation).clamp_length_max(1.0);
-            println!("new_pos {}", new_pos);
             // if we've found out we can't move, we can break for now
             // if we end up trying to update movement in here, will have to not break here in case we collide in multiple places?
             break;
