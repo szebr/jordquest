@@ -126,6 +126,7 @@ pub fn spawn_weapon_on_click(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     query: Query<(Entity, &Transform), With<LocalPlayer>>,
+    mut enemy_query: Query<(&Transform, &Collider, &mut Hp), With<enemy::Enemy>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -156,6 +157,18 @@ pub fn spawn_weapon_on_click(
                 ..Default::default()
             }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
         });
+
+        let (start, end) = attack_line_trace(player_transform, offset);
+        for (enemy_transform, collider, mut hp) in enemy_query.iter_mut() {
+            if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
+                print!("Hit!\n");
+                hp.0 -= 10.0;  // Assuming a damage value of 10, adjust as needed.
+                if hp.0 <= 0.0 {
+                    // TODO: Handle enemy death logic.
+                }
+            }
+        }
+
     }
 }
 
@@ -171,6 +184,32 @@ fn despawn_after_timer(
         }
     }
 }
+
+fn attack_line_trace(player_transform: &Transform, weapon_offset: Vec2) -> (Vec2, Vec2) {
+    let start = player_transform.translation.truncate();
+    let end = start + weapon_offset;
+    (start, end)
+}
+
+fn line_intersects_aabb(start: Vec2, end: Vec2, box_center: Vec2, box_size: Vec2) -> bool {
+    let dir = (end - start).normalize();
+
+    let t1 = (box_center.x - box_size.x / 2.0 - start.x) / dir.x;
+    let t2 = (box_center.x + box_size.x / 2.0 - start.x) / dir.x;
+    let t3 = (box_center.y - box_size.y / 2.0 - start.y) / dir.y;
+    let t4 = (box_center.y + box_size.y / 2.0 - start.y) / dir.y;
+
+    let tmin = t1.min(t2).max(t3.min(t4));
+    let tmax = t1.max(t2).min(t3.max(t4));
+
+    if tmax < 0.0 || tmin > tmax {
+        return false;
+    }
+
+    let t = if tmin < 0.0 { tmax } else { tmin };
+    return t > 0.0 && t * t < (end - start).length_squared();
+}
+
 
 pub fn fixed(
         tick: Res<net::TickNum>,
