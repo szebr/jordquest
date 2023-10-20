@@ -13,6 +13,8 @@ pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 
+const SWORD_DAMAGE: f32 = 0.5;  //sword damage, adjust this accordingly
+
 //TODO public struct resource holding enemy count
 
 
@@ -52,6 +54,7 @@ impl Plugin for EnemyPlugin{
             .add_systems(Update, spawn_weapon)
             .add_systems(Update, despawn_after_timer) 
             .add_systems(OnEnter(AppState::Game), spawn_enemy)
+            .add_systems(Update, weapon_dealt_damage_system)
             .add_event::<EnemyTickEvent>();
     }
 }
@@ -92,7 +95,7 @@ pub fn spawn_weapon(
                 parent.spawn(SpriteBundle {
                     texture: asset_server.load("EnemyAttack01.png").into(),
                     transform: Transform {
-                        translation: Vec3::new(0.0, 0.0, 2.0),
+                        translation: Vec3::new(0.0, 0.0, 1.0),
                         ..Default::default()
                     },
                     ..Default::default()
@@ -111,6 +114,25 @@ fn despawn_after_timer(
         despawn_timer.0.tick(time.delta());
         if despawn_timer.0.finished() {
             commands.entity(entity).despawn();
+        }
+    }
+}
+
+pub fn weapon_dealt_damage_system(
+    mut player_query: Query<(&Player, &Transform, &mut player::Hp)>,
+    weapon_query: Query<(&Weapon, &Transform)>
+) {
+    for (weapon, weapon_transform) in weapon_query.iter() {
+        for (_, player_transform, mut hp) in player_query.iter_mut() {
+            if let Some(_) = collide(
+                weapon_transform.translation,
+                player::PLAYER_SIZE,
+                player_transform.translation,
+                ENEMY_SIZE,
+            ) {
+                hp.0 -= SWORD_DAMAGE;
+                //println!("Player's current HP: {}", hp.0);
+            }
         }
     }
 }
