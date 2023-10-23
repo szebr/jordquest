@@ -3,7 +3,7 @@ use bevy::sprite::collide_aabb::collide;
 use crate::game::movement::Collider;
 use crate::game::player;
 use crate::player::Player;
-use crate::{AppState, net};
+use crate::net;
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
@@ -53,37 +53,13 @@ impl Plugin for EnemyPlugin{
             .add_systems(Update, packet)
             .add_systems(Update, spawn_weapon)
             .add_systems(Update, despawn_after_timer) 
-            .add_systems(OnEnter(AppState::Game), spawn_enemy)
             .add_systems(Update, weapon_dealt_damage_system)
             .add_event::<EnemyTickEvent>();
     }
 }
 
-pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
-    let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(-100., -100.)));
-    commands.spawn((
-        Enemy(0),
-        pb,
-        player::Hp(100.),
-        SpatialBundle {
-            transform: Transform::from_xyz(0., 0., 2.),
-            ..default()
-        },
-        Collider(ENEMY_SIZE),
-        SpawnWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
-    )).with_children(|parent| {
-        parent.spawn(
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 5), ..default()},
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            });
-    });
-}
-
-pub fn spawn_new_enemy(mut commands: Commands, entity_atlas: Res<Atlas>, id: u8) {
-    let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(0., 200.)));
+pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, pos: Vec2, sprite: i32) {
+    let pb = PosBuffer(CircularBuffer::new_from(pos));
     commands.spawn((
         Enemy(id),
         pb,
@@ -98,7 +74,7 @@ pub fn spawn_new_enemy(mut commands: Commands, entity_atlas: Res<Atlas>, id: u8)
         parent.spawn(
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 5), ..default()},
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             });

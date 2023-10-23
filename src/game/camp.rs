@@ -1,10 +1,7 @@
 use bevy::prelude::*;
-use crate::{AppState, net};
+use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
-use std::time::Duration;
-
-use super::enemy::spawn_new_enemy;
 
 pub struct CampPlugin;
 
@@ -22,7 +19,7 @@ pub fn setup(
     entity_atlas:Res<Atlas>,
 ) {
 
-    spawn_new_enemy(commands, entity_atlas, 1);
-    
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, Vec2{x: -100., y: -100.}, 5);
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, Vec2{x: -100., y: 100.}, 4);
     
 }

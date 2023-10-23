@@ -6,7 +6,7 @@ use std::{
 };
 use csv::ReaderBuilder;
 use rand::Rng;
-use crate::noise::Perlin;
+//use crate::noise::Perlin;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
