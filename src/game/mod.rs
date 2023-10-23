@@ -7,6 +7,7 @@ pub mod map;
 pub mod noise;
 pub mod movement;
 pub mod buffers;
+pub mod camp;
 
 pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES, CAMPS, AND... ANOTHER PLAYER!? CAN I EARN ENOUGH UPGRADES TO BE VICTORIOUS AND FILL MY DIAPER?";
 pub const WIN_W: f32 = 1280.;
@@ -51,6 +52,7 @@ impl Plugin for GamePlugin{
             enemy::EnemyPlugin,
             map::MapPlugin,
             camera::CameraPlugin,
+            camp::CampPlugin
         ));
     }
 }
