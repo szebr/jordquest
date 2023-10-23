@@ -131,7 +131,7 @@ pub fn weapon_dealt_damage_system(
                 ENEMY_SIZE,
             ) {
                 hp.0 -= SWORD_DAMAGE;
-                //println!("Player's current HP: {}", hp.0);
+                println!("Player's current HP: {}", hp.0);
             }
         }
     }
