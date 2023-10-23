@@ -82,6 +82,29 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
     });
 }
 
+pub fn spawn_new_enemy(mut commands: Commands, entity_atlas: Res<Atlas>, id: u8) {
+    let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(0., 200.)));
+    commands.spawn((
+        Enemy(id),
+        pb,
+        player::Hp(100.),
+        SpatialBundle {
+            transform: Transform::from_xyz(0., 0., 2.),
+            ..default()
+        },
+        Collider(ENEMY_SIZE),
+        SpawnWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+    )).with_children(|parent| {
+        parent.spawn(
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 5), ..default()},
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            });
+    });
+}
+
 pub fn spawn_weapon(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
