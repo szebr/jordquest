@@ -14,6 +14,7 @@ pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
+pub const FOLLOW_DISTANCE: f32 = 200.0;
 
 const SWORD_DAMAGE: u8 = 1;  //sword damage, adjust this accordingly
 
@@ -155,6 +156,7 @@ pub fn fixed(
         let mut next = prev.clone();
         let mut closest_player = players.iter().next().unwrap();
         let mut best_distance = f32::MAX;
+        let mut blocked = false;
         for ppb in &players {
             let dist = ppb.0.get(tick.0).distance(*prev);
             if dist < best_distance {
@@ -164,10 +166,12 @@ pub fn fixed(
         }
         let player_pos = closest_player.0.get(tick.0.wrapping_sub(1));
         let movement = *player_pos - *prev;
-        if movement.length() < 0.1 { continue }
+        if movement.length() < 0.1 || movement.length() > FOLLOW_DISTANCE {
+            epb.0.set(tick.0, next); 
+            continue 
+        }
         let movement = movement.normalize();
-        let possible_movement = *prev + movement * ENEMY_SPEED;
-        let mut blocked = false;
+        let mut possible_movement = *prev + movement * ENEMY_SPEED;
         //TODO same todo as on player.rs, however additionally,
         // ideally the collision would check for all players and all
         // other enemies, etc. so we might have to break it out
