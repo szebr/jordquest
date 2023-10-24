@@ -8,6 +8,10 @@ pub struct Health {
     pub max: u8,
 }
 
+/// Just a vec2 that describes the size of a bounding box around the entity
+#[derive(Component)]
+pub struct Collider(pub Vec2);
+
 #[derive(Component)]
 pub struct Enemy(pub u8);  // holds id
 

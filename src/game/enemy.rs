@@ -1,7 +1,6 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use crate::game::movement::Collider;
 use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};

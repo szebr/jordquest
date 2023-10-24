@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::map;
-use crate::components::Player;
+use crate::components::*;
 
 #[derive(Resource)]
 pub struct KeyBinds {
@@ -46,10 +46,6 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
     Vec2 { x:0., y:-1. },  // 1110
     Vec2 { x:0., y:0. },  // 1111
 ];
-
-/// Just a vec2 that describes the size of a bounding box around the entity
-#[derive(Component)]
-pub struct Collider(pub Vec2);
 
 /// Player movement function. Runs on Update schedule.
 pub fn move_player(
