@@ -1,3 +1,4 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::movement::Collider;
@@ -119,19 +120,19 @@ fn despawn_after_timer(
 }
 
 pub fn weapon_dealt_damage_system(
-    mut player_query: Query<(&Player, &Transform, &mut player::Hp)>,
-    weapon_query: Query<(&Weapon, &Transform)>
+    mut player_query: Query<(&Transform, &Collider, &mut player::Hp), With<Player>>,
+    weapon_query: Query<&Transform, With<Weapon>>
 ) {
-    for (weapon, weapon_transform) in weapon_query.iter() {
-        for (_, player_transform, mut hp) in player_query.iter_mut() {
+    for weapon_transform in weapon_query.iter() {
+        for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
             if let Some(_) = collide(
                 weapon_transform.translation,
-                player::PLAYER_SIZE,
+                weapon_transform.scale.xy(),
                 player_transform.translation,
-                ENEMY_SIZE,
+                player_collider.0,
             ) {
-                hp.0 -= SWORD_DAMAGE;
-                //println!("Player's current HP: {}", hp.0);
+                player_HP.0 -= SWORD_DAMAGE;
+                //println!("Player's current HP: {}", player_HP.0);
             }
         }
     }
