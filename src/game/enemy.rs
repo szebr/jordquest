@@ -2,13 +2,12 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::movement::Collider;
-use crate::game::player;
-use crate::player::Player;
 use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
+use crate::game::player;
 use crate::net::is_host;
 
 pub const MAX_ENEMIES: usize = 32;
@@ -33,7 +32,7 @@ pub struct EnemyTickEvent {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct EnemyTick {
     pub pos: Vec2,
-    pub hp: f32
+    pub hp: u8
 }
 
 #[derive(Component)]

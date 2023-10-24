@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::render::camera::Viewport;
 use crate::game::player::LocalPlayer;
-use crate::player;
 use crate::map;
 use crate::movement;
 use crate::AppState;
+use crate::game::components::Player;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 pub const MINIMAP_PROJ_SCALE: f32 = 8.;
@@ -108,9 +108,9 @@ fn spawn_minimap_cam(mut commands: Commands) {
 }
 
 fn update(
-    players: Query<(&Transform, &player::Player), (With<LocalPlayer>, Without<Camera>)>,
-    mut orthocam: Query<(&Parent, &OrthographicProjection, &Camera), (With<Camera>, Without<player::Player>)>,
-    mut spatial_bundle_tf: Query<&mut Transform, (With<SpatialCameraBundle>, Without<player::Player>)>
+    players: Query<(&Transform, &Player), (With<LocalPlayer>, Without<Camera>)>,
+    mut orthocam: Query<(&Parent, &OrthographicProjection, &Camera), (With<Camera>, Without<Player>)>,
+    mut spatial_bundle_tf: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Player>)>
 ) {
     for (parent, ortho_proj, cam) in &mut orthocam {
         for (ptf, _pl) in &players {

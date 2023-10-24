@@ -30,7 +30,7 @@ pub struct PlayerTickEvent {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct PlayerTick {
     pub pos: Vec2,
-    pub hp: f32
+    pub hp: u8,
 }
 
 #[derive(Event, Debug)]
@@ -126,7 +126,7 @@ pub fn spawn_weapon_on_click(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     query: Query<(Entity, &Transform), With<LocalPlayer>>,
-    mut enemy_query: Query<(&Transform, &Collider, &mut Health), With<enemy::Enemy>>,
+    mut enemy_query: Query<(&Transform, &Collider, &mut Health), With<Enemy>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
