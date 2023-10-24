@@ -6,13 +6,15 @@ use crate::game::movement::*;
 use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
 use crate::buffers::*;
+use crate::game::components::*;
 use crate::net::IsHost;
 
 
 pub const PLAYER_SPEED: f32 = 250.;
-const PLAYER_DEFAULT_HP: f32 = 100.;
+const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
+pub const PLAYER_DAMAGE: u8 = 10;
 
 //TODO public struct resource holding player count
 
@@ -49,11 +51,6 @@ pub struct UserCmd {
 #[derive(Component)]
 pub struct LocalPlayer;  // marks the player controlled by the local computer
 
-#[derive(Component)]
-pub struct Player(pub u8);  // holds id
-
-#[derive(Component)]
-pub struct Hp(pub f32);
 
 #[derive(Component)]
 pub struct Weapon;
@@ -90,7 +87,10 @@ pub fn spawn_players(
         let pl = commands.spawn((
             Player(i as u8),
             pb,
-            Hp(PLAYER_DEFAULT_HP),
+            Health {
+                current: PLAYER_DEFAULT_HP,
+                max: PLAYER_DEFAULT_HP,
+            },
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
                 sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
@@ -126,7 +126,7 @@ pub fn spawn_weapon_on_click(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     query: Query<(Entity, &Transform), With<LocalPlayer>>,
-    mut enemy_query: Query<(&Transform, &Collider, &mut Hp), With<enemy::Enemy>>,
+    mut enemy_query: Query<(&Transform, &Collider, &mut Health), With<enemy::Enemy>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -162,13 +162,17 @@ pub fn spawn_weapon_on_click(
         for (enemy_transform, collider, mut hp) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 print!("Hit!\n");
-                hp.0 -= 10.0;  // Assuming a damage value of 10, adjust as needed.
-                if hp.0 <= 0.0 {
-                    // TODO: Handle enemy death logic.
+                match hp.current.checked_sub(PLAYER_DAMAGE) {
+                    Some(v) => {
+                        hp.current = v;
+                    }
+                    None => {
+                        hp.current = 0;
+                        // TODO: Handle death
+                    }
                 }
             }
         }
-
     }
 }
 

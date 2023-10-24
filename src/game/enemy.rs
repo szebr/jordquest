@@ -8,13 +8,15 @@ use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
+use crate::game::components::*;
 use crate::net::is_host;
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
+pub const ENEMY_MAX_HP: u8 = 100;
 
-const SWORD_DAMAGE: f32 = 0.5;  //sword damage, adjust this accordingly
+const SWORD_DAMAGE: u8 = 1;  //sword damage, adjust this accordingly
 
 //TODO public struct resource holding enemy count
 
@@ -33,9 +35,6 @@ pub struct EnemyTick {
     pub pos: Vec2,
     pub hp: f32
 }
-
-#[derive(Component)]
-pub struct Enemy(pub u8);  // holds id
 
 #[derive(Component)]
 pub struct Weapon{}
@@ -65,7 +64,10 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
     commands.spawn((
         Enemy(0),
         pb,
-        player::Hp(100.),
+        Health {
+            current: ENEMY_MAX_HP,
+            max: ENEMY_MAX_HP,
+        },
         SpatialBundle {
             transform: Transform::from_xyz(0., 0., 2.),
             ..default()
@@ -122,6 +124,7 @@ fn despawn_after_timer(
 pub fn weapon_dealt_damage_system(
     mut player_query: Query<(&Transform, &Collider, &mut player::Hp), With<Player>>,
     weapon_query: Query<&Transform, With<Weapon>>
+    mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
 ) {
     for weapon_transform in weapon_query.iter() {
         for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
@@ -131,8 +134,15 @@ pub fn weapon_dealt_damage_system(
                 player_transform.translation,
                 player_collider.0,
             ) {
-                player_HP.0 -= SWORD_DAMAGE;
-                //println!("Player's current HP: {}", player_HP.0);
+                match player_HP.current.checked_sub(SWORD_DAMAGE) {
+                    Some(v) => {
+                        player_HP.current = v;
+                    }
+                    None => {
+                        // player would die from hit
+                        player_HP.current = 0;
+                    }
+                }
             }
         }
     }
