@@ -1,17 +1,20 @@
 use std::net::*;
-use std::str::FromStr;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
 use crate::game::{enemy, player};
-use crate::menus;
-use crate::net;
+use crate::{menus, net};
+use crate::game::buffers::PosBuffer;
+use crate::game::player::{UserCmdEvent};
+use crate::components::*;
 
 #[derive(Copy, Clone)]
 pub struct Connection {
     pub socket: SocketAddr,
+    pub player_id: u8,
     pub ack: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
     pub ack_bits: u32
 }
+
 #[derive(Resource)]
 pub struct Connections(pub [Option<Connection>; player::MAX_PLAYERS]);
 
@@ -31,33 +34,41 @@ pub fn connect(addresses: Res<menus::NetworkAddresses>,
     println!("host successful");
 }
 
+//TODO this needs to run after every other fixed has run
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
-    tick_num: Res<net::TickNum>,
-    conns: Res<Connections>
+    tick: Res<net::TickNum>,
+    conns: Res<Connections>,
+    player_query: Query<(&PosBuffer, &Health, &Player)>,
+    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     //TODO get all enemies and get all players, how tf am i gonna do that
-    let players = [player::PlayerInfo {
+    let mut players = [player::PlayerTick {
         pos: Default::default(),
-        dir: 0.0,
-        hp: 0.0,
-        attacking: false,
+        hp: 0,
     }; player::MAX_PLAYERS];
-    let enemies = [enemy::EnemyInfo {
+    for (pb, hp, pl) in &player_query {
+        players[pl.0 as usize] = player::PlayerTick {
+            pos: *pb.0.get(tick.0),
+            hp: hp.current
+        }
+    }
+    let mut enemies = [enemy::EnemyTick {
         pos: Default::default(),
-        dir: 0.0,
-        hp: 0.0,
-        attacking: false,
+        hp: 0,
     }; enemy::MAX_ENEMIES];
+    for (pb, hp, en) in &enemy_query {
+        enemies[en.0 as usize] = enemy::EnemyTick {
+            pos: *pb.0.get(tick.0),
+            hp: hp.current
+        }
+    }
     let packet = net::Packet {
         protocol: net::MAGIC_NUMBER,
-        //packet_type: net::PacketContents::HostTick as u16,
         contents: net::PacketContents::HostTick {
-            seq_num: tick_num.0,
-            player_count: 1,
-            enemy_count: 1,
+            seq_num: tick.0,
             players,
             enemies,
         },
@@ -69,7 +80,12 @@ pub fn fixed(
     }
 }
 
-pub fn update(mut sock: ResMut<net::Socket>) {
+pub fn update(
+    mut sock: ResMut<net::Socket>,
+    mut conns: ResMut<Connections>,
+    tick_num: Res<net::TickNum>,
+    mut usercmd_writer: EventWriter<UserCmdEvent>
+) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     loop {
@@ -84,20 +100,75 @@ pub fn update(mut sock: ResMut<net::Socket>) {
         let packet = packet.unwrap();
         if packet.protocol != net::MAGIC_NUMBER { continue; }
         match packet.contents {
-            // TODO this section
             net::PacketContents::ClientTick {
-                seq_num, pos, dir, triggers
+                seq_num, tick
             } => {
-                // if this is a new origin, check if server is full
-                //   if full, respond with ServerFull
-                //   otherwise add this origin to your connection list
-                // for ClientTickPacket, check if they missed the window first, otherwise
-                //   limit their movement vector to their speed
-                //   and then update the buffer with their inputs.
-                //   every ClientTickPacket should also update that connection's alive time
+                let mut found_connection = false;
+                let mut added_connection = false;
+                let mut id = 0;
+                for conn in &mut conns.0 {
+                    if conn.is_some() {
+                        let conn = conn.unwrap();
+                        if conn.socket == origin {
+                            found_connection = true;
+                            id = conn.player_id;
+                            break;
+                            // TODO update ack for the connection
+                        }
+                    }
+                }
+                if !found_connection {
+                    for conn in &mut conns.0 {
+                        if conn.is_none() {
+                            added_connection = true;
+                            let _ = conn.insert(Connection {
+                                socket: origin,
+                                player_id: 1,  // TODO this needs to be set for real
+                                ack: 0,
+                                ack_bits: 0,
+                            });
+                            id = 1;
+                            println!("added connection");
+                            break;
+                            // TODO add player to gamestate
+                            //   ...actually what if all players are present all the time but some
+                            //   just are ignored and not drawn if hp == 0 for example
+                        }
+                    }
+                }
+                if !found_connection && !added_connection {
+                    let packet = net::Packet {
+                        protocol: net::MAGIC_NUMBER,
+                        contents: net::PacketContents::ServerFull
+                    };
+                    let ser = serialize(&packet).expect("couldn't serialize");
+                    sock.send_to(ser.as_slice(), origin).expect("send failed");
+                    println!("server full");
+                    continue
+                }
+                if seq_num < tick_num.0 - net::DELAY {
+                    // TODO deal with packet misses
+                    println!("packet late, local is {} remote is {}", tick_num.0, seq_num);
+                    continue
+                }
+                // send event that this player has moved to this location
+                usercmd_writer.send(UserCmdEvent {
+                    seq_num,
+                    id,
+                    tick
+                });
             },
             net::PacketContents::Disconnect => {
                 // for disconnect packet, check if they are still connected and remove their connection
+                // TODO remove player from gamestate
+                for conn in &mut conns.0 {
+                    if conn.is_some() {
+                        let s = conn.unwrap().socket;
+                        if s == origin {
+                            conn.take();
+                        }
+                    }
+                }
             },
             p => panic!("client sent unexpected packet {:?}", p)
         }

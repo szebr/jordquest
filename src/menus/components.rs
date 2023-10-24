@@ -6,13 +6,21 @@ use crate::AppState;
 pub struct MainMenu {}
 
 #[derive(Component)]
+pub struct InGameMenu {}
+
+#[derive(Component)]
 pub struct HostPage {}
 
 #[derive(Component)]
 pub struct JoinPage {}
 
 #[derive(Component)]
+pub struct ControlsPage {}
+
+#[derive(Component)]
 pub struct CreditsPage {}
+
+
 
 pub trait InputType: Component {
     fn push_char(&mut self, ch: char);
@@ -41,6 +49,28 @@ impl InputType for HostPortInput {
 
     fn is_valid(_active: bool) -> bool {
         true
+    }
+}
+
+impl InputType for JoinHostPortInput {
+    fn push_char(&mut self, ch: char) {
+        self.port.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.port.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.port.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.host_port
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
     }
 }
 
@@ -117,6 +147,14 @@ impl ButtonTypeTrait for BackButtonType {
     }
 }
 
+pub struct ControlsButtonType;
+impl ButtonTypeTrait for ControlsButtonType {
+    type Marker = ControlsButton;
+    fn app_state() -> AppState {
+        AppState::Controls
+    }
+}
+
 pub struct CreditsButtonType;
 impl ButtonTypeTrait for CreditsButtonType {
     type Marker = CreditsButton;
@@ -134,6 +172,9 @@ pub struct HostButton {}//host button to go to the host page
 pub struct JoinButton {}//join button to go to the join page
 
 #[derive(Component)]
+pub struct ControlsButton {}
+
+#[derive(Component)]
 pub struct CreditsButton {}
 
 #[derive(Component)]
@@ -149,8 +190,17 @@ pub struct HostPortSaveBut {}//host port save button to save what the user typed
 
 #[derive(Component)]
 pub struct Switch{
+    pub host_port: bool,
     pub port: bool,
     pub ip: bool,
+}
+
+#[derive(Component)]
+pub struct JoinHostPortBut {}
+
+#[derive(Component)]
+pub struct JoinHostPortInput {
+    pub port: String,
 }
 
 #[derive(Component)]

@@ -3,6 +3,11 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
 use crate::{menus, net};
+use crate::game::buffers::PosBuffer;
+use crate::game::enemy::EnemyTickEvent;
+use crate::game::player::{LocalPlayer, PlayerTickEvent, UserCmd};
+use crate::net::TickNum;
+
 
 pub fn connect(
     addresses: Res<menus::NetworkAddresses>,
@@ -26,24 +31,32 @@ pub fn connect(
 
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
-    tick_num: Res<net::TickNum>
+    tick: Res<net::TickNum>,
+    pb_query: Query<&PosBuffer, With<LocalPlayer>>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
+    let pb = pb_query.single();
+    let pos = pb.0.get(tick.0);
     let packet = net::Packet {
         protocol: net::MAGIC_NUMBER,
-        //packet_type: net::PacketContents::ClientTick as u16,
         contents: net::PacketContents::ClientTick {
-            seq_num: tick_num.0,
-            pos: Vec2::default(),
-            dir: 0.0,
-            triggers: 0,
-        },
+            seq_num: tick.0,
+            tick: UserCmd {
+                pos: *pos,
+                dir: 0.0,
+            },
+        }
     };
     sock.send(serialize(&packet).expect("couldn't serialize").as_slice()).expect("send failed");
 }
 
-pub fn update(mut sock: ResMut<net::Socket>) {
+pub fn update(
+    mut sock: ResMut<net::Socket>,
+    mut player_writer: EventWriter<PlayerTickEvent>,
+    mut enemy_writer: EventWriter<EnemyTickEvent>,
+    mut tick_num: ResMut<TickNum>
+) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     loop {
@@ -52,20 +65,34 @@ pub fn update(mut sock: ResMut<net::Socket>) {
         let recv = sock.recv_from(&mut buf);
         if recv.is_err() { break; }
         let (size, origin) = recv.unwrap();
+        // TODO if origin != host_addr { continue; }
         if size <= 0 { break; }
         let packet = deserialize::<net::Packet>(&buf);
         if packet.is_err() { break; }
         let packet = packet.unwrap();
         if packet.protocol != net::MAGIC_NUMBER { continue; }
         match packet.contents {
-            // TODO this section
             net::PacketContents::HostTick {
-                seq_num, player_count, enemy_count, players, enemies
+                seq_num, players, enemies
             } => {
-                // store this tick in a local buffer that holds state of all the game objects
+                for (id, tick) in players.iter().enumerate() {
+                    player_writer.send(PlayerTickEvent {
+                        seq_num,
+                        id: id as u8,
+                        tick: *tick
+                    })
+                }
+                for (id, tick) in enemies.iter().enumerate() {
+                    enemy_writer.send(EnemyTickEvent {
+                        seq_num,
+                        id: id as u8,
+                        tick: *tick
+                    });
+                }
+                tick_num.0 = seq_num;
             },
             net::PacketContents::ServerFull => {
-                // close the socket and return to main menu
+                // TODO close the socket and return to main menu
             },
             p => panic!("client sent unexpected packet {:?}", p)
         }

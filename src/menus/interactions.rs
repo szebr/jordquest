@@ -44,6 +44,13 @@ pub fn interact_with_back_button(
     interact_with_button::<BackButtonType>(button_query, app_state_next_state);
 }
 
+pub fn interact_with_controls_button(
+    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<ControlsButton>)>,
+    app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    interact_with_button::<ControlsButtonType>(button_query, app_state_next_state);
+}
+
 pub fn interact_with_credits_button(
     button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<CreditsButton>)>,
     app_state_next_state: ResMut<NextState<AppState>>,
@@ -103,6 +110,15 @@ pub fn update_join_port_input(
     update_input::<JoinPortInput>(char_events, keyboard_input, query, Some(switch_query));
 }
 
+pub fn update_join_host_port_input(
+    char_events: EventReader<ReceivedCharacter>,
+    keyboard_input: Res<Input<KeyCode>>,
+    query: Query<(&mut Text, &mut JoinHostPortInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<JoinHostPortInput>(char_events, keyboard_input, query, Some(switch_query));
+}
+
 pub fn update_join_ip_input(
     char_events: EventReader<ReceivedCharacter>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -150,6 +166,7 @@ pub fn join_port_but(
         match *interaction {
             Interaction::Pressed => {
                 for mut switch in switch_query.iter_mut() {
+                    switch.host_port = false;
                     switch.ip = false;
                     switch.port = true;
                 }
@@ -174,7 +191,33 @@ pub fn join_ip_but(
         match *interaction {
             Interaction::Pressed => {
                 for mut switch in switch_query.iter_mut() {
+                    switch.host_port = false;
                     switch.ip = true;
+                    switch.port = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+pub fn join_host_port_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<JoinHostPortBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host_port = true;
+                    switch.ip = false;
                     switch.port = false;
                 }
             }
@@ -192,6 +235,7 @@ pub fn save_join_input(
     mut net_address: ResMut<NetworkAddresses>,
     join_port_query: Query<&JoinPortInput>,
     join_ip_query: Query<&JoinIPInput>,
+    join_host_port_query: Query<&JoinHostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<JoinSaveBut>),
@@ -206,6 +250,9 @@ pub fn save_join_input(
                 }
                 for join_ip_input in join_ip_query.iter() {
                     net_address.ip = join_ip_input.ip.clone();
+                }
+                for join_host_port_input in join_host_port_query.iter() {
+                    net_address.host_port =join_host_port_input.port.clone();
                 }
                 is_host.0 = false;
                 app_state_next_state.set(AppState::Game);

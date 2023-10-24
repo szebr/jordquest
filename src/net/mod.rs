@@ -6,13 +6,13 @@ use std::net::UdpSocket;
 use bevy::prelude::*;
 use serde::{Serialize, Deserialize};
 use crate::AppState;
-use crate::game::{enemy, player, input};
+use crate::game::{enemy, player};
+use crate::game::player::UserCmd;
 
 
-pub const TICKRATE: u8 = 30;
+pub const TICKRATE: u8 = 10;
 const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
-pub const BUFFER_SIZE: usize = 32;  // matters for ACK, untested, must be pwr of 2
 pub const MAX_PACKET_LEN: usize = 4096;  // probably should check if this is the size of a HostTick
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
 pub const TIMEOUT: u16 = TICKRATE as u16 * 30;  // 30 seconds to timeout
@@ -26,7 +26,6 @@ pub struct Socket(pub Option<UdpSocket>);
 #[derive(Resource)]
 pub struct IsHost(pub bool);
 
-//TODO PlayerTick vs Player vs PlayerInfo? how does that make any sense. fix names
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PacketContents {
     ServerFull,  // sent by host every time request is received and server is full
@@ -35,25 +34,20 @@ pub enum PacketContents {
         seq_num: u16,
         //ack: u16,
         //ack_bits: u32,
-        player_count: u8,
-        enemy_count: u8,
-        players: [player::PlayerInfo; player::MAX_PLAYERS],
-        enemies: [enemy::EnemyInfo; enemy::MAX_ENEMIES],
+        players: [player::PlayerTick; player::MAX_PLAYERS],
+        enemies: [enemy::EnemyTick; enemy::MAX_ENEMIES],
     },
     ClientTick {  // sent by client to host every FixedUpdate unless ServerFull received
         seq_num: u16,
         //ack: u16,
         //ack_bits: u32,
-        pos: Vec2,
-        dir: f32,
-        triggers: u8  // a bit for each possible action (attack, block)
+        tick: UserCmd
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Packet {
     protocol: u16,
-    //packet_type: u16,  // PacketContents as u16 (discriminant of enum variant)
     contents: PacketContents
 }
 
@@ -65,9 +59,9 @@ impl Plugin for NetPlugin {
         (startup,
         host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
             .add_systems(FixedUpdate,
-                         (increment_tick,
-                         client::fixed.run_if(is_client),
-                         host::fixed.run_if(is_host)))
+                         (increment_tick.run_if(is_host),
+                         client::fixed.run_if(is_client).after(player::fixed),
+                         host::fixed.run_if(is_host).after(enemy::fixed)))
             .add_systems(Update,
                          (lerp::lerp_pos,
                          client::update.run_if(is_client),
@@ -90,10 +84,10 @@ pub fn increment_tick(mut tick_num: ResMut<TickNum>) {
 }
 
 // for conditionally running systems
-fn is_host(is_host: Res<IsHost>) -> bool {
+pub fn is_host(is_host: Res<IsHost>) -> bool {
     is_host.0
 }
 
-fn is_client(is_host: Res<IsHost>) -> bool {
+pub fn is_client(is_host: Res<IsHost>) -> bool {
     !is_host.0
 }
