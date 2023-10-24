@@ -70,6 +70,7 @@ impl Plugin for PlayerPlugin{
                 despawn_after_timer,
                 despawn_dead_enemies,
                 update_health_bar,
+                scoreboard_system,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
@@ -94,6 +95,9 @@ pub fn spawn_players(
             Health {
                 current: PLAYER_DEFAULT_HP,
                 max: PLAYER_DEFAULT_HP,
+            },
+            Score {
+                current_score: 0,
             },
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
@@ -131,10 +135,15 @@ pub fn spawn_players(
 pub fn despawn_dead_enemies(
     mut commands: Commands,
     enemy_query: Query<(Entity, &Health), With<Enemy>>,
+    mut player_score_query: Query<&mut Score, With<Player>>,
 ) {
     for (entity, Health) in enemy_query.iter() {
         if Health.current <= 0 {
             commands.entity(entity).despawn();
+            for mut player in player_score_query.iter_mut() {
+                player.current_score += 1;
+            }
+            print!("Enemy killed!\n");
         }
     }
 }
@@ -151,6 +160,18 @@ pub fn update_health_bar(
         for (mut transform) in health_bar_query.iter_mut() {
             let scale = Vec3::new((current_health as f32) / (max_health as f32), 1.0, 1.0);
             transform.scale = scale;
+        }
+    }
+}
+
+// update the score displayed during the game
+pub fn scoreboard_system(
+    player_score_query: Query<&Score, With<Player>>,
+    mut query: Query<&mut Text, With<ScoreDisplay>>,
+) {
+    for mut text in query.iter_mut() {
+        for player in player_score_query.iter() {
+            text.sections[0].value = format!("Score: {}", player.current_score);
         }
     }
 }
@@ -203,7 +224,6 @@ pub fn spawn_weapon_on_click(
                     }
                     None => {
                         Health.current = 0;
-                        // TODO: Handle death
                     }
                 }
             }
