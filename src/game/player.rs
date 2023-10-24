@@ -149,10 +149,9 @@ pub fn update_health_bar(
         let max_health = health.max;
         let current_health = health.current;
         for (mut transform) in health_bar_query.iter_mut() {
-            let scale = Vec3::new((current_health / max_health) as f32, 1.0, 1.0);
+            let scale = Vec3::new((current_health as f32) / (max_health as f32), 1.0, 1.0);
             transform.scale = scale;
         }
-        
     }
 }
 
