@@ -6,13 +6,15 @@ use crate::game::movement::*;
 use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
 use crate::buffers::*;
+use crate::game::components::*;
 use crate::net::IsHost;
 
 
 pub const PLAYER_SPEED: f32 = 250.;
-const PLAYER_DEFAULT_HP: f32 = 100.;
+const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
+pub const PLAYER_DAMAGE: u8 = 10;
 
 //TODO public struct resource holding player count
 
@@ -28,7 +30,7 @@ pub struct PlayerTickEvent {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct PlayerTick {
     pub pos: Vec2,
-    pub hp: f32
+    pub hp: u8,
 }
 
 #[derive(Event, Debug)]
@@ -49,17 +51,12 @@ pub struct UserCmd {
 #[derive(Component)]
 pub struct LocalPlayer;  // marks the player controlled by the local computer
 
-#[derive(Component)]
-pub struct Player(pub u8);  // holds id
 
 #[derive(Component)]
-pub struct Hp(pub f32);
+pub struct PlayerWeapon;
 
 #[derive(Component)]
-pub struct Weapon;
-
-#[derive(Component)]
-struct DespawnWeaponTimer(Timer);
+struct DespawnPlayerWeaponTimer(Timer);
 
 pub struct PlayerPlugin;
 
@@ -92,7 +89,10 @@ pub fn spawn_players(
         let pl = commands.spawn((
             Player(i as u8),
             pb,
-            Hp(PLAYER_DEFAULT_HP),
+            Health {
+                current: PLAYER_DEFAULT_HP,
+                max: PLAYER_DEFAULT_HP,
+            },
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
                 sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
@@ -152,7 +152,7 @@ pub fn spawn_weapon_on_click(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     query: Query<(Entity, &Transform), With<LocalPlayer>>,
-    mut enemy_query: Query<(&Transform, &Collider, &mut Hp), With<enemy::Enemy>>,
+    mut enemy_query: Query<(&Transform, &Collider, &mut Health), With<Enemy>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -181,17 +181,21 @@ pub fn spawn_weapon_on_click(
                     ..Default::default()
                 },
                 ..Default::default()
-            }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+            }).insert(PlayerWeapon).insert(DespawnPlayerWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
         for (enemy_transform, collider, mut hp) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 print!("Hit!\n");
-                hp.0 -= 10.0;  // Assuming a damage value of 10, adjust as needed.
-                if hp.0 <= 0.0 {
-                    // TODO: Handle enemy death logic.
-                    print!("Enemy dead!\n");
+                match hp.current.checked_sub(PLAYER_DAMAGE) {
+                    Some(v) => {
+                        hp.current = v;
+                    }
+                    None => {
+                        hp.current = 0;
+                        // TODO: Handle death
+                    }
                 }
             }
         }
@@ -201,7 +205,7 @@ pub fn spawn_weapon_on_click(
 fn despawn_after_timer(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+    mut query: Query<(Entity, &mut DespawnPlayerWeaponTimer)>,
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());
