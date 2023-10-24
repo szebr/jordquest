@@ -53,10 +53,10 @@ pub struct LocalPlayer;  // marks the player controlled by the local computer
 
 
 #[derive(Component)]
-pub struct Weapon;
+pub struct PlayerWeapon;
 
 #[derive(Component)]
-struct DespawnWeaponTimer(Timer);
+struct DespawnPlayerWeaponTimer(Timer);
 
 pub struct PlayerPlugin;
 
@@ -155,7 +155,7 @@ pub fn spawn_weapon_on_click(
                     ..Default::default()
                 },
                 ..Default::default()
-            }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+            }).insert(PlayerWeapon).insert(DespawnPlayerWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
@@ -179,7 +179,7 @@ pub fn spawn_weapon_on_click(
 fn despawn_after_timer(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+    mut query: Query<(Entity, &mut DespawnPlayerWeaponTimer)>,
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());

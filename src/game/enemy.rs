@@ -37,13 +37,13 @@ pub struct EnemyTick {
 }
 
 #[derive(Component)]
-pub struct Weapon{}
+pub struct EnemyWeapon;
 
 #[derive(Component)]
-struct DespawnWeaponTimer(Timer);
+struct DespawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
-pub struct SpawnWeaponTimer(Timer);
+pub struct SpawnEnemyWeaponTimer(Timer);
 
 pub struct EnemyPlugin;
 
@@ -73,7 +73,7 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
             ..default()
         },
         Collider(ENEMY_SIZE),
-        SpawnWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     )).with_children(|parent| {
         parent.spawn(
             SpriteSheetBundle {
@@ -89,7 +89,7 @@ pub fn spawn_weapon(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnWeaponTimer), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -102,7 +102,7 @@ pub fn spawn_weapon(
                         ..Default::default()
                     },
                     ..Default::default()
-                }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+                }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
         }
     }
@@ -111,7 +111,7 @@ pub fn spawn_weapon(
 fn despawn_after_timer(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+    mut query: Query<(Entity, &mut DespawnEnemyWeaponTimer)>,
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());
@@ -122,9 +122,8 @@ fn despawn_after_timer(
 }
 
 pub fn weapon_dealt_damage_system(
-    mut player_query: Query<(&Transform, &Collider, &mut player::Hp), With<Player>>,
-    weapon_query: Query<&Transform, With<Weapon>>
     mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
+    weapon_query: Query<&Transform, With<EnemyWeapon>>
 ) {
     for weapon_transform in weapon_query.iter() {
         for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
