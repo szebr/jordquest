@@ -66,6 +66,8 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update,
                 (spawn_weapon_on_click,
                 despawn_after_timer,
+                despawn_dead,
+                update_health_bar,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
@@ -120,6 +122,30 @@ pub fn spawn_players(
     }
 }
 
+// Despawn entity if their hp <= 0, sprite will not be removed from the screen
+// Note: This is a very naive implementation, and will need to be updated later.
+pub fn despawn_dead(
+    mut commands: Commands,
+    query: Query<(Entity, &Hp)>,
+) {
+    for (entity, hp) in query.iter() {
+        if hp.0 <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+// update the health bar child of player entity to reflect current hp
+// TODO: Fix transformation to only apply to health bar, not player sprite.
+pub fn update_health_bar(
+    mut query: Query<(&Hp, &mut Transform)>,
+) {
+    for (hp, mut transform) in query.iter_mut() {
+        let scale = Vec3::new(hp.0 / PLAYER_DEFAULT_HP, 1.0, 1.0);
+        transform.scale = scale;
+    }
+}
+
 pub fn spawn_weapon_on_click(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -145,7 +171,7 @@ pub fn spawn_weapon_on_click(
         let offset_x = circle_radius * weapon_direction.cos();
         let offset_y = circle_radius * weapon_direction.sin();
         let offset = Vec2::new(offset_x, offset_y);
-    
+            
         commands.entity(player_entity).with_children(|parent| {
             parent.spawn(SpriteBundle {
                 texture: asset_server.load("sword01.png").into(),
