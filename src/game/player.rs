@@ -9,7 +9,6 @@ use crate::buffers::*;
 use crate::game::components::*;
 use crate::net::IsHost;
 
-
 pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -126,10 +125,10 @@ pub fn spawn_players(
 // Note: This is a very naive implementation, and will need to be updated later.
 pub fn despawn_dead(
     mut commands: Commands,
-    query: Query<(Entity, &Hp)>,
+    query: Query<(Entity, &Health)>,
 ) {
     for (entity, hp) in query.iter() {
-        if hp.0 <= 0.0 {
+        if hp.current <= 0 {
             commands.entity(entity).despawn();
         }
     }
@@ -138,10 +137,10 @@ pub fn despawn_dead(
 // update the health bar child of player entity to reflect current hp
 // TODO: Fix transformation to only apply to health bar, not player sprite.
 pub fn update_health_bar(
-    mut query: Query<(&Hp, &mut Transform)>,
+    mut query: Query<(&Health, &mut Transform)>,
 ) {
     for (hp, mut transform) in query.iter_mut() {
-        let scale = Vec3::new(hp.0 / PLAYER_DEFAULT_HP, 1.0, 1.0);
+        let scale = Vec3::new((hp.current / hp.max) as f32, 1.0, 1.0);
         transform.scale = scale;
     }
 }
