@@ -149,7 +149,6 @@ pub fn despawn_dead_enemies(
 }
 
 // update the health bar child of player entity to reflect current hp
-// TODO: Fix transformation to only apply to health bar, not player sprite.
 pub fn update_health_bar(
     mut health_bar_query: Query<(&mut Transform), With<HealthBar>>,
     mut player_health_query: Query<&Health, With<Player>>,
