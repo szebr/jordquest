@@ -6,6 +6,7 @@ use std::{
 };
 use csv::ReaderBuilder;
 use rand::Rng;
+use serde::de::Unexpected::Map;
 //use crate::noise::Perlin;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -229,8 +230,8 @@ pub fn get_surrounding_tiles(
     player_pos: &Vec3,
     map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> [[Biome; 3]; 3] {
-    let col = ((player_pos.x.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
-    let row = ((-player_pos.y.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
+    let col = (player_pos.x + (TILESIZE * MAPSIZE / 2) as f32).round() as usize / TILESIZE;
+    let row = (-player_pos.y + (TILESIZE * MAPSIZE / 2) as f32).round() as usize / TILESIZE;
     if row == 0 || row == MAPSIZE-1 || col == 0 || col == MAPSIZE-1 {
         [[Biome::Wall, Biome::Wall, Biome::Wall],
          [Biome::Wall, Biome::Wall, Biome::Wall],
