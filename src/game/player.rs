@@ -55,6 +55,9 @@ pub struct LocalPlayer;  // marks the player controlled by the local computer
 pub struct PlayerWeapon;
 
 #[derive(Component)]
+pub struct HealthBar;
+
+#[derive(Component)]
 struct DespawnPlayerWeaponTimer(Timer);
 
 pub struct PlayerPlugin;
@@ -65,8 +68,8 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update,
                 (spawn_weapon_on_click,
                 despawn_after_timer,
-                despawn_dead,
-                update_health_bar,
+                despawn_dead_enemies,
+                // update_health_bar,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
@@ -101,14 +104,16 @@ pub fn spawn_players(
             Collider(PLAYER_SIZE),
         )).id();
 
-        let health_bar = commands.spawn(SpriteBundle {
+        let health_bar = commands.spawn((
+            SpriteBundle {
             texture: asset_server.load("healthbar.png").into(),
             transform: Transform {
                 translation: Vec3::new(0., 24., 2.),
                 ..Default::default()
             },
-            ..Default::default()
-        }).id();
+            ..Default::default()},
+            HealthBar,
+        )).id();
 
         commands.entity(pl).push_children(&[health_bar]);
 
@@ -123,12 +128,12 @@ pub fn spawn_players(
 
 // Despawn entity if their hp <= 0, sprite will not be removed from the screen
 // Note: This is a very naive implementation, and will need to be updated later.
-pub fn despawn_dead(
+pub fn despawn_dead_enemies(
     mut commands: Commands,
-    query: Query<(Entity, &Health)>,
+    enemy_query: Query<(Entity, &Health), With<Enemy>>,
 ) {
-    for (entity, hp) in query.iter() {
-        if hp.current <= 0 {
+    for (entity, Health) in enemy_query.iter() {
+        if Health.current <= 0 {
             commands.entity(entity).despawn();
         }
     }
@@ -136,14 +141,14 @@ pub fn despawn_dead(
 
 // update the health bar child of player entity to reflect current hp
 // TODO: Fix transformation to only apply to health bar, not player sprite.
-pub fn update_health_bar(
-    mut query: Query<(&Health, &mut Transform)>,
-) {
-    for (hp, mut transform) in query.iter_mut() {
-        let scale = Vec3::new((hp.current / hp.max) as f32, 1.0, 1.0);
-        transform.scale = scale;
-    }
-}
+// pub fn update_health_bar(
+//     mut query: Query<(&Health, &mut Transform)>,
+// ) {
+//     for (Health, mut transform) in query.iter_mut() {
+//         let scale = Vec3::new((Health.current / Health.max) as f32, 1.0, 1.0);
+//         transform.scale = scale;
+//     }
+// }
 
 pub fn spawn_weapon_on_click(
     mut commands: Commands,
@@ -184,15 +189,15 @@ pub fn spawn_weapon_on_click(
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
-        for (enemy_transform, collider, mut hp) in enemy_query.iter_mut() {
+        for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 print!("Hit!\n");
-                match hp.current.checked_sub(PLAYER_DAMAGE) {
+                match Health.current.checked_sub(PLAYER_DAMAGE) {
                     Some(v) => {
-                        hp.current = v;
+                        Health.current = v;
                     }
                     None => {
-                        hp.current = 0;
+                        Health.current = 0;
                         // TODO: Handle death
                     }
                 }
