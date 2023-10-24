@@ -226,39 +226,12 @@ fn spawn_tile<T>(
 }
 
 pub fn get_surrounding_tiles(
-    player: &Vec3,
+    player_pos: &Vec3,
     map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> [[Biome; 3]; 3] {
-    
-    //align the player's x position to be the leftmost pixel of a given tile
-    let player_x_whole = player.x.floor() as isize;
-    let x_aligned = {
-        if player_x_whole % TILESIZE as isize != 0{
-            player_x_whole - (player_x_whole % TILESIZE as isize)
-        }else{
-            player_x_whole 
-        }
-    };
-    //convert aligned x pos of player into a col of map array
-    let tile_col:usize = ((x_aligned/TILESIZE as isize) + (MAPSIZE as isize/2)) as usize;
-    
-    //align the player's y position to be the topmost pixel of a given tile
-    let player_y_whole = player.y.floor() as isize;
-    let y_aligned = {
-        if player_y_whole % TILESIZE as isize != 0{
-            player_y_whole + (player_y_whole % TILESIZE as isize)
-        }else{
-            player_y_whole
-        }
-    };
-    //convert aligned y pos of player into a row of map array
-    let tile_row:usize = ((MAPSIZE as isize/2) - (y_aligned/TILESIZE as isize)) as usize;
-    
-    //return an array of enums for the 9 surrounding tiles
-    let tiles: [[Biome; 3]; 3] = [
-        [map[tile_col-1][tile_row-1], map[tile_col][tile_row-1], map[tile_col+1][tile_row-1]],
-        [map[tile_col-1][tile_row], map[tile_col][tile_row], map[tile_col+1][tile_row]],
-        [map[tile_col-1][tile_row+1], map[tile_col][tile_row+1], map[tile_col+1][tile_row+1]]
-    ];
-    tiles
+    let col = ((player_pos.x.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
+    let row = ((-player_pos.y.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
+    [[map[row -1][col -1], map[row -1][col], map[row -1][col +1]],
+     [map[row][col -1], map[row][col], map[row][col +1]],
+     [map[row +1][col -1], map[row +1][col], map[row +1][col +1]]]
 }
