@@ -1,19 +1,21 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::movement::Collider;
-use crate::game::player;
-use crate::player::Player;
-use crate::net;
+use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
+use crate::game::components::*;
+use crate::game::player;
 use crate::net::is_host;
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
+pub const ENEMY_MAX_HP: u8 = 100;
 
-const SWORD_DAMAGE: f32 = 0.5;  //sword damage, adjust this accordingly
+const SWORD_DAMAGE: u8 = 1;  //sword damage, adjust this accordingly
 
 //TODO public struct resource holding enemy count
 
@@ -30,20 +32,17 @@ pub struct EnemyTickEvent {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct EnemyTick {
     pub pos: Vec2,
-    pub hp: f32
+    pub hp: u8
 }
 
 #[derive(Component)]
-pub struct Enemy(pub u8);  // holds id
+pub struct EnemyWeapon;
 
 #[derive(Component)]
-pub struct Weapon{}
+struct DespawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
-struct DespawnWeaponTimer(Timer);
-
-#[derive(Component)]
-pub struct SpawnWeaponTimer(Timer);
+pub struct SpawnEnemyWeaponTimer(Timer);
 
 pub struct EnemyPlugin;
 
@@ -52,7 +51,7 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, fixed.run_if(is_host))
             .add_systems(Update, packet)
             .add_systems(Update, spawn_weapon)
-            .add_systems(Update, despawn_after_timer) 
+            .add_systems(Update, despawn_after_timer)
             .add_systems(Update, weapon_dealt_damage_system)
             .add_event::<EnemyTickEvent>();
     }
@@ -63,13 +62,16 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
     commands.spawn((
         Enemy(id),
         pb,
-        player::Hp(100.),
+        Health {
+            current: ENEMY_MAX_HP,
+            max: ENEMY_MAX_HP,
+        },
         SpatialBundle {
             transform: Transform::from_xyz(0., 0., 2.),
             ..default()
         },
         Collider(ENEMY_SIZE),
-        SpawnWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     )).with_children(|parent| {
         parent.spawn(
             SpriteSheetBundle {
@@ -85,7 +87,7 @@ pub fn spawn_weapon(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnWeaponTimer), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -98,7 +100,7 @@ pub fn spawn_weapon(
                         ..Default::default()
                     },
                     ..Default::default()
-                }).insert(Weapon {}).insert(DespawnWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+                }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
         }
     }
@@ -107,7 +109,7 @@ pub fn spawn_weapon(
 fn despawn_after_timer(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnWeaponTimer)>,
+    mut query: Query<(Entity, &mut DespawnEnemyWeaponTimer)>,
 ) {
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());
@@ -118,19 +120,26 @@ fn despawn_after_timer(
 }
 
 pub fn weapon_dealt_damage_system(
-    mut player_query: Query<(&Player, &Transform, &mut player::Hp)>,
-    weapon_query: Query<(&Weapon, &Transform)>
+    mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
+    weapon_query: Query<&Transform, With<EnemyWeapon>>
 ) {
-    for (weapon, weapon_transform) in weapon_query.iter() {
-        for (_, player_transform, mut hp) in player_query.iter_mut() {
+    for weapon_transform in weapon_query.iter() {
+        for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
             if let Some(_) = collide(
                 weapon_transform.translation,
-                player::PLAYER_SIZE,
+                weapon_transform.scale.xy(),
                 player_transform.translation,
-                ENEMY_SIZE,
+                player_collider.0,
             ) {
-                hp.0 -= SWORD_DAMAGE;
-                //println!("Player's current HP: {}", hp.0);
+                match player_HP.current.checked_sub(SWORD_DAMAGE) {
+                    Some(v) => {
+                        player_HP.current = v;
+                    }
+                    None => {
+                        // player would die from hit
+                        player_HP.current = 0;
+                    }
+                }
             }
         }
     }

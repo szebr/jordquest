@@ -4,8 +4,8 @@ use bincode::{deserialize, serialize};
 use crate::game::{enemy, player};
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::enemy::Enemy;
-use crate::game::player::{Hp, Player, UserCmdEvent};
+use crate::game::player::{UserCmdEvent};
+use crate::components::*;
 
 #[derive(Copy, Clone)]
 pub struct Connection {
@@ -39,30 +39,30 @@ pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
-    player_query: Query<(&PosBuffer, &Hp, &Player)>,
-    enemy_query: Query<(&PosBuffer, &Hp, &Enemy)>
+    player_query: Query<(&PosBuffer, &Health, &Player)>,
+    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     //TODO get all enemies and get all players, how tf am i gonna do that
     let mut players = [player::PlayerTick {
         pos: Default::default(),
-        hp: 0.0,
+        hp: 0,
     }; player::MAX_PLAYERS];
     for (pb, hp, pl) in &player_query {
         players[pl.0 as usize] = player::PlayerTick {
             pos: *pb.0.get(tick.0),
-            hp: hp.0
+            hp: hp.current
         }
     }
     let mut enemies = [enemy::EnemyTick {
         pos: Default::default(),
-        hp: 0.0,
+        hp: 0,
     }; enemy::MAX_ENEMIES];
     for (pb, hp, en) in &enemy_query {
         enemies[en.0 as usize] = enemy::EnemyTick {
             pos: *pb.0.get(tick.0),
-            hp: hp.0
+            hp: hp.current
         }
     }
     let packet = net::Packet {

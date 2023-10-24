@@ -4,6 +4,7 @@ use crate::game::player::LocalPlayer;
 use crate::{map, map::WorldMap};
 use crate::movement;
 use crate::AppState;
+use crate::game::components::Player;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 

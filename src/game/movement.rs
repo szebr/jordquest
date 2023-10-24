@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::map;
+use crate::components::Player;
 
 #[derive(Resource)]
 pub struct KeyBinds {

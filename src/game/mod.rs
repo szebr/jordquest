@@ -8,6 +8,7 @@ pub mod noise;
 pub mod movement;
 pub mod buffers;
 pub mod camp;
+pub mod components;
 
 pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES, CAMPS, AND... ANOTHER PLAYER!? CAN I EARN ENOUGH UPGRADES TO BE VICTORIOUS AND FILL MY DIAPER?";
 pub const WIN_W: f32 = 1280.;
