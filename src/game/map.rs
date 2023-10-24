@@ -231,7 +231,13 @@ pub fn get_surrounding_tiles(
 ) -> [[Biome; 3]; 3] {
     let col = ((player_pos.x.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
     let row = ((-player_pos.y.round() as isize / TILESIZE as isize) + MAPSIZE as isize / 2) as usize;
-    [[map[row -1][col -1], map[row -1][col], map[row -1][col +1]],
-     [map[row][col -1], map[row][col], map[row][col +1]],
-     [map[row +1][col -1], map[row +1][col], map[row +1][col +1]]]
+    if row == 0 || row == MAPSIZE-1 || col == 0 || col == MAPSIZE-1 {
+        [[Biome::Wall, Biome::Wall, Biome::Wall],
+         [Biome::Wall, Biome::Wall, Biome::Wall],
+         [Biome::Wall, Biome::Wall, Biome::Wall]]
+    } else {
+        [[map[row - 1][col - 1], map[row - 1][col], map[row - 1][col + 1]],
+         [map[row][col - 1], map[row][col], map[row][col + 1]],
+         [map[row + 1][col - 1], map[row + 1][col], map[row + 1][col + 1]]]
+    }
 }
