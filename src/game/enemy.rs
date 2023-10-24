@@ -51,17 +51,16 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, fixed.run_if(is_host))
             .add_systems(Update, packet)
             .add_systems(Update, spawn_weapon)
-            .add_systems(Update, despawn_after_timer) 
-            .add_systems(OnEnter(AppState::Game), spawn_enemy)
+            .add_systems(Update, despawn_after_timer)
             .add_systems(Update, weapon_dealt_damage_system)
             .add_event::<EnemyTickEvent>();
     }
 }
 
-pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
-    let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(-100., -100.)));
+pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, pos: Vec2, sprite: i32) {
+    let pb = PosBuffer(CircularBuffer::new_from(pos));
     commands.spawn((
-        Enemy(0),
+        Enemy(id),
         pb,
         Health {
             current: ENEMY_MAX_HP,
@@ -77,7 +76,7 @@ pub fn spawn_enemy(mut commands: Commands, entity_atlas: Res<Atlas>) {
         parent.spawn(
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, 5), ..default()},
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             });
