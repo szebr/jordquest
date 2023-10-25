@@ -166,8 +166,8 @@ pub fn scoreboard_system(
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 // TODO: Add a timer to prevent player from dying multiple times in a row
 pub fn handle_dead_player(
-    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
-    mut score_query: Query<&mut Score, With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health), (With<Player>, Without<Enemy>)>,
+    mut score_query: Query<&mut Score, (With<Player>, Without<Enemy>)>,
 ) {
     for (mut tf, mut health) in player_query.iter_mut() {
         if health.current <= 0 {
