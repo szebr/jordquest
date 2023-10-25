@@ -69,7 +69,10 @@ impl Plugin for NetPlugin {
                          host::update.run_if(is_host)))
             .add_systems(OnEnter(AppState::Game),
                          (client::connect.run_if(is_client),
-                         host::connect.run_if(is_host)));
+                         host::connect.run_if(is_host)))
+            .add_systems(OnExit(AppState::Game),
+                     (client::disconnect.run_if(is_client),
+                      host::disconnect.run_if(is_host)));
     }
 }
 
