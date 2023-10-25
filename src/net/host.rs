@@ -34,6 +34,16 @@ pub fn connect(addresses: Res<menus::NetworkAddresses>,
     println!("host successful");
 }
 
+pub fn disconnect(
+    mut sock: ResMut<net::Socket>,
+    mut conns: ResMut<Connections>
+) {
+    sock.0.take();
+    for conn in conns.0.iter_mut() {
+        conn.take();
+    }
+}
+
 //TODO this needs to run after every other fixed has run
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
