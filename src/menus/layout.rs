@@ -3,6 +3,7 @@ use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::prelude::Timer;
 use bevy::prelude::*;
+use crate::game::components::*;
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -1153,7 +1154,7 @@ pub fn build_in_game_menu(commands: &mut Commands, asset_server: &Res<AssetServe
         })
         .with_children(|parent| {
             // Score Display
-            parent.spawn(TextBundle {
+            parent.spawn((TextBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
                     left: Val::Px(PADDING),
@@ -1172,8 +1173,9 @@ pub fn build_in_game_menu(commands: &mut Commands, asset_server: &Res<AssetServe
                     alignment: TextAlignment::Left,
                     ..Default::default()
                 },
-                ..Default::default()
-            });
+                ..Default::default()},
+                ScoreDisplay,)
+            );
 
             // Timer Display
             let timer_entity = parent.spawn(TextBundle {

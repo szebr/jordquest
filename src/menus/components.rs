@@ -20,8 +20,6 @@ pub struct ControlsPage {}
 #[derive(Component)]
 pub struct CreditsPage {}
 
-
-
 pub trait InputType: Component {
     fn push_char(&mut self, ch: char);
     fn pop_char(&mut self);

@@ -13,6 +13,14 @@ pub struct Health {
 pub struct Collider(pub Vec2);
 
 #[derive(Component)]
+pub struct Score {
+    pub current_score: u8,
+}
+
+#[derive(Component)]
+pub struct ScoreDisplay;
+
+#[derive(Component)]
 pub struct Enemy(pub u8);  // holds id
 
 #[derive(Component)]
