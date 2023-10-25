@@ -27,7 +27,7 @@ impl Perlin {
             0.0
         }
         else {
-            let mut r = a * (self.perlin(x * f, y * f) + self.fbm(x, y, 
+            let r = a * (self.perlin(x * f, y * f) + self.fbm(x, y,
                 a * 0.3, // multiply amplitude by decimal (ex. 0.5) to decrease it
                 f * 2.0, // double frequency to increase frequency
                 o - 1));
@@ -73,7 +73,7 @@ impl Perlin {
         let u = Self::fade(xf); let v = Self::fade(yf);
     
         // lerp through all dot products to get noise value at coordinate
-        let mut n = Self::lerp(Self::lerp(dot_bot_l, dot_top_l, v), 
+        let n = Self::lerp(Self::lerp(dot_bot_l, dot_top_l, v),
              Self::lerp(dot_bot_r, dot_top_r, v),
              u);
         

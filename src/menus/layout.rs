@@ -251,11 +251,11 @@ pub fn build_main_menu(
 pub fn spawn_credits_page(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
-    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
+    mut player_query: Query<&mut Transform, With<Player>>,
 ) {
-    for (mut Transform, mut Health) in player_query.iter_mut() {
+    for mut tf in player_query.iter_mut() {
         let translation = Vec3::new(0.0, 0.0, 1.0);
-        Transform.translation = translation; 
+        tf.translation = translation;
     }
     commands
         .spawn((
@@ -1084,159 +1084,11 @@ pub fn build_controls_page(
     controls_page_entity
 }
 
-// Doesn't work, don't call this function
-pub fn build_credits_page(
-    commands: &mut Commands, 
-    asset_server: &Res<AssetServer>
-) -> Entity {
-    // let image_names = vec![
-    //     "brendan_credits_slide.png",
-    //     "CreditAlexLampe.png",
-    //     "CreditGarrettDiCenzo.jpg",
-    //     "CreditIanWhitfield.png",
-    //     "CreditJordanBrudenell.png",
-    //     "CreditRuohengXu.jpg",
-    //     "CreditSamDurigon.png"
-    // ];
-
-    let credits_page_entity = commands
-        .spawn((
-            NodeBundle {
-                style: Style {
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    ..default()
-                },
-                background_color: Color::WHITE.into(),
-                ..default()
-            },
-            CreditsPage {},
-        ))
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("brendan_credits_slide.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(0),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditAlexLampe.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(1),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditGarrettDiCenzo.jpg"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(2),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditIanWhitfield.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(3),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditJordanBrudenell.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(4),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditRuohengXu.jpg"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(5),
-        //             ..default()
-        //         });
-        // })
-        // .with_children(|parent|{
-        //     parent.spawn(
-        //         ImageBundle {
-        //             style: Style{
-        //                 width: Val::Percent(100.0),
-        //                 height: Val::Percent(100.0),
-        //                 ..default()
-        //             },
-        //             image: UiImage{
-        //                 texture: asset_server.load("CreditSamDurigon.png"),
-        //                 ..default()
-        //             },
-        //             z_index: ZIndex::Local(6),
-        //             ..default()
-        //         });
-        // })
-        .id();
-
-    credits_page_entity
-}
-
 pub fn spawn_in_game_menu(
     mut commands: Commands, 
     asset_server: Res<AssetServer>
 ) {
-    let in_game_menu_entity = build_in_game_menu(&mut commands, &asset_server);
+    build_in_game_menu(&mut commands, &asset_server);
 }
 
 pub fn despawn_in_game_menu(
@@ -1344,11 +1196,11 @@ pub fn update_time_remaining_system(
             text.sections[0].value = format!("{:02}:{:02}", minutes, seconds);
         } else {
             // TODO Handle game over logic
-            for (mut Style) in join_page_query.iter_mut() {
-                Style.display = Display::None;
+            for mut style in join_page_query.iter_mut() {
+                style.display = Display::None;
             }
-            for (mut Style) in game_over_query.iter_mut() {
-                Style.display = Display::Flex;
+            for mut style in game_over_query.iter_mut() {
+                style.display = Display::Flex;
             }
 
         }
@@ -1501,7 +1353,7 @@ pub fn spawn_game_over_screen(
     mut commands: Commands, 
     asset_server: Res<AssetServer>
 ) {
-    let game_over_entity = build_game_over_screen(&mut commands, &asset_server);
+    build_game_over_screen(&mut commands, &asset_server);
 }
 
 pub fn despawn_game_over_screen(

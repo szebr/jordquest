@@ -1,4 +1,3 @@
-use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
@@ -55,7 +54,6 @@ impl Plugin for EnemyPlugin{
                 spawn_weapon,
                 despawn_after_timer,
                 despawn_dead_enemies,
-                weapon_dealt_damage_system,
                 show_damage,
             ))
             .add_systems(OnExit(AppState::Game), remove_enemies)
@@ -109,15 +107,15 @@ pub fn spawn_weapon(
                     ..Default::default()
                 }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
-            for (player_transform, mut player_HP) in player_query.iter_mut() {
+            for (player_transform, mut player_hp) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
-                    match player_HP.current.checked_sub(CIRCLE_DAMAGE) {
+                    match player_hp.current.checked_sub(CIRCLE_DAMAGE) {
                         Some(v) => {
-                            player_HP.current = v;
+                            player_hp.current = v;
                         }
                         None => {
                             // player would die from hit
-                            player_HP.current = 0;
+                            player_hp.current = 0;
                         }
                     }
                 }
@@ -164,16 +162,18 @@ pub fn show_damage(
     mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
 ) {
     for (health, mut sprite) in enemies.iter_mut() {
-        let fade = (health.current as f32 / health.max as f32);
+        let fade = health.current as f32 / health.max as f32;
         sprite.color = Color::Rgba {red: 1.0, green: fade, blue: fade, alpha: 1.0};
     }
 }
 
+/*
+FIX AFTER MIDTERM :)
 pub fn weapon_dealt_damage_system(
     mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
     weapon_query: Query<&Transform, With<EnemyWeapon>>
 ) {
-    /*for weapon_transform in weapon_query.iter() {
+     for weapon_transform in weapon_query.iter() {
         for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
             if let Some(_) = collide(
                 weapon_transform.translation,
@@ -192,8 +192,8 @@ pub fn weapon_dealt_damage_system(
                 }
             }
         }
-    }*/
-}
+    }
+}*/
 
 pub fn fixed(
     tick: Res<net::TickNum>,
@@ -220,7 +220,7 @@ pub fn fixed(
             continue 
         }
         let movement = movement.normalize();
-        let mut possible_movement = *prev + movement * ENEMY_SPEED;
+        let possible_movement = *prev + movement * ENEMY_SPEED;
         //TODO same todo as on player.rs, however additionally,
         // ideally the collision would check for all players and all
         // other enemies, etc. so we might have to break it out

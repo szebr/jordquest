@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy::sprite::collide_aabb::collide;
 use crate::{enemy, net};
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
@@ -140,11 +139,11 @@ pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player
 // Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
-    mut player_health_query: Query<(&Health, &Children), With<Player>>,
+    player_health_query: Query<(&Health, &Children), With<Player>>,
 ) {
     for (health, children) in player_health_query.iter() {
         for child in children.iter() {
-            let mut tf = health_bar_query.get_mut(*child);
+            let tf = health_bar_query.get_mut(*child);
             if let Ok(mut tf) = tf {
                 tf.scale = Vec3::new((health.current as f32) / (health.max as f32), 1.0, 1.0);
             }
@@ -226,15 +225,15 @@ pub fn spawn_weapon_on_click(
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
-        for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
+        for (enemy_transform, collider, mut health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 print!("Hit!\n");
-                match Health.current.checked_sub(SWORD_DAMAGE) {
+                match health.current.checked_sub(SWORD_DAMAGE) {
                     Some(v) => {
-                        Health.current = v;
+                        health.current = v;
                     }
                     None => {
-                        Health.current = 0;
+                        health.current = 0;
                     }
                 }
             }

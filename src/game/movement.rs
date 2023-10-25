@@ -66,7 +66,6 @@ pub fn move_player(
 
     // should only be a single entry in this query (with localplayer)
     let player = players.single_mut();
-    let player_struct = player.0;
     let pos = player.1.into_inner();
     let collider = player.2;
 
