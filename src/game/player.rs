@@ -13,7 +13,7 @@ pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
-pub const PLAYER_DAMAGE: u8 = 10;
+pub const SWORD_DAMAGE: u8 = 10;
 
 //TODO public struct resource holding player count
 
@@ -89,7 +89,6 @@ pub fn spawn_players(
     is_host: Res<IsHost>
 ) {
     for i in 0..MAX_PLAYERS {
-
         let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(i as f32 * 100., i as f32 * 100.)));
         let pl = commands.spawn((
             Player(i as u8),
@@ -151,20 +150,20 @@ pub fn despawn_dead_enemies(
             for mut player in player_score_query.iter_mut() {
                 player.current_score += 1;
             }
-            // print!("Enemy killed!\n");
+            print!("Enemy killed!\n");
         }
     }
 }
 
 // Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
-    mut health_bar_query: Query<(&mut Transform), With<HealthBar>>,
+    mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
     mut player_health_query: Query<&Health, With<Player>>,
 ) {
     for health in player_health_query.iter_mut() {
         let max_health = health.max;
         let current_health = health.current;
-        for (mut transform) in health_bar_query.iter_mut() {
+        for mut transform in health_bar_query.iter_mut() {
             let scale = Vec3::new((current_health as f32) / (max_health as f32), 1.0, 1.0);
             transform.scale = scale;
         }
@@ -198,7 +197,7 @@ pub fn handle_dead_player(
                     player.current_score = 0;
                 }
             }
-            // print!("You died!\n");
+            print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
             Transform.translation = translation; 
             Health.current = PLAYER_DEFAULT_HP;
@@ -236,7 +235,7 @@ pub fn spawn_weapon_on_click(
             parent.spawn(SpriteBundle {
                 texture: asset_server.load("sword01.png").into(),
                 transform: Transform {
-                    translation: Vec3::new(offset.x, offset.y, 1.0),
+                    translation: Vec3::new(offset.x, offset.y, 5.0),
                     rotation: Quat::from_rotation_z(weapon_direction),
                     ..Default::default()
                 },
@@ -248,7 +247,7 @@ pub fn spawn_weapon_on_click(
         for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 // print!("Hit!\n");
-                match Health.current.checked_sub(PLAYER_DAMAGE) {
+                match Health.current.checked_sub(SWORD_DAMAGE) {
                     Some(v) => {
                         Health.current = v;
                     }

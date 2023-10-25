@@ -15,7 +15,8 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
 pub const FOLLOW_DISTANCE: f32 = 200.0;
 
-const SWORD_DAMAGE: u8 = 1;  //sword damage, adjust this accordingly
+const CIRCLE_RADIUS: f32 = 64.;
+const CIRCLE_DAMAGE: u8 = 15;
 
 //TODO public struct resource holding enemy count
 
@@ -95,6 +96,7 @@ pub fn spawn_weapon(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
+    mut player_query: Query<(&Transform, &mut Health), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -103,12 +105,25 @@ pub fn spawn_weapon(
                 parent.spawn(SpriteBundle {
                     texture: asset_server.load("EnemyAttack01.png").into(),
                     transform: Transform {
-                        translation: Vec3::new(0.0, 0.0, 1.0),
+                        translation: Vec3::new(0.0, 0.0, 5.0),
                         ..Default::default()
                     },
                     ..Default::default()
                 }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
+            for (player_transform, mut player_HP) in player_query.iter_mut() {
+                if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
+                    match player_HP.current.checked_sub(CIRCLE_DAMAGE) {
+                        Some(v) => {
+                            player_HP.current = v;
+                        }
+                        None => {
+                            // player would die from hit
+                            player_HP.current = 0;
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -130,7 +145,7 @@ pub fn weapon_dealt_damage_system(
     mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
     weapon_query: Query<&Transform, With<EnemyWeapon>>
 ) {
-    for weapon_transform in weapon_query.iter() {
+    /*for weapon_transform in weapon_query.iter() {
         for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
             if let Some(_) = collide(
                 weapon_transform.translation,
@@ -138,7 +153,7 @@ pub fn weapon_dealt_damage_system(
                 player_transform.translation,
                 player_collider.0,
             ) {
-                match player_HP.current.checked_sub(SWORD_DAMAGE) {
+                match player_HP.current.checked_sub(CIRCLE_DAMAGE) {
                     Some(v) => {
                         player_HP.current = v;
                     }
@@ -149,7 +164,7 @@ pub fn weapon_dealt_damage_system(
                 }
             }
         }
-    }
+    }*/
 }
 
 pub fn fixed(
