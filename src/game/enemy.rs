@@ -56,6 +56,7 @@ impl Plugin for EnemyPlugin{
                 despawn_after_timer,
                 despawn_dead_enemies,
                 weapon_dealt_damage_system,
+                show_damage,
             ))
             .add_systems(OnExit(AppState::Game), remove_enemies)
             .add_event::<EnemyTickEvent>();
@@ -71,21 +72,15 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
             current: ENEMY_MAX_HP,
             max: ENEMY_MAX_HP,
         },
-        SpatialBundle {
+        SpriteSheetBundle {
+            texture_atlas: entity_atlas.handle.clone(),
+            sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
             transform: Transform::from_xyz(0., 0., 2.),
             ..default()
         },
         Collider(ENEMY_SIZE),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
-    )).with_children(|parent| {
-        parent.spawn(
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            });
-    });
+    ));
 }
 
 pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
@@ -160,6 +155,17 @@ pub fn despawn_dead_enemies(
             }
             print!("Enemy killed!\n");
         }
+    }
+}
+
+
+// Update the health bar child of player entity to reflect current hp
+pub fn show_damage(
+    mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
+) {
+    for (health, mut sprite) in enemies.iter_mut() {
+        let fade = (health.current as f32 / health.max as f32);
+        sprite.color = Color::Rgba {red: 1.0, green: fade, blue: fade, alpha: 1.0};
     }
 }
 
