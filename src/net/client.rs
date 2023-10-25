@@ -29,10 +29,6 @@ pub fn connect(
     println!("connection successful");
 }
 
-pub fn disconnect(mut sock: ResMut<net::Socket>) {
-    sock.0.take();
-}
-
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
