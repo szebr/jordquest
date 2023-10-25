@@ -13,7 +13,7 @@ pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
-pub const SWORD_DAMAGE: u8 = 10;
+pub const SWORD_DAMAGE: u8 = 40;
 
 //TODO public struct resource holding player count
 
@@ -68,7 +68,6 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update,
                 (spawn_weapon_on_click,
                 despawn_after_timer,
-                despawn_dead_enemies,
                 update_health_bar,
                 scoreboard_system,
                 handle_dead_player,
@@ -137,23 +136,6 @@ pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player
     }
 }
 
-// Despawn entity if their hp <= 0, sprite will not be removed from the screen
-// Adds 1 to player score if enemy is killed
-pub fn despawn_dead_enemies(
-    mut commands: Commands,
-    enemy_query: Query<(Entity, &Health), With<Enemy>>,
-    mut player_score_query: Query<&mut Score, With<Player>>,
-) {
-    for (entity, Health) in enemy_query.iter() {
-        if Health.current <= 0 {
-            commands.entity(entity).despawn();
-            for mut player in player_score_query.iter_mut() {
-                player.current_score += 1;
-            }
-            print!("Enemy killed!\n");
-        }
-    }
-}
 
 // Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(

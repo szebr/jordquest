@@ -50,10 +50,13 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, fixed.run_if(is_host))
-            .add_systems(Update, packet)
-            .add_systems(Update, spawn_weapon)
-            .add_systems(Update, despawn_after_timer)
-            .add_systems(Update, weapon_dealt_damage_system)
+            .add_systems(Update, (
+                packet,
+                spawn_weapon,
+                despawn_after_timer,
+                despawn_dead_enemies,
+                weapon_dealt_damage_system,
+            ))
             .add_systems(OnExit(AppState::Game), remove_enemies)
             .add_event::<EnemyTickEvent>();
     }
@@ -137,6 +140,25 @@ fn despawn_after_timer(
         despawn_timer.0.tick(time.delta());
         if despawn_timer.0.finished() {
             commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+
+// Despawn entity if their hp <= 0, sprite will not be removed from the screen
+// Adds 1 to player score if enemy is killed
+pub fn despawn_dead_enemies(
+    mut commands: Commands,
+    enemy_query: Query<(Entity, &Health), With<Enemy>>,
+    mut player_score_query: Query<&mut Score, With<Player>>,
+) {
+    for (entity, health) in enemy_query.iter() {
+        if health.current <= 0 {
+            commands.entity(entity).despawn_recursive();
+            for mut player in player_score_query.iter_mut() {
+                player.current_score += 1;
+            }
+            print!("Enemy killed!\n");
         }
     }
 }
