@@ -65,9 +65,7 @@ pub fn move_player(
     let mut can_move = true;
 
     // should only be a single entry in this query (with localplayer)
-    // TODO: I'd like to be able to use this line BUT it panics when trying to launch because the player isn't spawned in
     let player = players.single_mut();
-    let player_struct = player.0;
     let pos = player.1.into_inner();
     let collider = player.2;
 

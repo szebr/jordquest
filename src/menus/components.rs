@@ -20,6 +20,9 @@ pub struct ControlsPage {}
 #[derive(Component)]
 pub struct CreditsPage {}
 
+#[derive(Component)]
+pub struct Popup;
+
 pub trait InputType: Component {
     fn push_char(&mut self, ch: char);
     fn pop_char(&mut self);
@@ -177,6 +180,9 @@ pub struct CreditsButton {}
 
 #[derive(Component)]
 pub struct BackToMainMenu {}// back to main menu button
+
+#[derive(Component)]
+pub struct GameOver {}
 
 #[derive(Component)]
 pub struct HostPortInput {

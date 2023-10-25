@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy::sprite::collide_aabb::collide;
 use crate::{enemy, net};
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
@@ -13,7 +12,7 @@ pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
-pub const PLAYER_DAMAGE: u8 = 10;
+pub const SWORD_DAMAGE: u8 = 40;
 
 //TODO public struct resource holding player count
 
@@ -68,12 +67,13 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update,
                 (spawn_weapon_on_click,
                 despawn_after_timer,
-                despawn_dead_enemies,
                 update_health_bar,
                 scoreboard_system,
+                handle_dead_player,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
+            .add_systems(OnExit(AppState::Game), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
@@ -87,7 +87,6 @@ pub fn spawn_players(
     is_host: Res<IsHost>
 ) {
     for i in 0..MAX_PLAYERS {
-
         let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(i as f32 * 100., i as f32 * 100.)));
         let pl = commands.spawn((
             Player(i as u8),
@@ -130,47 +129,59 @@ pub fn spawn_players(
     }
 }
 
-// Despawn entity if their hp <= 0, sprite will not be removed from the screen
-// Note: This is a very naive implementation, and will need to be updated later.
-pub fn despawn_dead_enemies(
-    mut commands: Commands,
-    enemy_query: Query<(Entity, &Health), With<Enemy>>,
-    mut player_score_query: Query<&mut Score, With<Player>>,
-) {
-    for (entity, Health) in enemy_query.iter() {
-        if Health.current <= 0 {
-            commands.entity(entity).despawn();
-            for mut player in player_score_query.iter_mut() {
-                player.current_score += 1;
-            }
-            print!("Enemy killed!\n");
-        }
+pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player>>) {
+    for e in players.iter() {
+        commands.entity(e).despawn();
     }
 }
 
-// update the health bar child of player entity to reflect current hp
+
+// Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
-    mut health_bar_query: Query<(&mut Transform), With<HealthBar>>,
-    mut player_health_query: Query<&Health, With<Player>>,
+    mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
+    player_health_query: Query<(&Health, &Children), With<Player>>,
 ) {
-    for health in player_health_query.iter_mut() {
-        let max_health = health.max;
-        let current_health = health.current;
-        for (mut transform) in health_bar_query.iter_mut() {
-            let scale = Vec3::new((current_health as f32) / (max_health as f32), 1.0, 1.0);
-            transform.scale = scale;
+    for (health, children) in player_health_query.iter() {
+        for child in children.iter() {
+            let tf = health_bar_query.get_mut(*child);
+            if let Ok(mut tf) = tf {
+                tf.scale = Vec3::new((health.current as f32) / (health.max as f32), 1.0, 1.0);
+            }
         }
     }
 }
 
-// update the score displayed during the game
+// Update the score displayed during the game
 pub fn scoreboard_system(
     player_score_query: Query<&Score, With<Player>>,
-    mut query: Query<&mut Text, With<ScoreDisplay>>,
+    mut score_query: Query<&mut Text, With<ScoreDisplay>>,
 ) {
-    for mut text in query.iter_mut() {
+    for mut text in score_query.iter_mut() {
         for player in player_score_query.iter() {
             text.sections[0].value = format!("Score: {}", player.current_score);
+        }
+    }
+}
+
+// If player hp <= 0, reset player position and subtract 1 from player score if possible
+// TODO: Add a timer to prevent player from dying multiple times in a row
+pub fn handle_dead_player(
+    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
+    mut score_query: Query<&mut Score, With<Player>>,
+) {
+    for (mut tf, mut health) in player_query.iter_mut() {
+        if health.current <= 0 {
+            for mut player in score_query.iter_mut() {
+                if (player.current_score.checked_sub(1)).is_some() {
+                    player.current_score -= 1;
+                } else {
+                    player.current_score = 0;
+                }
+            }
+            print!("You died!\n");
+            let translation = Vec3::new(0.0, 0.0, 1.0);
+            tf.translation = translation;
+            health.current = PLAYER_DEFAULT_HP;
         }
     }
 }
@@ -205,7 +216,7 @@ pub fn spawn_weapon_on_click(
             parent.spawn(SpriteBundle {
                 texture: asset_server.load("sword01.png").into(),
                 transform: Transform {
-                    translation: Vec3::new(offset.x, offset.y, 1.0),
+                    translation: Vec3::new(offset.x, offset.y, 5.0),
                     rotation: Quat::from_rotation_z(weapon_direction),
                     ..Default::default()
                 },
@@ -214,15 +225,15 @@ pub fn spawn_weapon_on_click(
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
-        for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
+        for (enemy_transform, collider, mut health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 print!("Hit!\n");
-                match Health.current.checked_sub(PLAYER_DAMAGE) {
+                match health.current.checked_sub(SWORD_DAMAGE) {
                     Some(v) => {
-                        Health.current = v;
+                        health.current = v;
                     }
                     None => {
-                        Health.current = 0;
+                        health.current = 0;
                     }
                 }
             }

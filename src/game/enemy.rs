@@ -1,4 +1,3 @@
-use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
@@ -15,7 +14,8 @@ pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
 pub const FOLLOW_DISTANCE: f32 = 200.0;
 
-const SWORD_DAMAGE: u8 = 1;  //sword damage, adjust this accordingly
+const CIRCLE_RADIUS: f32 = 64.;
+const CIRCLE_DAMAGE: u8 = 15;
 
 //TODO public struct resource holding enemy count
 
@@ -49,10 +49,14 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, fixed.run_if(is_host))
-            .add_systems(Update, packet)
-            .add_systems(Update, spawn_weapon)
-            .add_systems(Update, despawn_after_timer)
-            .add_systems(Update, weapon_dealt_damage_system)
+            .add_systems(Update, (
+                packet,
+                spawn_weapon,
+                despawn_after_timer,
+                despawn_dead_enemies,
+                show_damage,
+            ))
+            .add_systems(OnExit(AppState::Game), remove_enemies)
             .add_event::<EnemyTickEvent>();
     }
 }
@@ -66,21 +70,21 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
             current: ENEMY_MAX_HP,
             max: ENEMY_MAX_HP,
         },
-        SpatialBundle {
+        SpriteSheetBundle {
+            texture_atlas: entity_atlas.handle.clone(),
+            sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
             transform: Transform::from_xyz(0., 0., 2.),
             ..default()
         },
         Collider(ENEMY_SIZE),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
-    )).with_children(|parent| {
-        parent.spawn(
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            });
-    });
+    ));
+}
+
+pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
+    for e in enemies.iter() {
+        commands.entity(e).despawn_recursive();
+    }
 }
 
 pub fn spawn_weapon(
@@ -88,6 +92,7 @@ pub fn spawn_weapon(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
+    mut player_query: Query<(&Transform, &mut Health), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -96,12 +101,25 @@ pub fn spawn_weapon(
                 parent.spawn(SpriteBundle {
                     texture: asset_server.load("EnemyAttack01.png").into(),
                     transform: Transform {
-                        translation: Vec3::new(0.0, 0.0, 1.0),
+                        translation: Vec3::new(0.0, 0.0, 5.0),
                         ..Default::default()
                     },
                     ..Default::default()
                 }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
+            for (player_transform, mut player_hp) in player_query.iter_mut() {
+                if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
+                    match player_hp.current.checked_sub(CIRCLE_DAMAGE) {
+                        Some(v) => {
+                            player_hp.current = v;
+                        }
+                        None => {
+                            // player would die from hit
+                            player_hp.current = 0;
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -114,16 +132,48 @@ fn despawn_after_timer(
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());
         if despawn_timer.0.finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
 
+
+// Despawn entity if their hp <= 0, sprite will not be removed from the screen
+// Adds 1 to player score if enemy is killed
+pub fn despawn_dead_enemies(
+    mut commands: Commands,
+    enemy_query: Query<(Entity, &Health), With<Enemy>>,
+    mut player_score_query: Query<&mut Score, With<Player>>,
+) {
+    for (entity, health) in enemy_query.iter() {
+        if health.current <= 0 {
+            commands.entity(entity).despawn_recursive();
+            for mut player in player_score_query.iter_mut() {
+                player.current_score += 1;
+            }
+            print!("Enemy killed!\n");
+        }
+    }
+}
+
+
+// Update the health bar child of player entity to reflect current hp
+pub fn show_damage(
+    mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
+) {
+    for (health, mut sprite) in enemies.iter_mut() {
+        let fade = health.current as f32 / health.max as f32;
+        sprite.color = Color::Rgba {red: 1.0, green: fade, blue: fade, alpha: 1.0};
+    }
+}
+
+/*
+FIX AFTER MIDTERM :)
 pub fn weapon_dealt_damage_system(
     mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
     weapon_query: Query<&Transform, With<EnemyWeapon>>
 ) {
-    for weapon_transform in weapon_query.iter() {
+     for weapon_transform in weapon_query.iter() {
         for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
             if let Some(_) = collide(
                 weapon_transform.translation,
@@ -131,7 +181,7 @@ pub fn weapon_dealt_damage_system(
                 player_transform.translation,
                 player_collider.0,
             ) {
-                match player_HP.current.checked_sub(SWORD_DAMAGE) {
+                match player_HP.current.checked_sub(CIRCLE_DAMAGE) {
                     Some(v) => {
                         player_HP.current = v;
                     }
@@ -143,7 +193,7 @@ pub fn weapon_dealt_damage_system(
             }
         }
     }
-}
+}*/
 
 pub fn fixed(
     tick: Res<net::TickNum>,
@@ -170,7 +220,7 @@ pub fn fixed(
             continue 
         }
         let movement = movement.normalize();
-        let mut possible_movement = *prev + movement * ENEMY_SPEED;
+        let possible_movement = *prev + movement * ENEMY_SPEED;
         //TODO same todo as on player.rs, however additionally,
         // ideally the collision would check for all players and all
         // other enemies, etc. so we might have to break it out
