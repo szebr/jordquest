@@ -87,7 +87,7 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
 
 pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
     for e in enemies.iter() {
-        commands.entity(e).despawn();
+        commands.entity(e).despawn_recursive();
     }
 }
 
@@ -136,7 +136,7 @@ fn despawn_after_timer(
     for (entity, mut despawn_timer) in query.iter_mut() {
         despawn_timer.0.tick(time.delta());
         if despawn_timer.0.finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
