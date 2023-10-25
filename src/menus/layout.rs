@@ -12,17 +12,26 @@ pub const PADDING: f32 = 20.0;
 #[derive(Component, Deref, DerefMut)]
 pub struct PopupTimer(Timer);
 
-pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_main_menu(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
     build_main_menu(&mut commands, &asset_server);
 }
 
-pub fn despawn_main_menu(mut commands: Commands, main_menu_query: Query<Entity, With<MainMenu>>) {
+pub fn despawn_main_menu(
+    mut commands: Commands, 
+    main_menu_query: Query<Entity, With<MainMenu>>
+) {
     if let Ok(main_menu_entity) = main_menu_query.get_single() {
         commands.entity(main_menu_entity).despawn_recursive();
     }
 }
 
-pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+pub fn build_main_menu(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     let main_menu_entity = commands
         .spawn((
             NodeBundle {
@@ -239,112 +248,187 @@ pub fn build_main_menu(commands: &mut Commands, asset_server: &Res<AssetServer>)
     main_menu_entity
 }
 
-pub fn spawn_credits_page(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // let credit_page_entity = build_credits_page(&mut commands, &asset_server);
-
-    // commands.entity(credit_page_entity).despawn_recursive();
-    // for (entity, _ui_Image) in &mut query.iter() {
-    //     thread::sleep(time::Duration::from_secs(5));
-    //     commands.entity(credit_page_entity).remove_children(&[entity]);
-    //     print!("despawned");
-    // }
-    // let image_names = vec![
-    //     "brendan_credits_slide.png",
-    //     "CreditAlexLampe.png",
-    //     "CreditGarrettDiCenzo.jpg",
-    //     "CreditIanWhitfield.png",
-    //     "CreditJordanBrudenell.png",
-    //     "CreditRuohengXu.jpg",
-    //     "CreditSamDurigon.png"
-    // ];
-
-    // TODO: Find a way to not spawn the game
+pub fn spawn_credits_page(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("brendan_credits_slide.png"),
-            transform: Transform::from_xyz(0., 0., -0.9),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("brendan_credits_slide.png"),
+                transform: Transform::from_xyz(0., 0., -0.9)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            }, 
+            Popup,
+        ))
+        .insert(PopupTimer(Timer::from_seconds(0., TimerMode::Once)));
+    commands
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditAlexLampe.png"),
+                transform: Transform::from_xyz(0., 0., -0.8)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(3., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditAlexLampe.png"),
-            transform: Transform::from_xyz(0., 0., -0.8),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditGarrettDiCenzo.png"),
+                transform: Transform::from_xyz(0., 0., -0.7)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(6., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditGarrettDiCenzo.png"),
-            transform: Transform::from_xyz(0., 0., -0.7),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditIanWhitfield.png"),
+                transform: Transform::from_xyz(0., 0., -0.6)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(9., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditIanWhitfield.png"),
-            transform: Transform::from_xyz(0., 0., -0.6),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditJordanBrudenell.png"),
+                transform: Transform::from_xyz(0., 0., -0.5)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(12., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditJordanBrudenell.png"),
-            transform: Transform::from_xyz(0., 0., -0.5),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditRuohengXu.png"),
+                transform: Transform::from_xyz(0., 0., -0.4)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(15., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditRuohengXu.png"),
-            transform: Transform::from_xyz(0., 0., -0.4),
-            ..default()
-        })
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load("CreditSamDurigon.png"),
+                transform: Transform::from_xyz(0., 0., -0.3)
+                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
         .insert(PopupTimer(Timer::from_seconds(18., TimerMode::Once)));
     commands
-        .spawn(SpriteBundle {
-            texture: asset_server.load("CreditSamDurigon.png"),
-            transform: Transform::from_xyz(0., 0., -0.3),
-            ..default()
-        })
-        .insert(PopupTimer(Timer::from_seconds(21., TimerMode::Once)));
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.2, 0.2, 0.2),
-            custom_size: Some(Vec2::new(1280., 720.)),
-            ..default()
-        },
-        ..default()
-    });
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    display: Display::Flex,
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::FlexEnd,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                ..default()
+            },
+            Popup,
+        ))
+        .with_children(|parent| {
+            parent.spawn(
+        (ButtonBundle {
+                    style: Style {
+                        width: Val::Px(200.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(8.0),
+                        },
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                    ..default()
+                },
+                BackToMainMenu {},
+            ))
+            .with_children(|parent| {
+                parent.spawn(TextBundle {
+                    text: Text {
+                        sections: vec![TextSection::new(
+                            "Back",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 20.0,
+                                color: Color::WHITE,
+                            },
+                        )],
+                        alignment: TextAlignment::Center,
+                        ..default()
+                    },
+                    ..default()
+                });
+            });
+        });
 }
 
-// TODO fix the despawn credits page
-pub fn despawn_credits_page(mut commands: Commands, credits_page_query: Query<Entity, With<CreditsPage>>,) {
-    if let Ok(credits_page_entity) = credits_page_query.get_single() {
-        commands.entity(credits_page_entity).despawn_recursive();
+pub fn despawn_credits_page(
+    mut commands: Commands, 
+    credits_page_query: Query<Entity, With<Popup>>,
+) {
+    for entity in credits_page_query.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
 
-pub fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform)>) {
+pub fn show_popup(
+    time: Res<Time>, 
+    mut popup: Query<(&mut PopupTimer, 
+    &mut Transform)>
+) {
     for (mut timer, mut transform) in popup.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            transform.translation.z += 5.;
+            transform.translation.z += 10.;
         }
     }
 }
 
-pub fn spawn_host_page(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_host_page(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
      build_host_page(&mut commands, &asset_server);
 }
 
-pub fn despawn_host_page(mut commands: Commands, host_page_entity: Query<Entity, With<HostPage>>) {
+pub fn despawn_host_page(
+    mut commands: Commands, 
+    host_page_entity: Query<Entity, 
+    With<HostPage>>
+) {
     if let Ok(host_page_entity) = host_page_entity.get_single() {
         commands.entity(host_page_entity).despawn_recursive();
     }
 }
 
-pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+pub fn build_host_page(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     let host_page_entity = commands
         .spawn((
             NodeBundle {
@@ -516,17 +600,27 @@ pub fn build_host_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
     host_page_entity
 }
 
-pub fn spawn_join_page(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_join_page(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
     build_join_page(&mut commands, &asset_server);
 }
 
-pub fn despawn_join_page(mut commands: Commands, join_page_entity: Query<Entity, With<JoinPage>>) {
+pub fn despawn_join_page(
+    mut commands: Commands, 
+    join_page_entity: Query<Entity, 
+    With<JoinPage>>
+) {
     if let Ok(join_page_entity) = join_page_entity.get_single() {
         commands.entity(join_page_entity).despawn_recursive();
     }
 }
 
-pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+pub fn build_join_page(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     let join_page_entity = commands
         .spawn((
             NodeBundle {
@@ -808,7 +902,10 @@ pub fn build_join_page(commands: &mut Commands, asset_server: &Res<AssetServer>)
     join_page_entity
 }
 
-pub fn spawn_controls_page(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_controls_page(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
      build_controls_page(&mut commands, &asset_server);
 }
 
@@ -821,7 +918,10 @@ pub fn despawn_controls_page(
     }
 }
 
-pub fn build_controls_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+pub fn build_controls_page(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     let controls_page_entity = commands
         .spawn((
             NodeBundle {
@@ -979,7 +1079,11 @@ pub fn build_controls_page(commands: &mut Commands, asset_server: &Res<AssetServ
     controls_page_entity
 }
 
-pub fn build_credits_page(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+// Doesn't work, don't call this function
+pub fn build_credits_page(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     // let image_names = vec![
     //     "brendan_credits_slide.png",
     //     "CreditAlexLampe.png",
@@ -1123,11 +1227,18 @@ pub fn build_credits_page(commands: &mut Commands, asset_server: &Res<AssetServe
     credits_page_entity
 }
 
-pub fn spawn_in_game_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn spawn_in_game_menu(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
     let in_game_menu_entity = build_in_game_menu(&mut commands, &asset_server);
 }
 
-pub fn despawn_in_game_menu(mut commands: Commands, in_game_menu_entity: Query<Entity, With<JoinPage>>) {
+pub fn despawn_in_game_menu(
+    mut commands: Commands, 
+    in_game_menu_entity: Query<Entity, 
+    With<JoinPage>>
+) {
     if let Ok(in_game_menu_entity) = in_game_menu_entity.get_single() {
         commands.entity(in_game_menu_entity).despawn_recursive();
     }
@@ -1139,7 +1250,10 @@ pub struct GameTimer {
 }
 
 
-pub fn build_in_game_menu(commands: &mut Commands, asset_server: &Res<AssetServer>) -> Entity {
+pub fn build_in_game_menu(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
     let in_game_menu_entity = commands
         .spawn(NodeBundle {
             style: Style {
@@ -1207,7 +1321,9 @@ pub fn build_in_game_menu(commands: &mut Commands, asset_server: &Res<AssetServe
     in_game_menu_entity
 }
 
-pub fn update_time_remaining_system(mut query: Query<(&mut GameTimer, &mut Text)>) {
+pub fn update_time_remaining_system(
+    mut query: Query<(&mut GameTimer, &mut Text)>,
+    ) {
     for (mut timer, mut text) in query.iter_mut() {
         if timer.remaining_time > 0.0 {
             timer.remaining_time -= 0.005; // TODO This assumes 1s per step, adjust accordingly for the sync

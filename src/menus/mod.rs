@@ -39,6 +39,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Hosting)))
         .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Joining)))
         .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Controls)))
+        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Credits)))
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_time_remaining_system)
         .add_systems(Update, save_host_input)

@@ -71,6 +71,7 @@ impl Plugin for PlayerPlugin{
                 despawn_dead_enemies,
                 update_health_bar,
                 scoreboard_system,
+                handle_dead_player,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
@@ -131,7 +132,7 @@ pub fn spawn_players(
 }
 
 // Despawn entity if their hp <= 0, sprite will not be removed from the screen
-// Note: This is a very naive implementation, and will need to be updated later.
+// Adds 1 to player score if enemy is killed
 pub fn despawn_dead_enemies(
     mut commands: Commands,
     enemy_query: Query<(Entity, &Health), With<Enemy>>,
@@ -143,12 +144,12 @@ pub fn despawn_dead_enemies(
             for mut player in player_score_query.iter_mut() {
                 player.current_score += 1;
             }
-            print!("Enemy killed!\n");
+            // print!("Enemy killed!\n");
         }
     }
 }
 
-// update the health bar child of player entity to reflect current hp
+// Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
     mut health_bar_query: Query<(&mut Transform), With<HealthBar>>,
     mut player_health_query: Query<&Health, With<Player>>,
@@ -163,14 +164,41 @@ pub fn update_health_bar(
     }
 }
 
-// update the score displayed during the game
+// Update the score displayed during the game
 pub fn scoreboard_system(
     player_score_query: Query<&Score, With<Player>>,
-    mut query: Query<&mut Text, With<ScoreDisplay>>,
+    mut score_query: Query<&mut Text, With<ScoreDisplay>>,
 ) {
-    for mut text in query.iter_mut() {
+    for mut text in score_query.iter_mut() {
         for player in player_score_query.iter() {
             text.sections[0].value = format!("Score: {}", player.current_score);
+        }
+    }
+}
+
+// If player hp <= 0, reset player position and subtract 1 from player score if possible
+// TODO: Add a timer to prevent player from dying multiple times in a row
+pub fn handle_dead_player(
+    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
+    mut score_query: Query<&mut Score, With<Player>>,
+    global_transform: Query<&GlobalTransform, With<Player>>,
+) {
+    for (mut Transform, mut Health) in player_query.iter_mut() {
+        if Health.current <= 0 {
+            for mut player in score_query.iter_mut() {
+                if (player.current_score.checked_sub(1)).is_some() {
+                    player.current_score -= 1;
+                } else {
+                    player.current_score = 0;
+                }
+            }
+            // print!("You died!\n");
+            for global_transform in global_transform.iter() {
+                let position = global_transform.translation();
+                let translation = Vec3::new(position.x, position.y, 1.0);
+                Transform.translation = translation; 
+                Health.current = PLAYER_DEFAULT_HP;
+            }
         }
     }
 }
@@ -216,7 +244,7 @@ pub fn spawn_weapon_on_click(
         let (start, end) = attack_line_trace(player_transform, offset);
         for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-                print!("Hit!\n");
+                // print!("Hit!\n");
                 match Health.current.checked_sub(PLAYER_DAMAGE) {
                     Some(v) => {
                         Health.current = v;
