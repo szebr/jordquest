@@ -53,6 +53,7 @@ impl Plugin for EnemyPlugin{
             .add_systems(Update, spawn_weapon)
             .add_systems(Update, despawn_after_timer)
             .add_systems(Update, weapon_dealt_damage_system)
+            .add_systems(OnExit(AppState::Game), remove_enemies)
             .add_event::<EnemyTickEvent>();
     }
 }
@@ -81,6 +82,12 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
                 ..default()
             });
     });
+}
+
+pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
+    for e in enemies.iter() {
+        commands.entity(e).despawn();
+    }
 }
 
 pub fn spawn_weapon(
