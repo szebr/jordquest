@@ -3,6 +3,7 @@ use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::prelude::Timer;
 use bevy::prelude::*;
+use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
@@ -251,9 +252,9 @@ pub fn build_main_menu(
 pub fn spawn_credits_page(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+    mut cameras: Query<&mut Transform, With<SpatialCameraBundle>>,
 ) {
-    for mut tf in player_query.iter_mut() {
+    for mut tf in cameras.iter_mut() {
         let translation = Vec3::new(0.0, 0.0, 1.0);
         tf.translation = translation;
     }
