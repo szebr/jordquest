@@ -1328,13 +1328,8 @@ pub fn build_in_game_menu(
     in_game_menu_entity
 }
 
-pub fn update_time_remaining_system(
-    time: Res<Time>, 
-    mut game_timer_query: Query<(&mut GameTimer, &mut Text)>,
-    mut join_page_query: Query<&mut Style, With<JoinPage>>,
-    mut game_over_query: Query<&mut Style, (With<GameOver>, Without<JoinPage>)>,
-) {
-    for (mut timer, mut text) in &mut game_timer_query {
+pub fn update_time_remaining_system(time: Res<Time>, mut query: Query<(&mut GameTimer, &mut Text)>) {
+    for (mut timer, mut text) in &mut query {
         if timer.remaining_time > 0.0 {
             timer.remaining_time -= time.delta_seconds();
 
