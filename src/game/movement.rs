@@ -3,7 +3,8 @@ use bevy::prelude::*;
 use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::map;
-use crate::components::Player;
+use crate::components::*;
+use crate::map::{Biome, get_surrounding_tiles};
 
 #[derive(Resource)]
 pub struct KeyBinds {
@@ -46,10 +47,6 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
     Vec2 { x:0., y:-1. },  // 1110
     Vec2 { x:0., y:0. },  // 1111
 ];
-
-/// Just a vec2 that describes the size of a bounding box around the entity
-#[derive(Component)]
-pub struct Collider(pub Vec2);
 
 /// Player movement function. Runs on Update schedule.
 pub fn move_player(
@@ -98,12 +95,10 @@ pub fn move_player(
     // check collision against map tiles
     // TODO: Need to do some math to figure out where the entity is relative to the tile
     // TODO: This crashes if you try to move outside of the map
-    /*
     let nearby = get_surrounding_tiles(&new_pos, &map.biome_map);
     if nearby[1][1] == Biome::Wall {
         can_move = false;
     }
-    */
 
     if can_move {
         pos.translation.x = new_pos.x;
