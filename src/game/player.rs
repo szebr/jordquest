@@ -181,7 +181,6 @@ pub fn scoreboard_system(
 pub fn handle_dead_player(
     mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
-    global_transform: Query<&GlobalTransform, With<Player>>,
 ) {
     for (mut Transform, mut Health) in player_query.iter_mut() {
         if Health.current <= 0 {
@@ -193,12 +192,9 @@ pub fn handle_dead_player(
                 }
             }
             // print!("You died!\n");
-            for global_transform in global_transform.iter() {
-                let position = global_transform.translation();
-                let translation = Vec3::new(position.x, position.y, 1.0);
-                Transform.translation = translation; 
-                Health.current = PLAYER_DEFAULT_HP;
-            }
+            let translation = Vec3::new(0.0, 0.0, 1.0);
+            Transform.translation = translation; 
+            Health.current = PLAYER_DEFAULT_HP;
         }
     }
 }

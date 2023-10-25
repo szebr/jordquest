@@ -250,8 +250,13 @@ pub fn build_main_menu(
 
 pub fn spawn_credits_page(
     mut commands: Commands, 
-    asset_server: Res<AssetServer>
+    asset_server: Res<AssetServer>,
+    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
 ) {
+    for (mut Transform, mut Health) in player_query.iter_mut() {
+        let translation = Vec3::new(0.0, 0.0, 1.0);
+        Transform.translation = translation; 
+    }
     commands
         .spawn((
             SpriteBundle {
@@ -1236,8 +1241,7 @@ pub fn spawn_in_game_menu(
 
 pub fn despawn_in_game_menu(
     mut commands: Commands, 
-    in_game_menu_entity: Query<Entity, 
-    With<JoinPage>>
+    in_game_menu_entity: Query<Entity, With<JoinPage>>
 ) {
     if let Ok(in_game_menu_entity) = in_game_menu_entity.get_single() {
         commands.entity(in_game_menu_entity).despawn_recursive();
@@ -1255,17 +1259,20 @@ pub fn build_in_game_menu(
     asset_server: &Res<AssetServer>
 ) -> Entity {
     let in_game_menu_entity = commands
-        .spawn(NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            ..Default::default()
-        })
+            JoinPage {},
+        ))
         .with_children(|parent| {
             // Score Display
             parent.spawn((TextBundle {
@@ -1322,9 +1329,11 @@ pub fn build_in_game_menu(
 }
 
 pub fn update_time_remaining_system(
-    mut query: Query<(&mut GameTimer, &mut Text)>,
+    mut game_timer_query: Query<(&mut GameTimer, &mut Text)>,
+    mut join_page_query: Query<&mut Style, With<JoinPage>>,
+    mut game_over_query: Query<&mut Style, (With<GameOver>, Without<JoinPage>)>,
     ) {
-    for (mut timer, mut text) in query.iter_mut() {
+    for (mut timer, mut text) in game_timer_query.iter_mut() {
         if timer.remaining_time > 0.0 {
             timer.remaining_time -= 0.005; // TODO This assumes 1s per step, adjust accordingly for the sync
 
@@ -1334,6 +1343,172 @@ pub fn update_time_remaining_system(
             text.sections[0].value = format!("{:02}:{:02}", minutes, seconds);
         } else {
             // TODO Handle game over logic
+            for (mut Style) in join_page_query.iter_mut() {
+                Style.display = Display::None;
+            }
+            for (mut Style) in game_over_query.iter_mut() {
+                Style.display = Display::Flex;
+            }
+
         }
+    }
+}
+
+pub fn build_game_over_screen(
+    commands: &mut Commands, 
+    asset_server: &Res<AssetServer>
+) -> Entity {
+    let game_over_entity = commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    display: Display::None,
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                background_color: Color::Rgba { red: (1.0), green: (1.0), blue: (1.0), alpha: (0.5) }.into(),
+                ..default()
+            },
+            GameOver {},
+        ))
+        .with_children(|parent| {
+            //title
+            parent
+                .spawn((ButtonBundle {
+                    style: Style {
+                        width: Val::Px(600.0),
+                        height: Val::Px(80.0),
+                        margin: UiRect {
+                            left: Val::Px(8.),
+                            right: Val::Px(8.),
+                            top: Val::Px(0.0),
+                            bottom: Val::Px(60.0),
+                        },
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::WHITE.into(),
+                    ..default()
+                },))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle {
+                        text: Text {
+                            sections: vec![TextSection::new(
+                                "Game Over",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 64.0,
+                                    color: Color::RED,
+                                },
+                            )],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+            //credits butt
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(200.0),
+                            height: Val::Px(80.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    CreditsButton {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle {
+                        text: Text {
+                            sections: vec![TextSection::new(
+                                "Credits",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 20.0,
+                                    color: Color::WHITE,
+                                },
+                            )],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+            // main menu butt
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(200.0),
+                            height: Val::Px(80.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    BackToMainMenu {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle {
+                        text: Text {
+                            sections: vec![TextSection::new(
+                                "Main Menu",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 20.0,
+                                    color: Color::WHITE,
+                                },
+                            )],
+                            alignment: TextAlignment::Center,
+                            ..default()
+                        },
+                        ..default()
+                    });
+                });
+        })
+        .id();
+
+    game_over_entity
+}
+
+pub fn spawn_game_over_screen(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>
+) {
+    let game_over_entity = build_game_over_screen(&mut commands, &asset_server);
+}
+
+pub fn despawn_game_over_screen(
+    mut commands: Commands, 
+    game_over_entity: Query<Entity, 
+    With<GameOver>>
+) {
+    if let Ok(game_over_entity) = game_over_entity.get_single() {
+        commands.entity(game_over_entity).despawn_recursive();
     }
 }

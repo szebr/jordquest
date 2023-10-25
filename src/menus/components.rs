@@ -182,6 +182,9 @@ pub struct CreditsButton {}
 pub struct BackToMainMenu {}// back to main menu button
 
 #[derive(Component)]
+pub struct GameOver {}
+
+#[derive(Component)]
 pub struct HostPortInput {
     pub port: String,
 } //host port input field
