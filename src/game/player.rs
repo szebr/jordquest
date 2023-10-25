@@ -144,7 +144,7 @@ pub fn despawn_dead_enemies(
             for mut player in player_score_query.iter_mut() {
                 player.current_score += 1;
             }
-            // print!("Enemy killed!\n");
+            print!("Enemy killed!\n");
         }
     }
 }
@@ -191,7 +191,7 @@ pub fn handle_dead_player(
                     player.current_score = 0;
                 }
             }
-            // print!("You died!\n");
+            print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
             Transform.translation = translation; 
             Health.current = PLAYER_DEFAULT_HP;
@@ -240,7 +240,7 @@ pub fn spawn_weapon_on_click(
         let (start, end) = attack_line_trace(player_transform, offset);
         for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-                // print!("Hit!\n");
+                print!("Hit!\n");
                 match Health.current.checked_sub(PLAYER_DAMAGE) {
                     Some(v) => {
                         Health.current = v;
