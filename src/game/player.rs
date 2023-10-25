@@ -158,14 +158,14 @@ pub fn despawn_dead_enemies(
 // Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
-    mut player_health_query: Query<&Health, With<Player>>,
+    mut player_health_query: Query<(&Health, &Children), With<Player>>,
 ) {
-    for health in player_health_query.iter_mut() {
-        let max_health = health.max;
-        let current_health = health.current;
-        for mut transform in health_bar_query.iter_mut() {
-            let scale = Vec3::new((current_health as f32) / (max_health as f32), 1.0, 1.0);
-            transform.scale = scale;
+    for (health, children) in player_health_query.iter() {
+        for child in children.iter() {
+            let mut tf = health_bar_query.get_mut(*child);
+            if let Ok(mut tf) = tf {
+                tf.scale = Vec3::new((health.current as f32) / (health.max as f32), 1.0, 1.0);
+            }
         }
     }
 }
@@ -188,8 +188,8 @@ pub fn handle_dead_player(
     mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
 ) {
-    for (mut Transform, mut Health) in player_query.iter_mut() {
-        if Health.current <= 0 {
+    for (mut tf, mut health) in player_query.iter_mut() {
+        if health.current <= 0 {
             for mut player in score_query.iter_mut() {
                 if (player.current_score.checked_sub(1)).is_some() {
                     player.current_score -= 1;
@@ -199,8 +199,8 @@ pub fn handle_dead_player(
             }
             print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
-            Transform.translation = translation; 
-            Health.current = PLAYER_DEFAULT_HP;
+            tf.translation = translation;
+            health.current = PLAYER_DEFAULT_HP;
         }
     }
 }
@@ -246,7 +246,7 @@ pub fn spawn_weapon_on_click(
         let (start, end) = attack_line_trace(player_transform, offset);
         for (enemy_transform, collider, mut Health) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-                // print!("Hit!\n");
+                print!("Hit!\n");
                 match Health.current.checked_sub(SWORD_DAMAGE) {
                     Some(v) => {
                         Health.current = v;
