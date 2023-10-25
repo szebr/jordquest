@@ -4,6 +4,7 @@ use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::map;
 use crate::components::*;
+use crate::map::{Biome, get_surrounding_tiles};
 
 #[derive(Resource)]
 pub struct KeyBinds {
@@ -94,12 +95,10 @@ pub fn move_player(
     // check collision against map tiles
     // TODO: Need to do some math to figure out where the entity is relative to the tile
     // TODO: This crashes if you try to move outside of the map
-    /*
     let nearby = get_surrounding_tiles(&new_pos, &map.biome_map);
     if nearby[1][1] == Biome::Wall {
         can_move = false;
     }
-    */
 
     if can_move {
         pos.translation.x = new_pos.x;
