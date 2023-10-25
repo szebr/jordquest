@@ -1321,12 +1321,10 @@ pub fn build_in_game_menu(
     in_game_menu_entity
 }
 
-pub fn update_time_remaining_system(
-    mut query: Query<(&mut GameTimer, &mut Text)>,
-    ) {
-    for (mut timer, mut text) in query.iter_mut() {
+pub fn update_time_remaining_system(time: Res<Time>, mut query: Query<(&mut GameTimer, &mut Text)>) {
+    for (mut timer, mut text) in &mut query {
         if timer.remaining_time > 0.0 {
-            timer.remaining_time -= 0.005; // TODO This assumes 1s per step, adjust accordingly for the sync
+            timer.remaining_time -= time.delta_seconds();
 
             let minutes = (timer.remaining_time / 60.0) as i32;
             let seconds = (timer.remaining_time % 60.0) as i32;
