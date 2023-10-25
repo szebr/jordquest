@@ -1329,13 +1329,14 @@ pub fn build_in_game_menu(
 }
 
 pub fn update_time_remaining_system(
+    time: Res<Time>, 
     mut game_timer_query: Query<(&mut GameTimer, &mut Text)>,
     mut join_page_query: Query<&mut Style, With<JoinPage>>,
     mut game_over_query: Query<&mut Style, (With<GameOver>, Without<JoinPage>)>,
-    ) {
-    for (mut timer, mut text) in game_timer_query.iter_mut() {
+) {
+    for (mut timer, mut text) in &mut game_timer_query {
         if timer.remaining_time > 0.0 {
-            timer.remaining_time -= 0.005; // TODO This assumes 1s per step, adjust accordingly for the sync
+            timer.remaining_time -= time.delta_seconds();
 
             let minutes = (timer.remaining_time / 60.0) as i32;
             let seconds = (timer.remaining_time % 60.0) as i32;
