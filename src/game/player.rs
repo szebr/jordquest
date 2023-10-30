@@ -136,7 +136,6 @@ pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player
 }
 
 
-// Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
     player_health_query: Query<(&Health, &Children), With<Player>>,
@@ -153,18 +152,16 @@ pub fn update_health_bar(
 
 // Update the score displayed during the game
 pub fn scoreboard_system(
-    player_score_query: Query<&Score, With<Player>>,
+    player_score_query: Query<&Score, With<LocalPlayer>>,
     mut score_query: Query<&mut Text, With<ScoreDisplay>>,
 ) {
     for mut text in score_query.iter_mut() {
-        for player in player_score_query.iter() {
-            text.sections[0].value = format!("Score: {}", player.current_score);
-        }
+        let player = player_score_query.single();
+        text.sections[0].value = format!("Score: {}", player.current_score);
     }
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
-// TODO: Add a timer to prevent player from dying multiple times in a row
 pub fn handle_dead_player(
     mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
@@ -178,7 +175,6 @@ pub fn handle_dead_player(
                     player.current_score = 0;
                 }
             }
-            print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
             tf.translation = translation;
             health.current = PLAYER_DEFAULT_HP;

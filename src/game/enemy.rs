@@ -51,7 +51,7 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, fixed.run_if(is_host))
             .add_systems(Update, (
                 packet,
-                spawn_weapon,
+                spawn_weapon.after(despawn_dead_enemies),
                 despawn_after_timer,
                 despawn_dead_enemies,
                 show_damage,
