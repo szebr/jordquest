@@ -41,7 +41,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::move_player).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(in_state(AppState::Respawn)))
-            .add_systems(OnEnter(AppState::Game), spawn_minimap)
+            .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
             .add_systems(OnEnter(AppState::Respawn), configure_map)
             .add_systems(OnExit(AppState::Respawn), configure_map);
     }
@@ -232,6 +232,7 @@ fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
+    mut player: Query<&mut Transform, With<LocalPlayer>>,
     map: Res<WorldMap>
 ) {
     // Get mouse position upon click
@@ -271,15 +272,16 @@ fn respawn_update(
                 _ => {
                     // Valid spawn tile
                     println!("valid");
+                    app_state_next_state.set(AppState::Game);
+
+                    for mut player_tf in &mut player {
+                        player_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                        player_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
+                    }
                 }
             }
-            //app_state_next_state.set(AppState::Game);
         }
-
-
     }
-    // TODO: Validate mouse position against tile
-    // TODO: Remove respawn map, respawn player, and switch to game state if valid position
 }
 
 fn game_update(
