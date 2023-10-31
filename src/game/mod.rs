@@ -48,6 +48,7 @@ impl Plugin for GamePlugin{
             .set(ImagePlugin::default_nearest())
         )
         .add_systems(Startup, startup)
+        .add_systems(Update, update_fades)
         .add_plugins((
             player::PlayerPlugin,
             enemy::EnemyPlugin,
@@ -73,4 +74,23 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     commands.insert_resource(entity_atlas);
 
     commands.insert_resource(movement::KeyBinds::new());
+}
+
+pub fn update_fades(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut components::Fade, &mut Sprite)>) {
+    for (e, mut f, mut s) in &mut query {
+        f.current -= time.delta_seconds();
+        if f.current <= 0. {
+            commands.entity(e).despawn_recursive();
+        }
+        else {
+            let fade = f.current / f.max;
+            let r = s.color.r();
+            let g = s.color.g();
+            let b = s.color.b();
+            s.color = Color::Rgba {red: r, green: g, blue: b, alpha: fade};
+        }
+    }
 }

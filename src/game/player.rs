@@ -1,3 +1,4 @@
+use std::time::Duration;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net};
@@ -7,13 +8,14 @@ use serde::{Deserialize, Serialize};
 use crate::buffers::*;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
-use crate::net::IsHost;
+use crate::net::{is_client, is_host, IsHost};
 
 pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
+const COOLDOWN: f32 = 0.2;
 
 //TODO public struct resource holding player count
 
@@ -40,39 +42,39 @@ pub struct UserCmdEvent {
 }
 
 /// the information that the client needs to produce on each tick
-// TODO this should just have inputs rather than a pos
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct UserCmd {
     pub pos: Vec2,
     pub dir: f32,
 }
 
+/// Marks the player controlled by the local computer
 #[derive(Component)]
-pub struct LocalPlayer;  // marks the player controlled by the local computer
+pub struct LocalPlayer;
 
 #[derive(Component)]
 pub struct PlayerWeapon;
 
 #[derive(Component)]
-pub struct HealthBar;
+pub struct Cooldown(pub Timer);
 
 #[derive(Component)]
-struct DespawnPlayerWeaponTimer(Timer);
+pub struct HealthBar;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(FixedUpdate, fixed.before(enemy::fixed_move))
+        app.add_systems(FixedUpdate, update_buffer.before(enemy::fixed_move))
             .add_systems(Update,
-                (spawn_weapon_on_click,
-                despawn_after_timer,
-                update_health_bar,
-                scoreboard_system,
-                handle_dead_player,
-                move_player.run_if(in_state(AppState::Game)),
-                packet, usercmd))
-            .add_systems(OnEnter(AppState::Game), spawn_players)
+                (update_health_bars,
+                update_score,
+                update_players,
+                handle_attack,
+                handle_move,
+                handle_packet_client.run_if(is_client),
+                handle_packet_host.run_if(is_host)).run_if(in_state(AppState::Game)))
+            .add_systems(OnEnter(AppState::Game), (create_players, reset_cooldowns))
             .add_systems(OnExit(AppState::Game), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
@@ -80,7 +82,7 @@ impl Plugin for PlayerPlugin{
 }
 
 
-pub fn spawn_players(
+pub fn create_players(
     mut commands: Commands,
     entity_atlas: Res<Atlas>,
     asset_server: Res<AssetServer>,
@@ -105,6 +107,7 @@ pub fn spawn_players(
                 ..default()
             },
             Collider(PLAYER_SIZE),
+            Cooldown(Timer::from_seconds(COOLDOWN, TimerMode::Once))
         )).id();
 
         let health_bar = commands.spawn((
@@ -129,14 +132,19 @@ pub fn spawn_players(
     }
 }
 
+pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
+    for mut c in &mut query {
+        c.0.tick(Duration::from_secs_f32(100.));
+    }
+}
+
 pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player>>) {
     for e in players.iter() {
         commands.entity(e).despawn();
     }
 }
 
-
-pub fn update_health_bar(
+pub fn update_health_bars(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
     player_health_query: Query<(&Health, &Children), With<Player>>,
 ) {
@@ -151,7 +159,7 @@ pub fn update_health_bar(
 }
 
 // Update the score displayed during the game
-pub fn scoreboard_system(
+pub fn update_score(
     player_score_query: Query<&Score, With<LocalPlayer>>,
     mut score_query: Query<&mut Text, With<ScoreDisplay>>,
 ) {
@@ -162,7 +170,7 @@ pub fn scoreboard_system(
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
-pub fn handle_dead_player(
+pub fn update_players(
     mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
 ) {
@@ -182,75 +190,65 @@ pub fn handle_dead_player(
     }
 }
 
-pub fn spawn_weapon_on_click(
+pub fn handle_attack(
     mut commands: Commands,
+    time: Res<Time>,
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    player_query: Query<(Entity, &Transform, &Player), With<LocalPlayer>>,
+    mut player_query: Query<(Entity, &Transform, &Player, &mut Cooldown), With<LocalPlayer>>,
     mut enemy_query: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
 ) {
-
-    if !mouse_button_inputs.just_pressed(MouseButton::Left) {
+    let (e, t, p, mut c) = player_query.single_mut();
+    c.0.tick(time.delta());
+    if !(mouse_button_inputs.pressed(MouseButton::Left) && c.0.finished()) {
         return;
     }
+    c.0.reset();
     let window = window_query.get_single().unwrap();
-    for (player_entity, player_transform, player_id) in player_query.iter() {
-        let window_size = Vec2::new(window.width(), window.height());
-        let cursor_position = window.cursor_position().unwrap();
-        let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
-    
-        let direction_vector = cursor_position_in_world.normalize();
-        let weapon_direction = direction_vector.y.atan2(direction_vector.x);
+    let window_size = Vec2::new(window.width(), window.height());
+    let cursor_position = window.cursor_position().unwrap();
+    let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
 
-        let circle_radius = 50.0;// position spawning the sword, make it variable later
-        let offset_x = circle_radius * weapon_direction.cos();
-        let offset_y = circle_radius * weapon_direction.sin();
-        let offset = Vec2::new(offset_x, offset_y);
-            
-        commands.entity(player_entity).with_children(|parent| {
-            parent.spawn(SpriteBundle {
-                texture: asset_server.load("sword01.png").into(),
-                transform: Transform {
-                    translation: Vec3::new(offset.x, offset.y, 5.0),
-                    rotation: Quat::from_rotation_z(weapon_direction),
-                    ..Default::default()
-                },
+    let direction_vector = cursor_position_in_world.normalize();
+    let weapon_direction = direction_vector.y.atan2(direction_vector.x);
+
+    let circle_radius = 50.0;// position spawning the sword, make it variable later
+    let offset_x = circle_radius * weapon_direction.cos();
+    let offset_y = circle_radius * weapon_direction.sin();
+    let offset = Vec2::new(offset_x, offset_y);
+
+    commands.entity(e).with_children(|parent| {
+        parent.spawn((SpriteBundle {
+            texture: asset_server.load("sword01.png").into(),
+            transform: Transform {
+                translation: Vec3::new(offset.x, offset.y, 5.0),
+                rotation: Quat::from_rotation_z(weapon_direction),
                 ..Default::default()
-            }).insert(PlayerWeapon).insert(DespawnPlayerWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
-        });
+            },
+            ..Default::default()
+        },
+        PlayerWeapon,
+        Fade {current: 1.0, max: 1.0}));
+    });
 
-        let (start, end) = attack_line_trace(player_transform, offset);
-        for (enemy_transform, collider, mut health, mut last_attacker) in enemy_query.iter_mut() {
-            if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-                last_attacker.0 = Some(player_id.0);
-                match health.current.checked_sub(SWORD_DAMAGE) {
-                    Some(v) => {
-                        health.current = v;
-                    }
-                    None => {
-                        health.current = 0;
-                    }
+    let (start, end) = trace_attack_line(t, offset);
+    for (enemy_transform, collider, mut health, mut last_attacker) in enemy_query.iter_mut() {
+        if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
+            last_attacker.0 = Some(p.0);
+            match health.current.checked_sub(SWORD_DAMAGE) {
+                Some(v) => {
+                    health.current = v;
+                }
+                None => {
+                    health.current = 0;
                 }
             }
         }
     }
 }
 
-fn despawn_after_timer(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnPlayerWeaponTimer)>,
-) {
-    for (entity, mut despawn_timer) in query.iter_mut() {
-        despawn_timer.0.tick(time.delta());
-        if despawn_timer.0.finished() {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
-fn attack_line_trace(player_transform: &Transform, weapon_offset: Vec2) -> (Vec2, Vec2) {
+fn trace_attack_line(player_transform: &Transform, weapon_offset: Vec2) -> (Vec2, Vec2) {
     let start = player_transform.translation.truncate();
     let end = start + weapon_offset;
     (start, end)
@@ -276,7 +274,7 @@ fn line_intersects_aabb(start: Vec2, end: Vec2, box_center: Vec2, box_size: Vec2
 }
 
 
-pub fn fixed(
+pub fn update_buffer(
         tick: Res<net::TickNum>,
         mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
     ) {
@@ -286,7 +284,7 @@ pub fn fixed(
     }
 }
 
-pub fn packet(
+pub fn handle_packet_client(
     mut player_reader: EventReader<PlayerTickEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer)>
 ) {
@@ -302,12 +300,10 @@ pub fn packet(
     }
 }
 
-pub fn usercmd(
+pub fn handle_packet_host(
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer)>
 ) {
-    // TODO in the future usercmds are just inputs, so here is where movement would be calculated
-    //   ideally using the same function that clients use for local prediction
     for ev in usercmd_reader.iter() {
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references

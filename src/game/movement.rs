@@ -49,7 +49,7 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 ];
 
 /// Player movement function. Runs on Update schedule.
-pub fn move_player(
+pub fn handle_move(
     keyboard_input: Res<Input<KeyCode>>,
     mut players: Query<(&Player, &mut Transform, &Collider), With<LocalPlayer>>,
     other_colliders: Query<(&Transform, &Collider), Without<LocalPlayer>>,

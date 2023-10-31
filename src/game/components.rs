@@ -8,6 +8,12 @@ pub struct Health {
     pub max: u8,
 }
 
+#[derive(Component)]
+pub struct Fade {
+    pub current: f32,
+    pub max: f32
+}
+
 /// Just a vec2 that describes the size of a bounding box around the entity
 #[derive(Component)]
 pub struct Collider(pub Vec2);

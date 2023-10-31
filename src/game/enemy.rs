@@ -5,7 +5,7 @@ use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
-use crate::net::is_host;
+use crate::net::{is_client, is_host};
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -51,15 +51,14 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, (
-                fixed_move.run_if(is_host),
-                fixed_resolve.after(fixed_move).run_if(is_host),
-            ))
+                fixed_move,
+                fixed_resolve.after(fixed_move)
+                ).run_if(is_host)
+            )
             .add_systems(Update, (
-                packet,
-                spawn_weapon.after(despawn_dead_enemies),
-                despawn_after_timer,
-                despawn_dead_enemies,
-                show_damage,
+                handle_packet.run_if(is_client),
+                update_enemies.after(handle_packet),
+                handle_attack.after(update_enemies),
             ))
             .add_systems(OnExit(AppState::Game), remove_enemies)
             .add_event::<EnemyTickEvent>();
@@ -93,7 +92,7 @@ pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>
     }
 }
 
-pub fn spawn_weapon(
+pub fn handle_attack(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
@@ -104,14 +103,16 @@ pub fn spawn_weapon(
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
             commands.entity(enemy_entity).with_children(|parent| {
-                parent.spawn(SpriteBundle {
+                parent.spawn((SpriteBundle {
                     texture: asset_server.load("EnemyAttack01.png").into(),
                     transform: Transform {
                         translation: Vec3::new(0.0, 0.0, 5.0),
                         ..Default::default()
                     },
                     ..Default::default()
-                }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
+                },
+                EnemyWeapon,
+                Fade {current: 1.0, max: 1.0}));
             });
             for (player_transform, mut player_hp) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
@@ -130,44 +131,23 @@ pub fn spawn_weapon(
     }
 }
 
-fn despawn_after_timer(
+pub fn update_enemies(
     mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut DespawnEnemyWeaponTimer)>,
+    mut enemies: Query<(Entity, &Health, &LastAttacker, &mut TextureAtlasSprite), With<Enemy>>,
+    mut scores: Query<(&mut Score, &Player)>,
 ) {
-    for (entity, mut despawn_timer) in query.iter_mut() {
-        despawn_timer.0.tick(time.delta());
-        if despawn_timer.0.finished() {
-            commands.entity(entity).despawn_recursive();
-        }
-    }
-}
-
-
-pub fn despawn_dead_enemies(
-    mut commands: Commands,
-    enemy_query: Query<(Entity, &Health, &LastAttacker), With<Enemy>>,
-    mut player_score_query: Query<(&mut Score, &Player)>,
-) {
-    for (entity, health, last_attacker) in enemy_query.iter() {
-        if health.current <= 0 {
-            commands.entity(entity).despawn_recursive();
-            for (mut score, pl) in player_score_query.iter_mut() {
-                if pl.0 == last_attacker.0.expect("died with no attacker?") {
+    for (e, hp, la, mut sp) in enemies.iter_mut() {
+        if hp.current <= 0 {
+            commands.entity(e).despawn_recursive();
+            for (mut score, pl) in scores.iter_mut() {
+                if pl.0 == la.0.expect("died with no attacker?") {
                     score.current_score += 1;
                 }
             }
+            continue;
         }
-    }
-}
-
-
-pub fn show_damage(
-    mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
-) {
-    for (health, mut sprite) in enemies.iter_mut() {
-        let fade = health.current as f32 / health.max as f32;
-        sprite.color = Color::Rgba {red: 1.0, green: fade, blue: fade, alpha: 1.0};
+        let damage = hp.current as f32 / hp.max as f32;
+        sp.color = Color::Rgba {red: 1.0, green: damage, blue: damage, alpha: 1.0};
     }
 }
 
@@ -231,7 +211,7 @@ pub fn fixed_resolve() {
     // JORDAN
 }
 
-pub fn packet(
+pub fn handle_packet(
     mut enemy_reader: EventReader<EnemyTickEvent>,
     mut enemy_query: Query<(&Enemy, &mut PosBuffer)>
 ) {

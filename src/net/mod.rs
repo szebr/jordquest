@@ -60,7 +60,7 @@ impl Plugin for NetPlugin {
         host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
             .add_systems(FixedUpdate,
                          (increment_tick.run_if(is_host),
-                         client::fixed.run_if(is_client).after(player::fixed),
+                         client::fixed.run_if(is_client).after(player::update_buffer),
                          host::fixed.run_if(is_host).after(enemy::fixed_move),
                          lerp::resolve_collisions.run_if(is_host).before(increment_tick)))
             .add_systems(Update,
