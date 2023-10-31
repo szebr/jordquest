@@ -262,7 +262,7 @@ fn respawn_update(
             if cursor_to_map.y > 255 { cursor_to_map.y = 255 };
 
             // Check if coordinate is wall
-            let tile = map.biome_map[cursor_to_map.x as usize][cursor_to_map.y as usize];
+            let tile = map.biome_map[cursor_to_map.y as usize][cursor_to_map.x as usize];
 
             match tile {
                 map::Biome::Wall => {
