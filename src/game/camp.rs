@@ -19,11 +19,6 @@ pub fn setup(
     mut commands: Commands,
     entity_atlas:Res<Atlas>,
 ) {
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(7., 15.), 1);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(13., 20.), 1);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(18., 9.), 1);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(19., 29.), 1);
-
     enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(31., 81.), 2);
     enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(45., 83.), 2);
     enemy::spawn_enemy(&mut commands, &entity_atlas, 1, get_spawn_vec(56., 91.), 2);
