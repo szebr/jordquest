@@ -72,8 +72,8 @@ impl Plugin for PlayerPlugin{
                 handle_dead_player,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
-            .add_systems(OnEnter(AppState::Game), spawn_players)
-            .add_systems(OnExit(AppState::Game), remove_players)
+            .add_systems(OnExit(AppState::MainMenu), spawn_players)
+            .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
