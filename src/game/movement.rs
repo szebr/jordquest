@@ -1,9 +1,11 @@
-use std::ops::Sub;
+use std::ops::{Div, Sub};
 use bevy::prelude::*;
 use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::map;
 use crate::components::*;
+use crate::game::map::Biome::Wall;
+use crate::game::map::{get_pos_in_tile, get_tile_at_pos, TILESIZE};
 use crate::map::{Biome, get_surrounding_tiles};
 
 #[derive(Resource)]
@@ -90,16 +92,56 @@ pub fn move_player(
         }
     }
 
-    // check collision against map tiles
-    // TODO: Need to do some math to figure out where the entity is relative to the tile
-    // TODO: This crashes if you try to move outside of the map
-    let nearby = get_surrounding_tiles(&new_pos, &map.biome_map);
-    if nearby[1][1] == Biome::Wall {
-        can_move = false;
-    }
-
     if can_move {
         pos.translation.x = new_pos.x;
         pos.translation.y = new_pos.y;
+    }
+
+    // Check that we aren't colliding with a wall and move out if we are
+    // repeat in case we put ourselves in a wall the first time
+    for i in 0..5 {
+        let mut done = true;
+        let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
+        let player_north = pos.translation + Vec3::new(0.0, half_collider.y, 0.0);
+        let player_south = pos.translation - Vec3::new(0.0, half_collider.y, 0.0);
+        let player_east = pos.translation + Vec3::new(half_collider.x, 0.0, 0.0);
+        let player_west = pos.translation - Vec3::new(half_collider.x, 0.0, 0.0);
+
+        let offset: f32 = 0.1;
+        if get_tile_at_pos(&player_north, &map.biome_map) == Wall {
+            let tilepos = get_pos_in_tile(&player_north);
+            let adjustment = get_pos_in_tile(&player_north).y + offset;
+            println!("In wall to north at x: {} y: {} adjusting by subtracting {} from y", tilepos.x, tilepos.y, adjustment);
+            pos.translation.y -= adjustment;
+            println!("new y: {:.5}", pos.translation.y);
+            done = false;
+        }
+        if get_tile_at_pos(&player_south, &map.biome_map) == Wall {
+            let tilepos = get_pos_in_tile(&player_north);
+            let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_south).y + offset;
+            println!("In wall to south at x: {} y: {} adjusting by adding {} to y", tilepos.x, tilepos.y, adjustment);
+            pos.translation.y += adjustment;
+            println!("new y: {:.5}", pos.translation.y);
+            done = false;
+        }
+        if get_tile_at_pos(&player_east, &map.biome_map) == Wall {
+            let tilepos = get_pos_in_tile(&player_north);
+            let adjustment = tilepos.x + offset;
+            println!("In wall to east at x: {} y: {} adjusting by subtracting {} from x", tilepos.x, tilepos.y, adjustment);
+            pos.translation.x -= adjustment;
+            println!("new x: {:.5}", pos.translation.x);
+            done = false;
+        }
+        if get_tile_at_pos(&player_west, &map.biome_map) == Wall {
+            let tilepos = get_pos_in_tile(&player_north);
+            let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_west).x + offset;
+            println!("In wall to west at x: {} y: {} adjusting by adding {} to x", tilepos.x, tilepos.y, adjustment);
+            pos.translation.x += adjustment;
+            println!("new x: {:.5}", pos.translation.x);
+            done = false;
+        }
+        if done {
+            break;
+        }
     }
 }

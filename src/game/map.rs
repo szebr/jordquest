@@ -229,8 +229,8 @@ pub fn get_surrounding_tiles(
     player_pos: &Vec3,
     map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> [[Biome; 3]; 3] {
-    let col = (player_pos.x + (TILESIZE * MAPSIZE / 2) as f32).round() as usize / TILESIZE;
-    let row = (-player_pos.y + (TILESIZE * MAPSIZE / 2) as f32).round() as usize / TILESIZE;
+    let col = (player_pos.x + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
+    let row = (-player_pos.y + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
     if row == 0 || row == MAPSIZE-1 || col == 0 || col == MAPSIZE-1 {
         [[Biome::Wall, Biome::Wall, Biome::Wall],
          [Biome::Wall, Biome::Wall, Biome::Wall],
@@ -240,4 +240,21 @@ pub fn get_surrounding_tiles(
          [map[row][col - 1], map[row][col], map[row][col + 1]],
          [map[row + 1][col - 1], map[row + 1][col], map[row + 1][col + 1]]]
     }
+}
+
+pub fn get_tile_at_pos(
+    player_pos: &Vec3,
+    map: &[[Biome; MAPSIZE]; MAPSIZE],
+) -> Biome {
+    let col = (player_pos.x + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
+    let row = (-player_pos.y + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
+    map[row][col]
+}
+
+pub fn get_pos_in_tile(
+    pos: &Vec3,
+) -> Vec2 {
+    let mut x = ((pos.x % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
+    let mut y = ((pos.y % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
+    Vec2::new(x, y)
 }
