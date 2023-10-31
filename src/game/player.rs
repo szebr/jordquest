@@ -72,8 +72,8 @@ impl Plugin for PlayerPlugin{
                 handle_dead_player,
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
-            .add_systems(OnEnter(AppState::Game), spawn_players)
-            .add_systems(OnExit(AppState::Game), remove_players)
+            .add_systems(OnExit(AppState::MainMenu), spawn_players)
+            .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
@@ -166,10 +166,11 @@ pub fn scoreboard_system(
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 // TODO: Add a timer to prevent player from dying multiple times in a row
 pub fn handle_dead_player(
-    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health, Option<&LocalPlayer>), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
+    mut app_state_next_state: ResMut<NextState<AppState>>
 ) {
-    for (mut tf, mut health) in player_query.iter_mut() {
+    for (mut tf, mut health, lp) in player_query.iter_mut() {
         if health.current <= 0 {
             for mut player in score_query.iter_mut() {
                 if (player.current_score.checked_sub(1)).is_some() {
@@ -178,6 +179,13 @@ pub fn handle_dead_player(
                     player.current_score = 0;
                 }
             }
+
+            // Local player died, transition to Respawn state
+            if let Some(_lp) = lp {
+                print!("local player died\n");
+                app_state_next_state.set(AppState::Respawn);
+            }
+
             print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
             tf.translation = translation;

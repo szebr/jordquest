@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+use bevy::window::PrimaryWindow;
 use crate::game::player::LocalPlayer;
 use crate::{map, map::WorldMap};
 use crate::movement;
@@ -28,6 +29,9 @@ pub struct Minimap;
 pub struct MinimapBorder;
 
 #[derive(Component)]
+pub struct RespawnMap;
+
+#[derive(Component)]
 pub struct SpatialCameraBundle;
 
 pub struct CameraPlugin;
@@ -35,8 +39,11 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, update.after(movement::move_player))
-            .add_systems(OnEnter(AppState::Game), spawn_minimap);
+            .add_systems(Update, game_update.after(movement::move_player).run_if(in_state(AppState::Game)))
+            .add_systems(Update, respawn_update.run_if(in_state(AppState::Respawn)))
+            .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
+            .add_systems(OnEnter(AppState::Respawn), configure_map)
+            .add_systems(OnExit(AppState::Respawn), configure_map);
     }
 }
 
@@ -177,7 +184,107 @@ fn draw_minimap(
     return minimap;
 }
 
-fn update(
+fn configure_map(
+    mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    mut marker: Query<&mut Transform, (With<Marker>, Without<Minimap>, Without<MinimapBorder>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<LocalPlayer>)>,
+    app_state: Res<State<AppState>>
+) {
+    // Set params based on current state
+    let mut new_translation: Vec2 = Vec2::new(0., 0.);
+    let mut new_scale: f32 = 1.;
+
+    match app_state.get() {
+        AppState::Game => {
+            new_translation = Vec2::new(MINIMAP_TRANSLATION.x, MINIMAP_TRANSLATION.y);
+            new_scale = GAME_PROJ_SCALE;
+        }
+        _ => { }
+    }
+
+    // Move minimap and border back to corner, show marker
+    for mut minimap_tf in &mut minimap {
+        minimap_tf.translation.x = new_translation.x;
+        minimap_tf.translation.y = new_translation.y;
+        minimap_tf.scale.x = new_scale;
+        minimap_tf.scale.y = new_scale;
+    }
+
+    for mut border_tf in &mut border {
+        border_tf.translation.x = new_translation.x;
+        border_tf.translation.y = new_translation.y;
+        border_tf.scale.x = new_scale;
+        border_tf.scale.y = new_scale;
+    }
+
+    for mut marker_tf in &mut marker {
+        for camera_tf in &camera {
+            marker_tf.translation.x = camera_tf.translation.x / 16.;
+            marker_tf.translation.y = camera_tf.translation.y / 16.;
+            marker_tf.scale.x = new_scale;
+            marker_tf.scale.y = new_scale;
+        }
+    }
+}
+
+fn respawn_update(
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+    mut player: Query<&mut Transform, With<LocalPlayer>>,
+    map: Res<WorldMap>
+) {
+    // Get mouse position upon click
+    if mouse_button_inputs.just_pressed(MouseButton::Left) {
+        let window = window_query.get_single().unwrap();
+        let cursor_position = window.cursor_position().unwrap();
+        println!("{}", cursor_position);
+
+        // Validate mouse position
+        let mut cursor_to_map: UVec2 = UVec2::new(0, 0);
+
+        // Ensure cursor within respawn map bounds
+        if (cursor_position.x < ((super::WIN_W / 2.) - MINIMAP_DIMENSIONS.x as f32)) ||
+            (cursor_position.x > ((super::WIN_W / 2.) + MINIMAP_DIMENSIONS.x as f32)) ||
+            (cursor_position.y < ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) ||
+            (cursor_position.y > ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
+        {
+            println!("invalid");
+        } else {
+            // Within bounds, convert to map tile coordinate
+            cursor_to_map.x = (cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2;
+            cursor_to_map.y = (cursor_position.y as u32 - ((super::WIN_H / 2.) as u32 - MINIMAP_DIMENSIONS.y)) / 2;
+
+            println!("{}", cursor_to_map);
+
+            // Clamp for annoying out of bounds cases
+            if cursor_to_map.x > 255 { cursor_to_map.x = 255 };
+            if cursor_to_map.y > 255 { cursor_to_map.y = 255 };
+
+            // Check if coordinate is wall
+            let tile = map.biome_map[cursor_to_map.y as usize][cursor_to_map.x as usize];
+
+            match tile {
+                map::Biome::Wall => {
+                    println!("in wall");
+                }
+                _ => {
+                    // Valid spawn tile
+                    println!("valid");
+                    app_state_next_state.set(AppState::Game);
+
+                    for mut player_tf in &mut player {
+                        player_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                        player_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn game_update(
     player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
     mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Marker>, Without<LocalPlayer>)>
