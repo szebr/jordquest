@@ -1,3 +1,4 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
@@ -5,8 +6,8 @@ use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
-use crate::game::player;
-use crate::net::is_host;
+use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+use crate::net::{is_host, TickNum};
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -39,6 +40,9 @@ pub struct EnemyTick {
 pub struct EnemyWeapon;
 
 #[derive(Component)]
+pub struct LastAttacker(pub Option<u8>);
+
+#[derive(Component)]
 struct DespawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
@@ -48,10 +52,13 @@ pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, fixed.run_if(is_host))
+        app.add_systems(FixedUpdate, (
+                fixed_move.run_if(is_host),
+                fixed_resolve.after(fixed_move).run_if(is_host),
+            ))
             .add_systems(Update, (
                 packet,
-                spawn_weapon,
+                spawn_weapon.after(despawn_dead_enemies),
                 despawn_after_timer,
                 despawn_dead_enemies,
                 show_damage,
@@ -77,6 +84,7 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
             ..default()
         },
         Collider(ENEMY_SIZE),
+        LastAttacker(None),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     ));
 }
@@ -138,26 +146,24 @@ fn despawn_after_timer(
 }
 
 
-// Despawn entity if their hp <= 0, sprite will not be removed from the screen
-// Adds 1 to player score if enemy is killed
 pub fn despawn_dead_enemies(
     mut commands: Commands,
-    enemy_query: Query<(Entity, &Health), With<Enemy>>,
-    mut player_score_query: Query<&mut Score, With<Player>>,
+    enemy_query: Query<(Entity, &Health, &LastAttacker), With<Enemy>>,
+    mut player_score_query: Query<(&mut Score, &Player)>,
 ) {
-    for (entity, health) in enemy_query.iter() {
+    for (entity, health, last_attacker) in enemy_query.iter() {
         if health.current <= 0 {
             commands.entity(entity).despawn_recursive();
-            for mut player in player_score_query.iter_mut() {
-                player.current_score += 1;
+            for (mut score, pl) in player_score_query.iter_mut() {
+                if pl.0 == last_attacker.0.expect("died with no attacker?") {
+                    score.current_score += 1;
+                }
             }
-            print!("Enemy killed!\n");
         }
     }
 }
 
 
-// Update the health bar child of player entity to reflect current hp
 pub fn show_damage(
     mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
 ) {
@@ -195,7 +201,7 @@ pub fn weapon_dealt_damage_system(
     }
 }*/
 
-pub fn fixed(
+pub fn fixed_move(
     tick: Res<net::TickNum>,
     mut enemies: Query<&mut PosBuffer, (With<Enemy>, Without<Player>)>,
     players: Query<&PosBuffer, (With<Player>, Without<Enemy>)>
@@ -203,9 +209,9 @@ pub fn fixed(
     for mut epb in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
+
         let mut closest_player = players.iter().next().unwrap();
         let mut best_distance = f32::MAX;
-        let mut blocked = false;
         for ppb in &players {
             let dist = ppb.0.get(tick.0).distance(*prev);
             if dist < best_distance {
@@ -214,30 +220,63 @@ pub fn fixed(
             }
         }
         let player_pos = closest_player.0.get(tick.0.wrapping_sub(1));
-        let movement = *player_pos - *prev;
-        if movement.length() < 0.1 || movement.length() > FOLLOW_DISTANCE {
-            epb.0.set(tick.0, next); 
-            continue 
-        }
-        let movement = movement.normalize();
-        let possible_movement = *prev + movement * ENEMY_SPEED;
-        //TODO same todo as on player.rs, however additionally,
-        // ideally the collision would check for all players and all
-        // other enemies, etc. so we might have to break it out
-        // into a function or something. what's written below
-        // will work for singleplayer and 99% of the time in multiplayer
-        if collide(
-            Vec3::new(possible_movement.x, possible_movement.y, 0.0),
-            ENEMY_SIZE,
-            Vec3::new(player_pos.x, player_pos.y, 0.0),
-            player::PLAYER_SIZE
-        ).is_some() {
-            blocked = true;
-        }
-        if !blocked {
-            next = possible_movement;
+
+        let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
+        if !(movement.length() < 0.1 || movement.length() > FOLLOW_DISTANCE) {
+            next += movement;
         }
         epb.0.set(tick.0, next);
+    }
+}
+
+/// Resolve enemy wall collisions
+pub fn fixed_resolve(
+    mut enemies: Query<(&mut PosBuffer, &Collider), With<Enemy>>,
+    map: Res<WorldMap>,
+    tick: Res<TickNum>,
+) {
+    for (mut enemy_pos_buffer, collider) in &mut enemies {
+        let pos_buffer = enemy_pos_buffer.into_inner();
+        let pos = pos_buffer.0.get(tick.0);
+        let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
+        for i in 0..5 {
+            let mut done = true;
+            let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
+            let north = pos3 + Vec3::new(0.0, half_collider.y, 0.0);
+            let south = pos3 - Vec3::new(0.0, half_collider.y, 0.0);
+            let east = pos3 + Vec3::new(half_collider.x, 0.0, 0.0);
+            let west = pos3 - Vec3::new(half_collider.x, 0.0, 0.0);
+
+            let offset: f32 = 0.1;
+            if get_tile_at_pos(&north, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = tilepos.y + offset;
+                pos3.y -= adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&south, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = TILESIZE as f32 - tilepos.y + offset;
+                pos3.y += adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&east, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = tilepos.x + offset;
+                pos3.x -= adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&west, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = TILESIZE as f32 - tilepos.x + offset;
+                pos3.x += adjustment;
+                done = false;
+            }
+            if done {
+                break;
+            }
+        }
+        pos_buffer.0.set(tick.0, pos3.xy());
     }
 }
 

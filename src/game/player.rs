@@ -6,6 +6,7 @@ use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
 use crate::buffers::*;
 use crate::game::components::*;
+use crate::game::enemy::LastAttacker;
 use crate::net::IsHost;
 
 pub const PLAYER_SPEED: f32 = 250.;
@@ -49,7 +50,6 @@ pub struct UserCmd {
 #[derive(Component)]
 pub struct LocalPlayer;  // marks the player controlled by the local computer
 
-
 #[derive(Component)]
 pub struct PlayerWeapon;
 
@@ -63,7 +63,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(FixedUpdate, fixed.before(enemy::fixed))
+        app.add_systems(FixedUpdate, fixed.before(enemy::fixed_move))
             .add_systems(Update,
                 (spawn_weapon_on_click,
                 despawn_after_timer,
@@ -136,7 +136,6 @@ pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player
 }
 
 
-// Update the health bar child of player entity to reflect current hp
 pub fn update_health_bar(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
     player_health_query: Query<(&Health, &Children), With<Player>>,
@@ -153,18 +152,16 @@ pub fn update_health_bar(
 
 // Update the score displayed during the game
 pub fn scoreboard_system(
-    player_score_query: Query<&Score, With<Player>>,
+    player_score_query: Query<&Score, With<LocalPlayer>>,
     mut score_query: Query<&mut Text, With<ScoreDisplay>>,
 ) {
     for mut text in score_query.iter_mut() {
-        for player in player_score_query.iter() {
-            text.sections[0].value = format!("Score: {}", player.current_score);
-        }
+        let player = player_score_query.single();
+        text.sections[0].value = format!("Score: {}", player.current_score);
     }
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
-// TODO: Add a timer to prevent player from dying multiple times in a row
 pub fn handle_dead_player(
     mut player_query: Query<(&mut Transform, &mut Health), (With<Player>, Without<Enemy>)>,
     mut score_query: Query<&mut Score, (With<Player>, Without<Enemy>)>,
@@ -178,7 +175,6 @@ pub fn handle_dead_player(
                     player.current_score = 0;
                 }
             }
-            print!("You died!\n");
             let translation = Vec3::new(0.0, 0.0, 1.0);
             tf.translation = translation;
             health.current = PLAYER_DEFAULT_HP;
@@ -191,15 +187,15 @@ pub fn spawn_weapon_on_click(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    query: Query<(Entity, &Transform), With<LocalPlayer>>,
-    mut enemy_query: Query<(&Transform, &Collider, &mut Health), With<Enemy>>,
+    player_query: Query<(Entity, &Transform, &Player), With<LocalPlayer>>,
+    mut enemy_query: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
 ) {
 
     if !mouse_button_inputs.just_pressed(MouseButton::Left) {
         return;
     }
     let window = window_query.get_single().unwrap();
-    for (player_entity, player_transform) in query.iter() {
+    for (player_entity, player_transform, player_id) in player_query.iter() {
         let window_size = Vec2::new(window.width(), window.height());
         let cursor_position = window.cursor_position().unwrap();
         let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
@@ -225,9 +221,9 @@ pub fn spawn_weapon_on_click(
         });
 
         let (start, end) = attack_line_trace(player_transform, offset);
-        for (enemy_transform, collider, mut health) in enemy_query.iter_mut() {
+        for (enemy_transform, collider, mut health, mut last_attacker) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-                print!("Hit!\n");
+                last_attacker.0 = Some(player_id.0);
                 match health.current.checked_sub(SWORD_DAMAGE) {
                     Some(v) => {
                         health.current = v;
