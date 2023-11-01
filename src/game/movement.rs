@@ -110,13 +110,13 @@ pub fn move_player(
         let offset: f32 = 0.1;
         if get_tile_at_pos(&player_north, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
-            let adjustment = get_pos_in_tile(&player_north).y + offset;
+            let adjustment = tilepos.y + offset;
             pos.translation.y -= adjustment;
             done = false;
         }
         if get_tile_at_pos(&player_south, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
-            let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_south).y + offset;
+            let adjustment = TILESIZE as f32 - tilepos.y + offset;
             pos.translation.y += adjustment;
             done = false;
         }
@@ -128,7 +128,7 @@ pub fn move_player(
         }
         if get_tile_at_pos(&player_west, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
-            let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_west).x + offset;
+            let adjustment = TILESIZE as f32 - tilepos.x + offset;
             pos.translation.x += adjustment;
             done = false;
         }
