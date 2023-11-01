@@ -1,11 +1,11 @@
 use std::ops::{Div, Sub};
 use bevy::prelude::*;
 use crate::player::*;
-use bevy::sprite::collide_aabb::collide;
+use bevy::sprite::collide_aabb::{collide, Collision};
 use crate::map;
 use crate::components::*;
 use crate::game::map::Biome::Wall;
-use crate::game::map::{get_pos_in_tile, get_tile_at_pos, TILESIZE};
+use crate::game::map::{get_pos_in_tile, get_tile_at_pos, get_tile_midpoint_position, TILESIZE};
 use crate::map::{Biome, get_surrounding_tiles};
 
 #[derive(Resource)]
@@ -111,37 +111,75 @@ pub fn move_player(
         if get_tile_at_pos(&player_north, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
             let adjustment = get_pos_in_tile(&player_north).y + offset;
-            println!("In wall to north at x: {} y: {} adjusting by subtracting {} from y", tilepos.x, tilepos.y, adjustment);
             pos.translation.y -= adjustment;
-            println!("new y: {:.5}", pos.translation.y);
             done = false;
         }
         if get_tile_at_pos(&player_south, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
             let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_south).y + offset;
-            println!("In wall to south at x: {} y: {} adjusting by adding {} to y", tilepos.x, tilepos.y, adjustment);
             pos.translation.y += adjustment;
-            println!("new y: {:.5}", pos.translation.y);
             done = false;
         }
         if get_tile_at_pos(&player_east, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
             let adjustment = tilepos.x + offset;
-            println!("In wall to east at x: {} y: {} adjusting by subtracting {} from x", tilepos.x, tilepos.y, adjustment);
             pos.translation.x -= adjustment;
-            println!("new x: {:.5}", pos.translation.x);
             done = false;
         }
         if get_tile_at_pos(&player_west, &map.biome_map) == Wall {
             let tilepos = get_pos_in_tile(&player_north);
             let adjustment = TILESIZE as f32 - get_pos_in_tile(&player_west).x + offset;
-            println!("In wall to west at x: {} y: {} adjusting by adding {} to x", tilepos.x, tilepos.y, adjustment);
             pos.translation.x += adjustment;
-            println!("new x: {:.5}", pos.translation.x);
             done = false;
         }
         if done {
             break;
         }
     }
+    /*
+    // try another method
+    let tiles = get_surrounding_tiles(&pos.translation, &map.biome_map);
+    let middle_tile_midpoint = get_tile_midpoint_position(&pos.translation, &map.biome_map);
+    let wall_collider_size = Vec2::new(TILESIZE as f32 / 2.0, TILESIZE as f32 / 2.0);
+    let mut tile_colliders = Vec::new();
+    for i in 0..3 {
+        for j in 0..3 {
+            let tile_offset_from_center = Vec3::new((i as isize - 1 * TILESIZE as isize) as f32, -(j as isize - 1 * TILESIZE as isize) as f32, 0.0);
+            if tiles[i][j] == Biome::Wall {
+                let wall_pos = middle_tile_midpoint + tile_offset_from_center;
+                //println!("Next to a wall player at x: {:2} y: {:2} wall at x: {:2} y: {:2}", &pos.translation.x, &pos.translation.y, wall_pos.x, wall_pos.y);
+                tile_colliders.push(wall_pos);
+            }
+        }
+    }
+    for wall in tile_colliders {
+        if let Some(collision) = collide(
+            wall,
+            wall_collider_size,
+            pos.translation,
+            collider.0,
+        ) {
+            match collision {
+                Collision::Left => {
+                    println!("left");
+                    let x_dist = (wall.x - &pos.translation.x).abs();
+                    let required_distance = TILESIZE as f32 / 2.0 + collider.0.x;
+                    //pos.translation.x -= required_distance - x_dist;
+                }
+                Collision::Right => {
+                    println!("right");
+                }
+                Collision::Top => {
+                    println!("top");
+                }
+                Collision::Bottom => {
+                    println!("bottom");
+                }
+                Collision::Inside => {
+                    println!("inside");
+                }
+            }
+        }
+    }
+     */
 }
