@@ -74,10 +74,11 @@ impl Plugin for PlayerPlugin{
                 handle_attack,
                 handle_move,
                 grab_powerup,
+                move_player.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
-                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
-            .add_systems(OnExit(AppState::Game), remove_players)
+                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game))
+            .add_systems(OnExit(AppState::MainMenu), (spawn_players, reset_cooldowns))
+            .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
@@ -98,6 +99,7 @@ pub fn remove_players(
     }
 }
 
+// Update the health bar child of player entity to reflect current hp
 pub fn update_health_bars(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
     mut player_health_query: Query<(&mut Health, &Children, &StoredPowerUps), With<Player>>,
@@ -128,10 +130,11 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Transform, &mut Health, &mut Visibility, &StoredPowerUps), With<Player>>,
-    mut scores: Query<&mut Score, With<Player>>,
+    mut player_query: Query<(&mut Transform, &mut Health, &mut Visibility, Option<&LocalPlayer>, &StoredPowerUps), (With<Player>, Without<Enemy>)>,
+    mut score_query: Query<&mut Score, (With<Player>, Without<Enemy>)>,
+    mut app_state_next_state: ResMut<NextState<AppState>>
 ) {
-    for (mut tf, mut health, mut vis, spu) in players.iter_mut() {
+    for (mut tf, mut health, mut vis, lp, spu) in player_query.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
@@ -142,9 +145,17 @@ pub fn update_players(
                     score.0 = 0;
                 }
             }
-            //let translation = Vec3::new(0.0, 0.0, 1.0);
-            //tf.translation = translation;
-            //health.current = PLAYER_DEFAULT_HP + spu.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
+
+            // Local player died, transition to Respawn state
+            if lp.is_some() {
+                print!("local player died\n");
+                app_state_next_state.set(AppState::Respawn);
+            }
+
+            print!("You died!\n");
+            let translation = Vec3::new(0.0, 0.0, 1.0);
+            tf.translation = translation;
+            health.current = PLAYER_DEFAULT_HP + spu.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
         }
     }
 }
