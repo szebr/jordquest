@@ -229,23 +229,21 @@ pub fn fixed_aggro(
 ) {
     for (epb, mut aggro) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
-        let closest_player = players.iter().next();
-        if closest_player.is_none() { return }
-        let mut closest_player = closest_player.unwrap().0;
+        let mut closest_player = None;
         let mut best_distance = f32::MAX;
         for (pl, ppb, hp) in &players {
             if hp.dead { continue }
             let dist = ppb.0.get(tick.0).distance(*prev);
             if dist < best_distance {
                 best_distance = dist;
-                closest_player = pl;
+                closest_player = Some(pl);
             }
         }
-        if best_distance > AGGRO_RANGE {
+        if best_distance > AGGRO_RANGE || closest_player.is_none() {
             aggro.0 = None;
         }
         else {
-            aggro.0 = Some(closest_player.0);
+            aggro.0 = Some(closest_player.unwrap().0);
         }
     }
 }
