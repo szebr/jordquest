@@ -57,7 +57,8 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, (
-                fixed_move,
+                fixed_aggro,
+                fixed_move.after(fixed_aggro),
                 fixed_resolve.after(fixed_move)
                 ).run_if(is_host)
             )
@@ -100,6 +101,7 @@ pub fn spawn_enemy(
         {
             power_ups: pu,
         },
+        Aggro(None),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     ));
 }
@@ -240,10 +242,16 @@ pub fn fixed_aggro(
             }
         }
         if best_distance > AGGRO_RANGE || closest_player.is_none() {
+            if aggro.0.is_some() {
+                //TODO show lost contact
+            }
             aggro.0 = None;
         }
         else {
-            aggro.0 = Some(closest_player.unwrap().0);
+            if aggro.0.is_none() {
+                //TODO show sighted player
+            }
+            let _ = aggro.0.insert(closest_player.unwrap().0);
         }
     }
 }
@@ -257,7 +265,7 @@ pub fn fixed_move(
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
 
-        if aggro.0.is_none() { return }
+        if aggro.0.is_none() { continue }
         let aggro = aggro.0.unwrap();
         let mut ppbo = None;
         for (pl, ppb) in &players {

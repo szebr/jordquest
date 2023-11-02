@@ -60,7 +60,6 @@ pub fn fixed(
         hp: 0,
     }; player::MAX_PLAYERS];
     for (pb, hp, pl) in &player_query {
-        println!("constructing packet where {:?} is at {:?}", pl.0, *pb.0.get(tick.0));
         players[pl.0 as usize] = player::PlayerTick {
             pos: *pb.0.get(tick.0),
             hp: hp.current

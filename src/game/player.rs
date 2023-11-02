@@ -170,7 +170,6 @@ pub fn grab_powerup(
             let player_pos = player_transform.translation.truncate();
             let powerup_pos = powerup_transform.translation.truncate();
             if player_pos.distance(powerup_pos) < 16. {
-                print!("grabbed powerup\n");
                 // add powerup to player
                 // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
                 match power_up.0
@@ -194,7 +193,6 @@ pub fn grab_powerup(
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                     },
                 }
-                print!("{:?}\n", player_power_ups.power_ups);
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
             }
