@@ -189,7 +189,7 @@ pub fn handle_dead_enemy(
             // drop powerups by cycling through the stored powerups of the enemy
             // and spawning the appropriate one
             for (index, &element) in stored_power_ups.power_ups.iter().enumerate() {
-                if (index == 0 && element == 1)
+                if index == PowerUpType::DamageDealtUp as usize && element == 1
                 {
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load("flamestrike.png").into(),
@@ -202,7 +202,7 @@ pub fn handle_dead_enemy(
                     ));
                     // print!("DAMAGE DEALT UP POWERUP DROPPED\n");
                 } 
-                else if (index == 1 && element == 1)
+                else if index == PowerUpType::DamageReductionUp as usize && element == 1
                 {
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load("rune-of-protection.png").into(),
@@ -215,7 +215,7 @@ pub fn handle_dead_enemy(
                     ));
                     // print!("DAMAGE REDUCTION UP POWERUP DROPPED\n");
                 }
-                else if (index == 2 && element == 1)
+                else if index == PowerUpType::MaxHPUp as usize && element == 1
                 {
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load("meat.png").into(),
@@ -228,7 +228,7 @@ pub fn handle_dead_enemy(
                     ));
                     // print!("MAX HP UP POWERUP DROPPED\n");
                 }
-                else if (index == 3 && element == 1)
+                else if index == PowerUpType::AttackSpeedUp as usize && element == 1
                 {
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load("lightning.png").into(),
@@ -241,7 +241,7 @@ pub fn handle_dead_enemy(
                     ));
                     // print!("ATTACK SPEED UP POWERUP DROPPED\n");
                 }
-                else if (index == 4 && element == 1)
+                else if index == PowerUpType::MovementSpeedUp as usize && element == 1
                 {
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load("berserker-rage.png").into(),

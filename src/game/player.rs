@@ -222,30 +222,29 @@ pub fn grab_powerup(
                 match power_up.0
                 {
                     components::PowerUpType::DamageDealtUp => {
-                        stored_power_ups.power_ups[0] += 1;
+                        stored_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
                         player_modifiers.damage_dealt_modifier += 5;
                     },
                     components::PowerUpType::DamageReductionUp => {
-                        stored_power_ups.power_ups[1] += 1;
+                        stored_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
                         player_modifiers.damage_reduction_modifier += 5;
                     },
                     components::PowerUpType::MaxHPUp => {
-                        stored_power_ups.power_ups[2] += 1;
+                        stored_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_modifiers.max_hp_modifier += 5;
                         player_health.max += 5;
                         player_health.current += 5;
                     },
                     components::PowerUpType::AttackSpeedUp => {
-                        stored_power_ups.power_ups[3] += 1;
+                        stored_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
                         player_modifiers.attack_speed_modifier += 5;
-                        // TODO: add attack speed modifier
+                        // TODO: add attack speed change somewhere
                     },
                     components::PowerUpType::MovementSpeedUp => {
-                        stored_power_ups.power_ups[4] += 1;
+                        stored_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                         player_modifiers.movement_speed_modifier += 5;
                     },
                 }
-                // print!("{:?}\n", stored_power_ups.power_ups);
                 print!("{:?}\n", stored_power_ups.power_ups);
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
