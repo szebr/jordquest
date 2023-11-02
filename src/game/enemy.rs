@@ -1,5 +1,6 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::reflect::Enum;
 use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
 use crate::Atlas;
@@ -7,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
 use crate::game::components::PowerUpType;
-use crate::player::PlayerModifiers;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
 use crate::net::{is_host, TickNum};
 
@@ -77,25 +77,9 @@ pub fn spawn_enemy(
     id: u8, pos: Vec2, sprite: i32, power_up_type: PowerUpType
 ) {
     let pb = PosBuffer(CircularBuffer::new_from(pos));
-    let pu: [u8; 5];
-    match power_up_type
-    {
-        PowerUpType::DamageDealtUp => {
-            pu = [1, 0, 0, 0, 0];
-        }
-        PowerUpType::DamageReductionUp => {
-            pu = [0, 1, 0, 0, 0];
-        }
-        PowerUpType::MaxHPUp => {
-            pu = [0, 0, 1, 0, 0];
-        }
-        PowerUpType::AttackSpeedUp => {
-            pu = [0, 0, 0, 1, 0];
-        }
-        PowerUpType::MovementSpeedUp => {
-            pu = [0, 0, 0, 0, 1];
-        }
-    }
+    let mut pu: [u8; NUM_POWERUPS]; 
+    pu = [0; NUM_POWERUPS]; 
+    pu[power_up_type as usize] = 1;
     commands.spawn((
         Enemy(id),
         pb,
@@ -130,7 +114,7 @@ pub fn spawn_weapon(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
-    mut player_query: Query<(&Transform, &mut Health, &PlayerModifiers), With<Player>>
+    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -145,15 +129,19 @@ pub fn spawn_weapon(
                     ..Default::default()
                 }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
-            for (player_transform, mut player_hp, player_modifiers) in player_query.iter_mut() {
+            for (player_transform, mut player_hp, player_power_ups) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
-                    match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_modifiers.damage_reduction_modifier) {
-                        Some(v) => {
-                            player_hp.current = v;
-                        }
-                        None => {
-                            // player would die from hit
-                            player_hp.current = 0;
+                    // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
+                    if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
+                    {
+                        match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
+                            Some(v) => {
+                                player_hp.current = v;
+                            }
+                            None => {
+                                // player would die from hit
+                                player_hp.current = 0;
+                            }
                         }
                     }
                 }
@@ -188,71 +176,19 @@ pub fn handle_dead_enemy(
         if health.current <= 0 {
             // drop powerups by cycling through the stored powerups of the enemy
             // and spawning the appropriate one
+            let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
             for (index, &element) in stored_power_ups.power_ups.iter().enumerate() {
-                if index == PowerUpType::DamageDealtUp as usize && element == 1
+                if element == 1 
                 {
                     commands.spawn((SpriteBundle {
-                        texture: asset_server.load("flamestrike.png").into(),
+                        texture: asset_server.load(power_up_icons[index]).into(),
                         transform: Transform {
                             translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
                             ..Default::default()
                         },
                         ..Default::default()},
-                        PowerUp(PowerUpType::DamageDealtUp),
+                        PowerUp(unsafe { std::mem::transmute(index as u8) } ),
                     ));
-                    // print!("DAMAGE DEALT UP POWERUP DROPPED\n");
-                } 
-                else if index == PowerUpType::DamageReductionUp as usize && element == 1
-                {
-                    commands.spawn((SpriteBundle {
-                        texture: asset_server.load("rune-of-protection.png").into(),
-                        transform: Transform {
-                            translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()},
-                        PowerUp(PowerUpType::DamageReductionUp),
-                    ));
-                    // print!("DAMAGE REDUCTION UP POWERUP DROPPED\n");
-                }
-                else if index == PowerUpType::MaxHPUp as usize && element == 1
-                {
-                    commands.spawn((SpriteBundle {
-                        texture: asset_server.load("meat.png").into(),
-                        transform: Transform {
-                            translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()},
-                        PowerUp(PowerUpType::MaxHPUp),
-                    ));
-                    // print!("MAX HP UP POWERUP DROPPED\n");
-                }
-                else if index == PowerUpType::AttackSpeedUp as usize && element == 1
-                {
-                    commands.spawn((SpriteBundle {
-                        texture: asset_server.load("lightning.png").into(),
-                        transform: Transform {
-                            translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()},
-                        PowerUp(PowerUpType::AttackSpeedUp),
-                    ));
-                    // print!("ATTACK SPEED UP POWERUP DROPPED\n");
-                }
-                else if index == PowerUpType::MovementSpeedUp as usize && element == 1
-                {
-                    commands.spawn((SpriteBundle {
-                        texture: asset_server.load("berserker-rage.png").into(),
-                        transform: Transform {
-                            translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()},
-                        PowerUp(PowerUpType::MovementSpeedUp),
-                    ));
-                    // print!("MOVEMENT SPEED UP POWERUP DROPPED\n");
                 }
             }
             // despawn the enemy and increment the score of the player who killed it

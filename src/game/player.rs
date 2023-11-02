@@ -59,15 +59,6 @@ pub struct PlayerWeapon;
 pub struct HealthBar;
 
 #[derive(Component)]
-pub struct PlayerModifiers {
-    pub damage_dealt_modifier: u8,
-    pub damage_reduction_modifier: u8,
-    pub max_hp_modifier: u8,
-    pub attack_speed_modifier: u8,
-    pub movement_speed_modifier: u8,
-}
-
-#[derive(Component)]
 struct DespawnPlayerWeaponTimer(Timer);
 
 pub struct PlayerPlugin;
@@ -118,14 +109,7 @@ pub fn spawn_players(
             },
             Collider(PLAYER_SIZE),
             StoredPowerUps {
-                power_ups: [0; 5],
-            },
-            PlayerModifiers {
-                damage_dealt_modifier: 0,
-                damage_reduction_modifier: 0,
-                max_hp_modifier: 0,
-                attack_speed_modifier: 0,
-                movement_speed_modifier: 0,
+                power_ups: [0; NUM_POWERUPS],
             },
         )).id();
 
@@ -161,9 +145,10 @@ pub fn despawn_players(mut commands: Commands, players: Query<Entity, With<Playe
 // Update the health bar of the player displayed during the game
 pub fn update_health_bar(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
-    player_health_query: Query<(&Health, &Children), With<Player>>,
+    mut player_health_query: Query<(&mut Health, &Children, &StoredPowerUps), With<Player>>,
 ) {
-    for (health, children) in player_health_query.iter() {
+    for (mut health, children, player_power_ups) in player_health_query.iter_mut() {
+        health.max = PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
         for child in children.iter() {
             let tf = health_bar_query.get_mut(*child);
             if let Ok(mut tf) = tf {
@@ -186,10 +171,10 @@ pub fn scoreboard_system(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn handle_dead_player(
-    mut player_query: Query<(&mut Transform, &mut Health, &PlayerModifiers), (With<Player>, Without<Enemy>)>,
+    mut player_query: Query<(&mut Transform, &mut Health, &StoredPowerUps), (With<Player>, Without<Enemy>)>,
     mut score_query: Query<&mut Score, (With<Player>, Without<Enemy>)>,
 ) {
-    for (mut tf, mut health, player_modifiers) in player_query.iter_mut() {
+    for (mut tf, mut health, player_power_ups) in player_query.iter_mut() {
         if health.current <= 0 {
             for mut player in score_query.iter_mut() {
                 if (player.current_score.checked_sub(1)).is_some() {
@@ -200,7 +185,7 @@ pub fn handle_dead_player(
             }
             let translation = Vec3::new(0.0, 0.0, 1.0);
             tf.translation = translation;
-            health.current = PLAYER_DEFAULT_HP + player_modifiers.max_hp_modifier;
+            health.current = PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
         }
     }
 }
@@ -208,10 +193,10 @@ pub fn handle_dead_player(
 // if the player collides with a powerup, add it to the player's powerup list
 pub fn grab_powerup(
     mut commands: Commands,
-    mut player_query: Query<(&Transform, &mut Health, &mut StoredPowerUps, &mut PlayerModifiers), With<Player>>,
-    powerup_query: Query<(Entity, &Transform, &mut PowerUp), With<PowerUp>>,
+    mut player_query: Query<(&Transform, &mut Health, &mut StoredPowerUps), With<Player>>,
+    powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
 ) {
-    for (player_transform, mut player_health, mut stored_power_ups, mut player_modifiers) in player_query.iter_mut() {
+    for (player_transform, mut player_health, mut player_power_ups) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
             // check detection
             let player_pos = player_transform.translation.truncate();
@@ -219,33 +204,28 @@ pub fn grab_powerup(
             if player_pos.distance(powerup_pos) < 16. {
                 print!("grabbed powerup\n");
                 // add powerup to player
+                // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
                 match power_up.0
                 {
                     components::PowerUpType::DamageDealtUp => {
-                        stored_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
-                        player_modifiers.damage_dealt_modifier += 5;
+                        player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
                     },
                     components::PowerUpType::DamageReductionUp => {
-                        stored_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
-                        player_modifiers.damage_reduction_modifier += 5;
+                        player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
                     },
                     components::PowerUpType::MaxHPUp => {
-                        stored_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
-                        player_modifiers.max_hp_modifier += 5;
-                        player_health.max += 5;
-                        player_health.current += 5;
+                        player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
+                        player_health.current += MAX_HP_UP;
                     },
                     components::PowerUpType::AttackSpeedUp => {
-                        stored_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
-                        player_modifiers.attack_speed_modifier += 5;
+                        player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
                         // TODO: add attack speed change somewhere
                     },
                     components::PowerUpType::MovementSpeedUp => {
-                        stored_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
-                        player_modifiers.movement_speed_modifier += 5;
+                        player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                     },
                 }
-                print!("{:?}\n", stored_power_ups.power_ups);
+                print!("{:?}\n", player_power_ups.power_ups);
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
             }
@@ -259,7 +239,7 @@ pub fn spawn_weapon_on_click(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    player_query: Query<(Entity, &Transform, &Player, &PlayerModifiers), With<LocalPlayer>>,
+    player_query: Query<(Entity, &Transform, &Player, &StoredPowerUps), With<LocalPlayer>>,
     mut enemy_query: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
 ) {
 
@@ -267,7 +247,7 @@ pub fn spawn_weapon_on_click(
         return;
     }
     let window = window_query.get_single().unwrap();
-    for (player_entity, player_transform, player_id, player_modifiers) in player_query.iter() {
+    for (player_entity, player_transform, player_id, player_power_ups) in player_query.iter() {
         let window_size = Vec2::new(window.width(), window.height());
         let cursor_position = window.cursor_position().unwrap();
         let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
@@ -296,7 +276,7 @@ pub fn spawn_weapon_on_click(
         for (enemy_transform, collider, mut health, mut last_attacker) in enemy_query.iter_mut() {
             if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
                 last_attacker.0 = Some(player_id.0);
-                match health.current.checked_sub(SWORD_DAMAGE + player_modifiers.damage_dealt_modifier) {
+                match health.current.checked_sub(SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
                     Some(v) => {
                         health.current = v;
                     }

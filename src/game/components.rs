@@ -10,18 +10,24 @@ pub struct Health {
     pub max: u8,
 }
 
+pub const NUM_POWERUPS: usize = 5;
+pub const DAMAGE_DEALT_UP: u8 = 10;
+pub const DAMAGE_REDUCTION_UP: u8 = 5;
+pub const MAX_HP_UP: u8 = 20;
+pub const ATTACK_SPEED_UP: u8 = 5;
+pub const MOVEMENT_SPEED_UP: u8 = 15;
 #[derive(Debug)]
 pub enum PowerUpType {
-    DamageDealtUp,
-    DamageReductionUp,
-    MaxHPUp,
-    AttackSpeedUp,
-    MovementSpeedUp,
+    DamageDealtUp = 0,
+    DamageReductionUp = 1,
+    MaxHPUp = 2,
+    AttackSpeedUp = 3,
+    MovementSpeedUp = 4,
 }
 
 #[derive(Component)]
 pub struct StoredPowerUps{
-    pub power_ups: [u8; 5],
+    pub power_ups: [u8; NUM_POWERUPS],
     // 0: DamageDealtUp, 1: DamageReductionUp, 2: MaxHPUp, 3: AttackSpeedUp, 4: MovementSpeedUp
 }
 

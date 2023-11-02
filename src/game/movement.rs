@@ -53,7 +53,7 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 /// Player movement function. Runs on Update schedule.
 pub fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
-    mut players: Query<(&Player, &mut Transform, &Collider, &PlayerModifiers), With<LocalPlayer>>,
+    mut players: Query<(&Player, &mut Transform, &Collider, &StoredPowerUps), With<LocalPlayer>>,
     other_colliders: Query<(&Transform, &Collider), Without<LocalPlayer>>,
     map: Res<map::WorldMap>,
     time: Res<Time>,
@@ -72,8 +72,8 @@ pub fn move_player(
     let collider = player.2;
 
     let mut new_pos = Vec3 {
-        x: pos.translation.x + dir.x * (PLAYER_SPEED + player.3.movement_speed_modifier as f32) * time.delta_seconds(),
-        y: pos.translation.y + dir.y * (PLAYER_SPEED + player.3.movement_speed_modifier as f32) * time.delta_seconds(),
+        x: pos.translation.x + dir.x * (PLAYER_SPEED + player.3.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32) * time.delta_seconds(),
+        y: pos.translation.y + dir.y * (PLAYER_SPEED + player.3.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32) * time.delta_seconds(),
         z: 0.0,
     };
 
