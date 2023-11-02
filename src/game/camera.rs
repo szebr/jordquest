@@ -39,7 +39,7 @@ pub struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
-            .add_systems(Update, game_update.after(movement::move_player).run_if(in_state(AppState::Game)))
+            .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(in_state(AppState::Respawn)))
             .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
             .add_systems(OnEnter(AppState::Respawn), configure_map)
@@ -303,11 +303,8 @@ fn game_update(
             camera_tf.translation.x = player_tf.translation.x;
             camera_tf.translation.y = player_tf.translation.y;
 
-            let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (((super::WIN_W as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-            let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_W as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-
-            let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (((super::WIN_H as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-            let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_H as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
+            let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_W * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
+            let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_H * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
 
             // Clamp camera view to map borders
             // Center camera in axis if map dimensions < window size
@@ -315,11 +312,11 @@ fn game_update(
                 camera_tf.translation.x = 0.
             }
             else {
-                if camera_tf.translation.x < clamp_neg_x {
-                    camera_tf.translation.x = clamp_neg_x
-                }
                 if camera_tf.translation.x > clamp_pos_x {
                     camera_tf.translation.x = clamp_pos_x
+                }
+                if camera_tf.translation.x < -clamp_pos_x {
+                    camera_tf.translation.x = -clamp_pos_x;
                 }
             }
 
@@ -327,11 +324,11 @@ fn game_update(
                 camera_tf.translation.y = 0.
             }
             else {
-                if camera_tf.translation.y < clamp_neg_y {
-                    camera_tf.translation.y = clamp_neg_y
-                }
                 if camera_tf.translation.y > clamp_pos_y {
                     camera_tf.translation.y = clamp_pos_y
+                }
+                if camera_tf.translation.y < -clamp_pos_y {
+                    camera_tf.translation.y = -clamp_pos_y;
                 }
             }
         }
