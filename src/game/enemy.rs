@@ -226,6 +226,8 @@ pub fn weapon_dealt_damage_system(
 
 pub fn fixed_aggro(
     tick: Res<net::TickNum>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
     mut enemies: Query<(&PosBuffer, &mut Aggro), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
@@ -249,7 +251,20 @@ pub fn fixed_aggro(
         }
         else {
             if aggro.0.is_none() {
-                //TODO show sighted player
+                commands.spawn((
+                    SpriteBundle {
+                        texture: asset_server.load("aggro.png").into(),
+                        transform: Transform {
+                            translation: Vec3::new(prev.x, prev.y + 32., 5.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    Fade {
+                        current: 1.0,
+                        max: 1.0
+                    }
+                ));
             }
             let _ = aggro.0.insert(closest_player.unwrap().0);
         }
