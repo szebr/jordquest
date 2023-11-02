@@ -1,13 +1,16 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::reflect::Enum;
 use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
+use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
 use crate::net::{is_host, TickNum};
+
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -58,18 +61,25 @@ impl Plugin for EnemyPlugin{
             ))
             .add_systems(Update, (
                 packet,
-                spawn_weapon.after(despawn_dead_enemies),
+                spawn_weapon.after(handle_dead_enemy),
                 despawn_after_timer,
-                despawn_dead_enemies,
+                handle_dead_enemy,
                 show_damage,
             ))
-            .add_systems(OnExit(AppState::Game), remove_enemies)
+            .add_systems(OnExit(AppState::Game), despawn_enemies)
             .add_event::<EnemyTickEvent>();
     }
 }
 
-pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, pos: Vec2, sprite: i32) {
+pub fn spawn_enemy(
+    commands: &mut Commands, 
+    entity_atlas: &Res<Atlas>, 
+    id: u8, pos: Vec2, sprite: i32, power_up_type: PowerUpType
+) {
     let pb = PosBuffer(CircularBuffer::new_from(pos));
+    let mut pu: [u8; NUM_POWERUPS]; 
+    pu = [0; NUM_POWERUPS]; 
+    pu[power_up_type as usize] = 1;
     commands.spawn((
         Enemy(id),
         pb,
@@ -85,11 +95,15 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
         },
         Collider(ENEMY_SIZE),
         LastAttacker(None),
+        StoredPowerUps
+        {
+            power_ups: pu,
+        },
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     ));
 }
 
-pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
+pub fn despawn_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
     for e in enemies.iter() {
         commands.entity(e).despawn_recursive();
     }
@@ -100,7 +114,7 @@ pub fn spawn_weapon(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
-    mut player_query: Query<(&Transform, &mut Health), With<Player>>
+    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -115,15 +129,19 @@ pub fn spawn_weapon(
                     ..Default::default()
                 }).insert(EnemyWeapon).insert(DespawnEnemyWeaponTimer(Timer::from_seconds(1.0, TimerMode::Once)));
             });
-            for (player_transform, mut player_hp) in player_query.iter_mut() {
+            for (player_transform, mut player_hp, player_power_ups) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
-                    match player_hp.current.checked_sub(CIRCLE_DAMAGE) {
-                        Some(v) => {
-                            player_hp.current = v;
-                        }
-                        None => {
-                            // player would die from hit
-                            player_hp.current = 0;
+                    // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
+                    if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
+                    {
+                        match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
+                            Some(v) => {
+                                player_hp.current = v;
+                            }
+                            None => {
+                                // player would die from hit
+                                player_hp.current = 0;
+                            }
                         }
                     }
                 }
@@ -145,14 +163,35 @@ fn despawn_after_timer(
     }
 }
 
-
-pub fn despawn_dead_enemies(
+// handle dead enemies by dropping all of their powerups, despawning them, and 
+// incrementing the score of the player who killed them
+pub fn handle_dead_enemy(
     mut commands: Commands,
-    enemy_query: Query<(Entity, &Health, &LastAttacker), With<Enemy>>,
+    enemy_query: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &GlobalTransform), With<Enemy>>,
     mut player_score_query: Query<(&mut Score, &Player)>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (entity, health, last_attacker) in enemy_query.iter() {
+    // TODO this is slow because it checks all enemies, but I'm not sure how to make it faster
+    for (entity, health, last_attacker, stored_power_ups, position) in enemy_query.iter() {
         if health.current <= 0 {
+            // drop powerups by cycling through the stored powerups of the enemy
+            // and spawning the appropriate one
+            let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
+            for (index, &element) in stored_power_ups.power_ups.iter().enumerate() {
+                if element == 1 
+                {
+                    commands.spawn((SpriteBundle {
+                        texture: asset_server.load(power_up_icons[index]).into(),
+                        transform: Transform {
+                            translation: Vec3::new(position.translation().x, position.translation().y, 1.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()},
+                        PowerUp(unsafe { std::mem::transmute(index as u8) } ),
+                    ));
+                }
+            }
+            // despawn the enemy and increment the score of the player who killed it
             commands.entity(entity).despawn_recursive();
             for (mut score, pl) in player_score_query.iter_mut() {
                 if pl.0 == last_attacker.0.expect("died with no attacker?") {
@@ -162,7 +201,6 @@ pub fn despawn_dead_enemies(
         }
     }
 }
-
 
 pub fn show_damage(
     mut enemies: Query<(&Health, &mut TextureAtlasSprite), With<Enemy>>,
