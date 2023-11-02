@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use crate::game::player::LocalPlayer;
 use crate::{map, map::WorldMap};
 use crate::movement;
 use crate::AppState;
+use crate::game::player::LocalPlayer;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -196,11 +196,8 @@ fn update(
             camera_tf.translation.x = player_tf.translation.x;
             camera_tf.translation.y = player_tf.translation.y;
 
-            let clamp_neg_x: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (((super::WIN_W as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-            let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_W as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-
-            let clamp_neg_y: f32 = ((-((map::MAPSIZE * map::TILESIZE) as isize)/2) + (((super::WIN_H as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
-            let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_H as f32 * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
+            let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_W * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
+            let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_H * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
 
             // Clamp camera view to map borders
             // Center camera in axis if map dimensions < window size
@@ -208,11 +205,11 @@ fn update(
                 camera_tf.translation.x = 0.
             }
             else {
-                if camera_tf.translation.x < clamp_neg_x {
-                    camera_tf.translation.x = clamp_neg_x
-                }
                 if camera_tf.translation.x > clamp_pos_x {
                     camera_tf.translation.x = clamp_pos_x
+                }
+                if camera_tf.translation.x < -clamp_pos_x {
+                    camera_tf.translation.x = -clamp_pos_x;
                 }
             }
 
@@ -220,11 +217,11 @@ fn update(
                 camera_tf.translation.y = 0.
             }
             else {
-                if camera_tf.translation.y < clamp_neg_y {
-                    camera_tf.translation.y = clamp_neg_y
-                }
                 if camera_tf.translation.y > clamp_pos_y {
                     camera_tf.translation.y = clamp_pos_y
+                }
+                if camera_tf.translation.y < -clamp_pos_y {
+                    camera_tf.translation.y = -clamp_pos_y;
                 }
             }
         }
