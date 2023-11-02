@@ -128,12 +128,13 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Transform, &mut Health, &StoredPowerUps), With<Player>>,
+    mut players: Query<(&mut Transform, &mut Health, &mut Visibility, &StoredPowerUps), With<Player>>,
     mut scores: Query<&mut Score, With<Player>>,
 ) {
-    for (mut tf, mut health, spu) in players.iter_mut() {
+    for (mut tf, mut health, mut vis, spu) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
+            *vis = Visibility::Hidden;
             for mut score in scores.iter_mut() {
                 if (score.0.checked_sub(1)).is_some() {
                     score.0 -= 1;
@@ -143,7 +144,7 @@ pub fn update_players(
             }
             //let translation = Vec3::new(0.0, 0.0, 1.0);
             //tf.translation = translation;
-            //health.current = PLAYER_DEFAULT_HP;
+            //health.current = PLAYER_DEFAULT_HP + spu.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
         }
     }
 }
@@ -299,13 +300,14 @@ pub fn spawn_players(
             PosBuffer(CircularBuffer::new()),
             Score(0),
             Health {
-                current: PLAYER_DEFAULT_HP,
+                current: 0,
                 max: PLAYER_DEFAULT_HP,
-                dead: false
+                dead: true
             },
             SpriteSheetBundle {
                 texture_atlas: entity_atlas.handle.clone(),
                 sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                visibility: Visibility::Hidden,
                 transform: Transform::from_xyz(0., 0., 1.),
                 ..default()
             },

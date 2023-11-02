@@ -14,7 +14,7 @@ pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
-pub const FOLLOW_DISTANCE: f32 = 200.0;
+pub const AGGRO_RANGE: f32 = 200.0;
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
@@ -42,6 +42,9 @@ pub struct EnemyWeapon;
 
 #[derive(Component)]
 pub struct LastAttacker(pub Option<u8>);
+
+#[derive(Component)]
+pub struct Aggro(pub Option<u8>);
 
 #[derive(Component)]
 struct DespawnEnemyWeaponTimer(Timer);
@@ -219,31 +222,56 @@ pub fn weapon_dealt_damage_system(
     }
 }*/
 
-pub fn fixed_move(
+pub fn fixed_aggro(
     tick: Res<net::TickNum>,
-    mut enemies: Query<&mut PosBuffer, (With<Enemy>, Without<Player>)>,
-    players: Query<(&PosBuffer, &Health), (With<Player>, Without<Enemy>)>
+    mut enemies: Query<(&PosBuffer, &mut Aggro), With<Enemy>>,
+    players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for mut epb in &mut enemies {
+    for (epb, mut aggro) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
-        let mut next = prev.clone();
-
         let closest_player = players.iter().next();
         if closest_player.is_none() { return }
         let mut closest_player = closest_player.unwrap().0;
         let mut best_distance = f32::MAX;
-        for (ppb, hp) in &players {
+        for (pl, ppb, hp) in &players {
             if hp.dead { continue }
             let dist = ppb.0.get(tick.0).distance(*prev);
             if dist < best_distance {
                 best_distance = dist;
-                closest_player = ppb;
+                closest_player = pl;
             }
         }
-        let player_pos = closest_player.0.get(tick.0.wrapping_sub(1));
+        if best_distance > AGGRO_RANGE {
+            aggro.0 = None;
+        }
+        else {
+            aggro.0 = Some(closest_player.0);
+        }
+    }
+}
+
+pub fn fixed_move(
+    tick: Res<net::TickNum>,
+    mut enemies: Query<(&mut PosBuffer, &Aggro), (With<Enemy>, Without<Player>)>,
+    players: Query<(&Player, &PosBuffer), (With<Player>, Without<Enemy>)>
+) {
+    for (mut epb, aggro) in &mut enemies {
+        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        let mut next = prev.clone();
+
+        if aggro.0.is_none() { return }
+        let aggro = aggro.0.unwrap();
+        let mut ppbo = None;
+        for (pl, ppb) in &players {
+            if pl.0 == aggro {
+                ppbo = Some(ppb);
+            }
+        }
+        if ppbo.is_none() { return }
+        let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
 
         let displacement = *player_pos - *prev;
-        if !(displacement.length() < CIRCLE_RADIUS || displacement.length() > FOLLOW_DISTANCE) {
+        if !(displacement.length() < CIRCLE_RADIUS) {
             let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
             next += movement;
         }
