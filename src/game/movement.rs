@@ -67,7 +67,9 @@ pub fn handle_move(
     let mut can_move = true;
 
     // should only be a single entry in this query (with localplayer)
-    let player = players.single_mut();
+    let player = players.get_single_mut();
+    if player.is_err() { return; }
+    let player = player.unwrap();
     let pos = player.1.into_inner();
     let collider = player.2;
 
@@ -80,7 +82,7 @@ pub fn handle_move(
     // check collision against entities
     // TODO the player needs to move out of the way of serverside objects, or stay put if it can't
     for (other_position, other_collider) in other_colliders.iter() {
-        if let Some(collision) = collide(new_pos, collider.0, other_position.translation, other_collider.0) {
+        if collide(new_pos, collider.0, other_position.translation, other_collider.0).is_some() {
             // TODO this is a temporary "push away" collision resolution.
             //can_move = false;
             new_pos = pos.translation + pos.translation.sub(other_position.translation).clamp_length_max(1.0);

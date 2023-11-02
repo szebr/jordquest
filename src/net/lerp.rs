@@ -37,7 +37,7 @@ pub fn resolve_collisions(
         let a_pos = Vec3::new(a_pos.x, a_pos.y, 0.0);
         let b_pos = pb2.0.get(tick.0);
         let b_pos = Vec3::new(b_pos.x, b_pos.y, 0.0);
-        if let Some(c) = collide(a_pos, collider1.0, b_pos, collider2.0) {
+        if collide(a_pos, collider1.0, b_pos, collider2.0).is_some() {
             let new_a_pos = a_pos + (a_pos.sub(b_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
             let new_b_pos = b_pos + (b_pos.sub(a_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
             pb1.0.set(tick.0, new_a_pos.xy());

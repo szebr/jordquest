@@ -19,8 +19,6 @@ pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
 const COOLDOWN: f32 = 0.2;
 
-//TODO public struct resource holding player count
-
 /// sent by network module to disperse information from the host
 #[derive(Event, Debug)]
 pub struct PlayerTickEvent {
@@ -75,9 +73,9 @@ impl Plugin for PlayerPlugin{
                 handle_attack,
                 handle_move,
                 grab_powerup,
-                handle_packet_client.run_if(is_client),
-                handle_packet_host.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(OnEnter(AppState::Game), (create_players, reset_cooldowns))
+                handle_tick_events.run_if(is_client),
+                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
+            .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnExit(AppState::Game), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
@@ -144,9 +142,12 @@ pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     }
 }
 
-pub fn remove_players(mut commands: Commands, players: Query<Entity, With<Player>>) {
+pub fn remove_players(
+    mut commands: Commands,
+    players: Query<Entity, With<Player>>,
+) {
     for e in players.iter() {
-        commands.entity(e).despawn();
+        commands.entity(e).despawn_recursive();
     }
 }
 
@@ -167,27 +168,22 @@ pub fn update_health_bars(
 
 // Update the score displayed during the game
 pub fn update_score(
-    player_score_query: Query<&Score, With<LocalPlayer>>,
-    mut score_query: Query<&mut Text, With<ScoreDisplay>>,
+    scores: Query<&Score, With<LocalPlayer>>,
+    mut score_displays: Query<&mut Text, With<ScoreDisplay>>,
 ) {
-    for mut text in score_query.iter_mut() {
-        let player = player_score_query.single();
-        text.sections[0].value = format!("Score: {}", player.current_score);
+    for mut text in score_displays.iter_mut() {
+        let score = scores.get_single();
+        if score.is_err() { return; }
+        let score = score.unwrap();
+        text.sections[0].value = format!("Score: {}", score.0);
     }
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
-    mut score_query: Query<&mut Score, With<Player>>,
     mut players: Query<(&mut Transform, &mut Health, &StoredPowerUps), With<Player>>,
     mut scores: Query<&mut Score, With<Player>>,
 ) {
-    for (mut tf, mut health, player_power_ups) in player_query.iter_mut() {
-        if health.current <= 0 {
-            for mut player in score_query.iter_mut() {
-                if (player.current_score.checked_sub(1)).is_some() {
-                    player.current_score -= 1;
     for (mut tf, mut health, spu) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
@@ -254,10 +250,12 @@ pub fn handle_attack(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut player_query: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps), With<LocalPlayer>>,
-    mut enemy_query: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
+    mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps), With<LocalPlayer>>,
+    mut enemies: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
 ) {
-    let (e, t, p, mut c, spu) = player_query.single_mut();
+    let player = players.get_single_mut();
+    if player.is_err() { return }
+    let (e, t, p, mut c, spu) = player.unwrap();
     c.0.tick(time.delta());
     if !(mouse_button_inputs.pressed(MouseButton::Left) && c.0.finished()) {
         return;
@@ -291,7 +289,7 @@ pub fn handle_attack(
     });
 
     let (start, end) = trace_attack_line(t, offset);
-    for (enemy_transform, collider, mut health, mut last_attacker) in enemy_query.iter_mut() {
+    for (enemy_transform, collider, mut health, mut last_attacker) in enemies.iter_mut() {
         if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
             last_attacker.0 = Some(p.0);
             match health.current.checked_sub(SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
@@ -339,12 +337,16 @@ pub fn update_buffer(
     for ( mut player_pos_buffer, current_pos) in &mut players {
         // pull current position into PositionBuffer
         player_pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+    let player = players.get_single_mut();
+    if player.is_err() { return }
+    let (mut pos_buffer, current_pos) = player.unwrap();
+    pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
     }
 }
 
-pub fn handle_packet_client(
+pub fn handle_tick_events(
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer)>
+    mut player_query: Query<(&Player, &mut PosBuffer)>,
 ) {
     //TODO if you receive info that your predicted local position is wrong, it needs to be corrected
     for ev in player_reader.iter() {
@@ -358,7 +360,7 @@ pub fn handle_packet_client(
     }
 }
 
-pub fn handle_packet_host(
+pub fn handle_usercmd_events(
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer)>
 ) {

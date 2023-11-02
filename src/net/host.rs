@@ -4,7 +4,7 @@ use bincode::{deserialize, serialize};
 use crate::game::{enemy, player};
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::player::{UserCmdEvent};
+use crate::game::player::UserCmdEvent;
 use crate::components::*;
 
 #[derive(Copy, Clone)]

@@ -117,7 +117,10 @@ pub fn handle_attack(
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
-            commands.entity(enemy_entity).with_children(|parent| {
+            let enemy_entity = commands.get_entity(enemy_entity);
+            if enemy_entity.is_none() {continue}
+            let mut enemy_entity = enemy_entity.unwrap();
+            enemy_entity.with_children(|parent| {
                 parent.spawn((SpriteBundle {
                     texture: asset_server.load("EnemyAttack01.png").into(),
                     transform: Transform {
@@ -167,7 +170,7 @@ pub fn update_enemies(
                     commands.spawn((SpriteBundle {
                         texture: asset_server.load(power_up_icons[index]).into(),
                         transform: Transform {
-                            translation: Vec3::new(tf.translation().x, tf.translation().y, 1.0),
+                            translation: Vec3::new(tf.translation.x, tf.translation.y, 1.0),
                             ..Default::default()
                         },
                         ..Default::default()},
@@ -225,7 +228,9 @@ pub fn fixed_move(
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
 
-        let mut closest_player = players.iter().next().unwrap();
+        let closest_player = players.iter().next();
+        if closest_player.is_none() { return }
+        let mut closest_player = closest_player.unwrap().0;
         let mut best_distance = f32::MAX;
         for (ppb, hp) in &players {
             if hp.dead { continue }
@@ -237,8 +242,9 @@ pub fn fixed_move(
         }
         let player_pos = closest_player.0.get(tick.0.wrapping_sub(1));
 
-        let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
-        if !(movement.length() < 0.1 || movement.length() > FOLLOW_DISTANCE) {
+        let displacement = *player_pos - *prev;
+        if !(displacement.length() < CIRCLE_RADIUS || displacement.length() > FOLLOW_DISTANCE) {
+            let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
             next += movement;
         }
         epb.0.set(tick.0, next);
