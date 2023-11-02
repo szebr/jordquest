@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
-use crate::game::player::LocalPlayer;
+use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
 use crate::{map, map::WorldMap};
 use crate::movement;
 use crate::AppState;
+use crate::game::components::Health;
+use crate::game::player;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -232,7 +234,7 @@ fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
-    mut player: Query<&mut Transform, With<LocalPlayer>>,
+    mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
     map: Res<WorldMap>
 ) {
     // Get mouse position upon click
@@ -274,10 +276,13 @@ fn respawn_update(
                     println!("valid");
                     app_state_next_state.set(AppState::Game);
 
-                    for mut player_tf in &mut player {
-                        player_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
-                        player_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
-                    }
+                    let (mut tf, mut hp, mut vis) = player.single_mut();
+
+                    hp.current = PLAYER_DEFAULT_HP;
+                    hp.dead = false;
+                    *vis = Visibility::Visible;
+                    tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                    tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
                 }
             }
         }

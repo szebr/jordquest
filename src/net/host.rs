@@ -1,7 +1,7 @@
 use std::net::*;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
-use crate::game::{enemy, player};
+use crate::game::{enemy, player, PlayerId};
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
 use crate::game::player::UserCmdEvent;
@@ -19,7 +19,7 @@ pub struct Connection {
 pub struct Connections(pub [Option<Connection>; player::MAX_PLAYERS-1]); // -1 because host not included
 
 pub fn startup(mut commands: Commands) {
-    commands.insert_resource(Connections { 0: [None; player::MAX_PLAYERS-1] })
+    commands.insert_resource(Connections { 0: [None; player::MAX_PLAYERS-1] });
 }
 
 pub fn connect(addresses: Res<menus::NetworkAddresses>,

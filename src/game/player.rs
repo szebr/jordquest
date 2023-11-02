@@ -1,6 +1,5 @@
 use std::time::Duration;
 use bevy::prelude::*;
-use bevy::transform::commands;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net};
 use crate::game::movement::*;
@@ -14,11 +13,11 @@ use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
 
 pub const PLAYER_SPEED: f32 = 250.;
-const PLAYER_DEFAULT_HP: u8 = 100;
+pub const PLAYER_DEFAULT_HP: u8 = 100;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
-const COOLDOWN: f32 = 0.2;
+const DEFAULT_COOLDOWN: f32 = 0.2;
 
 /// sent by network module to disperse information from the host
 #[derive(Event, Debug)]
@@ -76,7 +75,7 @@ impl Plugin for PlayerPlugin{
                 handle_move.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(OnExit(AppState::MainMenu), (spawn_players, reset_cooldowns))
+            .add_systems(OnEnter(AppState::Respawn), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
@@ -162,10 +161,10 @@ pub fn update_players(
 // if the player collides with a powerup, add it to the player's powerup list
 pub fn grab_powerup(
     mut commands: Commands,
-    mut player_query: Query<(&Transform, &mut Health, &mut StoredPowerUps), With<Player>>,
+    mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
     powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
 ) {
-    for (player_transform, mut player_health, mut player_power_ups) in player_query.iter_mut() {
+    for (player_transform, mut player_health, mut cooldown, mut player_power_ups) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
             // check detection
             let player_pos = player_transform.translation.truncate();
@@ -188,7 +187,8 @@ pub fn grab_powerup(
                     },
                     components::PowerUpType::AttackSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
-                        // TODO: add attack speed change somewhere
+                        let updated_duration = cooldown.0.duration().mul_f32(0.9);
+                        cooldown.0.set_duration(updated_duration);
                     },
                     components::PowerUpType::MovementSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
@@ -322,7 +322,10 @@ pub fn spawn_players(
                 ..default()
             },
             Collider(PLAYER_SIZE),
-            Cooldown(Timer::from_seconds(COOLDOWN, TimerMode::Once))
+            Cooldown(Timer::from_seconds(0.2, TimerMode::Once)),
+            StoredPowerUps {
+                power_ups: [0; NUM_POWERUPS],
+            },
         )).id();
 
         if i as u8 == res_id.0 {
