@@ -180,14 +180,22 @@ pub fn update_score(
 pub fn update_players(
     mut player_query: Query<(&mut Transform, &mut Health), With<Player>>,
     mut score_query: Query<&mut Score, With<Player>>,
+    mut players: Query<(&mut Transform, &mut Health, &StoredPowerUps), With<Player>>,
+    mut scores: Query<&mut Score, With<Player>>,
 ) {
     for (mut tf, mut health, player_power_ups) in player_query.iter_mut() {
         if health.current <= 0 {
             for mut player in score_query.iter_mut() {
                 if (player.current_score.checked_sub(1)).is_some() {
                     player.current_score -= 1;
+    for (mut tf, mut health, spu) in players.iter_mut() {
+        if health.current <= 0 && !health.dead {
+            health.dead = true;
+            for mut score in scores.iter_mut() {
+                if (score.0.checked_sub(1)).is_some() {
+                    score.0 -= 1;
                 } else {
-                    player.current_score = 0;
+                    score.0 = 0;
                 }
             }
             let translation = Vec3::new(0.0, 0.0, 1.0);

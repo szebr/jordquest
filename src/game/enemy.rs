@@ -83,6 +83,7 @@ pub fn spawn_enemy(
         Health {
             current: ENEMY_MAX_HP,
             max: ENEMY_MAX_HP,
+            dead: false,
         },
         SpriteSheetBundle {
             texture_atlas: entity_atlas.handle.clone(),
@@ -177,7 +178,7 @@ pub fn update_enemies(
             commands.entity(e).despawn_recursive();
             for (mut score, pl) in scores.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
-                    score.current_score += 1;
+                    score.0 += 1;
                 }
             }
             continue;
@@ -218,7 +219,7 @@ pub fn weapon_dealt_damage_system(
 pub fn fixed_move(
     tick: Res<net::TickNum>,
     mut enemies: Query<&mut PosBuffer, (With<Enemy>, Without<Player>)>,
-    players: Query<&PosBuffer, (With<Player>, Without<Enemy>)>
+    players: Query<(&PosBuffer, &Health), (With<Player>, Without<Enemy>)>
 ) {
     for mut epb in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
@@ -226,7 +227,8 @@ pub fn fixed_move(
 
         let mut closest_player = players.iter().next().unwrap();
         let mut best_distance = f32::MAX;
-        for ppb in &players {
+        for (ppb, hp) in &players {
+            if hp.dead { continue }
             let dist = ppb.0.get(tick.0).distance(*prev);
             if dist < best_distance {
                 best_distance = dist;

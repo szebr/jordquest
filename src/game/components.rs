@@ -8,6 +8,7 @@ use core::fmt::Debug;
 pub struct Health {
     pub current: u8,
     pub max: u8,
+    pub dead: bool
 }
 
 #[derive(Component)]
@@ -45,9 +46,7 @@ pub struct PowerUp(pub PowerUpType);
 pub struct Collider(pub Vec2);
 
 #[derive(Component)]
-pub struct Score {
-    pub current_score: u8,
-}
+pub struct Score(pub u8);
 
 #[derive(Component)]
 pub struct ScoreDisplay;
