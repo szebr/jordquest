@@ -72,7 +72,6 @@ impl Plugin for PlayerPlugin{
                 update_score,
                 update_players,
                 handle_attack,
-                handle_move,
                 grab_powerup,
                 handle_move.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
