@@ -1,11 +1,14 @@
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use bevy::sprite::collide_aabb::collide;
 use crate::{AppState, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
-use crate::net::{is_client, is_host};
+use crate::net::{is_client, is_host, TickNum};
+use crate::game::components::PowerUpType;
+use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -65,8 +68,15 @@ impl Plugin for EnemyPlugin{
     }
 }
 
-pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, pos: Vec2, sprite: i32) {
+pub fn spawn_enemy(
+    commands: &mut Commands,
+    entity_atlas: &Res<Atlas>,
+    id: u8, pos: Vec2, sprite: i32, power_up_type: PowerUpType
+) {
     let pb = PosBuffer(CircularBuffer::new_from(pos));
+    let mut pu: [u8; NUM_POWERUPS];
+    pu = [0; NUM_POWERUPS];
+    pu[power_up_type as usize] = 1;
     commands.spawn((
         Enemy(id),
         pb,
@@ -82,6 +92,10 @@ pub fn spawn_enemy(commands: &mut Commands, entity_atlas: &Res<Atlas>, id: u8, p
         },
         Collider(ENEMY_SIZE),
         LastAttacker(None),
+        StoredPowerUps
+        {
+            power_ups: pu,
+        },
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
     ));
 }
@@ -97,7 +111,7 @@ pub fn handle_attack(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
-    mut player_query: Query<(&Transform, &mut Health), With<Player>>
+    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -114,15 +128,19 @@ pub fn handle_attack(
                 EnemyWeapon,
                 Fade {current: 1.0, max: 1.0}));
             });
-            for (player_transform, mut player_hp) in player_query.iter_mut() {
+            for (player_transform, mut player_hp, player_power_ups) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
-                    match player_hp.current.checked_sub(CIRCLE_DAMAGE) {
-                        Some(v) => {
-                            player_hp.current = v;
-                        }
-                        None => {
-                            // player would die from hit
-                            player_hp.current = 0;
+                    // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
+                    if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
+                    {
+                        match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
+                            Some(v) => {
+                                player_hp.current = v;
+                            }
+                            None => {
+                                // player would die from hit
+                                player_hp.current = 0;
+                            }
                         }
                     }
                 }
@@ -133,11 +151,29 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &mut TextureAtlasSprite), With<Enemy>>,
+    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform), With<Enemy>>,
     mut scores: Query<(&mut Score, &Player)>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (e, hp, la, mut sp) in enemies.iter_mut() {
+    for (e, hp, la, spu, mut sp, tf) in enemies.iter_mut() {
         if hp.current <= 0 {
+            // drop powerups by cycling through the stored powerups of the enemy
+            // and spawning the appropriate one
+            let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
+            for (index, &element) in spu.power_ups.iter().enumerate() {
+                if element == 1
+                {
+                    commands.spawn((SpriteBundle {
+                        texture: asset_server.load(power_up_icons[index]).into(),
+                        transform: Transform {
+                            translation: Vec3::new(tf.translation().x, tf.translation().y, 1.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()},
+                                    PowerUp(unsafe { std::mem::transmute(index as u8) } ),
+                    ));
+                }
+            }
             commands.entity(e).despawn_recursive();
             for (mut score, pl) in scores.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
@@ -207,8 +243,55 @@ pub fn fixed_move(
     }
 }
 
-pub fn fixed_resolve() {
-    // JORDAN
+/// Resolve enemy wall collisions
+pub fn fixed_resolve(
+    mut enemies: Query<(&mut PosBuffer, &Collider), With<Enemy>>,
+    map: Res<WorldMap>,
+    tick: Res<TickNum>,
+) {
+    for (mut enemy_pos_buffer, collider) in &mut enemies {
+        let pos_buffer = enemy_pos_buffer.into_inner();
+        let pos = pos_buffer.0.get(tick.0);
+        let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
+        for i in 0..5 {
+            let mut done = true;
+            let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
+            let north = pos3 + Vec3::new(0.0, half_collider.y, 0.0);
+            let south = pos3 - Vec3::new(0.0, half_collider.y, 0.0);
+            let east = pos3 + Vec3::new(half_collider.x, 0.0, 0.0);
+            let west = pos3 - Vec3::new(half_collider.x, 0.0, 0.0);
+
+            let offset: f32 = 0.1;
+            if get_tile_at_pos(&north, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = tilepos.y + offset;
+                pos3.y -= adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&south, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = TILESIZE as f32 - tilepos.y + offset;
+                pos3.y += adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&east, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = tilepos.x + offset;
+                pos3.x -= adjustment;
+                done = false;
+            }
+            if get_tile_at_pos(&west, &map.biome_map) == Biome::Wall {
+                let tilepos = get_pos_in_tile(&north);
+                let adjustment = TILESIZE as f32 - tilepos.x + offset;
+                pos3.x += adjustment;
+                done = false;
+            }
+            if done {
+                break;
+            }
+        }
+        pos_buffer.0.set(tick.0, pos3.xy());
+    }
 }
 
 pub fn handle_packet(
