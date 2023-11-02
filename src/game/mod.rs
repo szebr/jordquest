@@ -32,6 +32,9 @@ impl Atlas {
     }
 }
 
+#[derive(Resource)]
+pub struct PlayerId(pub u8);
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin{
@@ -73,6 +76,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let entity_atlas = Atlas{handle: entity_atlas_handle};
     commands.insert_resource(entity_atlas);
 
+    commands.insert_resource(PlayerId(0xFF));
     commands.insert_resource(movement::KeyBinds::new());
 }
 

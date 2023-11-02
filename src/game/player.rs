@@ -10,7 +10,8 @@ use crate::buffers::*;
 use crate::game::components::*;
 use crate::game::components;
 use crate::game::enemy::LastAttacker;
-use crate::net::{is_client, is_host, IsHost};
+use crate::game::PlayerId;
+use crate::net::{is_client, is_host};
 
 pub const PLAYER_SPEED: f32 = 250.;
 const PLAYER_DEFAULT_HP: u8 = 100;
@@ -82,60 +83,6 @@ impl Plugin for PlayerPlugin{
     }
 }
 
-
-pub fn create_players(
-    mut commands: Commands,
-    entity_atlas: Res<Atlas>,
-    asset_server: Res<AssetServer>,
-    is_host: Res<IsHost>
-) {
-    for i in 0..MAX_PLAYERS {
-        let pb = PosBuffer(CircularBuffer::new_from(Vec2::new(i as f32 * 100., i as f32 * 100.)));
-        let pl = commands.spawn((
-            Player(i as u8),
-            pb,
-            Health {
-                current: PLAYER_DEFAULT_HP,
-                max: PLAYER_DEFAULT_HP,
-            },
-            Score {
-                current_score: 0,
-            },
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            },
-            Collider(PLAYER_SIZE),
-            StoredPowerUps {
-                power_ups: [0; NUM_POWERUPS],
-            },
-            Cooldown(Timer::from_seconds(COOLDOWN, TimerMode::Once))
-        )).id();
-
-        let health_bar = commands.spawn((
-            SpriteBundle {
-            texture: asset_server.load("healthbar.png").into(),
-            transform: Transform {
-                translation: Vec3::new(0., 24., 1.),
-                ..Default::default()
-            },
-            ..Default::default()},
-            HealthBar,
-        )).id();
-
-        commands.entity(pl).push_children(&[health_bar]);
-
-        if i == 0 && is_host.0 {
-            commands.entity(pl).insert(LocalPlayer);
-        }
-        if i == 1 && !is_host.0 {
-            commands.entity(pl).insert(LocalPlayer);
-        }
-    }
-}
-
 pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     for mut c in &mut query {
         c.0.tick(Duration::from_secs_f32(100.));
@@ -194,9 +141,9 @@ pub fn update_players(
                     score.0 = 0;
                 }
             }
-            let translation = Vec3::new(0.0, 0.0, 1.0);
-            tf.translation = translation;
-            health.current = PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
+            //let translation = Vec3::new(0.0, 0.0, 1.0);
+            //tf.translation = translation;
+            //health.current = PLAYER_DEFAULT_HP;
         }
     }
 }
@@ -334,13 +281,54 @@ pub fn update_buffer(
         tick: Res<net::TickNum>,
         mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
     ) {
-    for ( mut player_pos_buffer, current_pos) in &mut players {
-        // pull current position into PositionBuffer
-        player_pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
     let player = players.get_single_mut();
     if player.is_err() { return }
     let (mut pos_buffer, current_pos) = player.unwrap();
     pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+}
+
+pub fn spawn_players(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>,
+    asset_server: Res<AssetServer>,
+    res_id: Res<PlayerId>
+) {
+    for i in 0..MAX_PLAYERS {
+        let pl = commands.spawn((
+            Player(i as u8),
+            PosBuffer(CircularBuffer::new()),
+            Score(0),
+            Health {
+                current: PLAYER_DEFAULT_HP,
+                max: PLAYER_DEFAULT_HP,
+                dead: false
+            },
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            },
+            Collider(PLAYER_SIZE),
+            Cooldown(Timer::from_seconds(COOLDOWN, TimerMode::Once))
+        )).id();
+
+        if i as u8 == res_id.0 {
+            commands.entity(pl).insert(LocalPlayer);
+        }
+
+        let health_bar = commands.spawn((
+            SpriteBundle {
+                texture: asset_server.load("healthbar.png"),
+                transform: Transform {
+                    translation: Vec3::new(0., 24., 2.),
+                    ..Default::default()
+                },
+                ..Default::default()},
+            HealthBar,
+        )).id();
+
+        commands.entity(pl).push_children(&[health_bar]);
     }
 }
 
