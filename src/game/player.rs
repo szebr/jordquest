@@ -74,9 +74,9 @@ impl Plugin for PlayerPlugin{
                 handle_attack,
                 handle_move,
                 grab_powerup,
-                move_player.run_if(in_state(AppState::Game)),
+                handle_move.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
-                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game))
+                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(OnExit(AppState::MainMenu), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<PlayerTickEvent>()
@@ -130,11 +130,11 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut player_query: Query<(&mut Transform, &mut Health, &mut Visibility, Option<&LocalPlayer>, &StoredPowerUps), (With<Player>, Without<Enemy>)>,
-    mut score_query: Query<&mut Score, (With<Player>, Without<Enemy>)>,
+    mut players: Query<(&mut Transform, &mut Health, &mut Visibility, Option<&LocalPlayer>, &StoredPowerUps), (With<Player>, Without<Enemy>)>,
+    mut scores: Query<&mut Score, (With<Player>, Without<Enemy>)>,
     mut app_state_next_state: ResMut<NextState<AppState>>
 ) {
-    for (mut tf, mut health, mut vis, lp, spu) in player_query.iter_mut() {
+    for (mut tf, mut health, mut vis, lp, spu) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
