@@ -1,4 +1,5 @@
 use std::time::Duration;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net};
@@ -6,6 +7,7 @@ use crate::game::movement::*;
 use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
 use crate::buffers::*;
+use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::components;
 use crate::game::enemy::LastAttacker;
@@ -208,24 +210,32 @@ pub fn handle_attack(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps), With<LocalPlayer>>,
     mut enemies: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
+    cameras: Query<&Transform, With<SpatialCameraBundle>>
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (e, t, p, mut c, spu) = player.unwrap();
+    let (e, tf, p, mut c, spu) = player.unwrap();
+    let camera = cameras.get_single();
+    if camera.is_err() { return }
+    let camera = camera.unwrap();
     c.0.tick(time.delta());
     if !(mouse_button_inputs.pressed(MouseButton::Left) && c.0.finished()) {
         return;
     }
     c.0.reset();
-    let window = window_query.get_single().unwrap();
-    let window_size = Vec2::new(window.width(), window.height());
-    let cursor_position = window.cursor_position().unwrap();
-    let cursor_position_in_world = Vec2::new(cursor_position.x, window_size.y - cursor_position.y) - window_size * 0.5;
 
-    let direction_vector = cursor_position_in_world.normalize();
+    let window = window_query.single();
+    let cursor_position = window.cursor_position();
+    if cursor_position.is_none() { return }
+    let mut cursor_position = cursor_position.unwrap();
+    cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
+    cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
+    cursor_position += camera.translation.xy();
+
+    let direction_vector = (cursor_position - tf.translation.xy()).normalize();
     let weapon_direction = direction_vector.y.atan2(direction_vector.x);
 
-    let circle_radius = 50.0;// position spawning the sword, make it variable later
+    let circle_radius = 50.0;
     let offset_x = circle_radius * weapon_direction.cos();
     let offset_y = circle_radius * weapon_direction.sin();
     let offset = Vec2::new(offset_x, offset_y);
@@ -244,7 +254,7 @@ pub fn handle_attack(
         Fade {current: 1.0, max: 1.0}));
     });
 
-    let (start, end) = trace_attack_line(t, offset);
+    let (start, end) = trace_attack_line(tf, offset);
     for (enemy_transform, collider, mut health, mut last_attacker) in enemies.iter_mut() {
         if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
             last_attacker.0 = Some(p.0);
