@@ -280,21 +280,23 @@ pub fn fixed_move(
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
 
-        if aggro.0.is_none() { continue }
-        let aggro = aggro.0.unwrap();
-        let mut ppbo = None;
-        for (pl, ppb) in &players {
-            if pl.0 == aggro {
-                ppbo = Some(ppb);
+        'mov: {
+            if aggro.0.is_none() { break 'mov }
+            let aggro = aggro.0.unwrap();
+            let mut ppbo = None;
+            for (pl, ppb) in &players {
+                if pl.0 == aggro {
+                    ppbo = Some(ppb);
+                }
             }
-        }
-        if ppbo.is_none() { return }
-        let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
+            if ppbo.is_none() { break 'mov }
+            let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
 
-        let displacement = *player_pos - *prev;
-        if !(displacement.length() < CIRCLE_RADIUS) {
-            let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
-            next += movement;
+            let displacement = *player_pos - *prev;
+            if !(displacement.length() < CIRCLE_RADIUS) {
+                let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
+                next += movement;
+            }
         }
         epb.0.set(tick.0, next);
     }
