@@ -271,3 +271,51 @@ pub fn save_join_input(
         }
     }
 }
+
+pub fn init_input_system_with_default<T: InputType>(
+    default_value: &str,
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Text, &mut T), Without<Initialized>>,
+) {
+    for (entity, mut text, mut input) in query.iter_mut() {
+        if input.is_empty() {
+            text.sections[0].value.push_str(&format!(" {}", default_value));
+            for ch in default_value.chars() {
+                input.push_char(ch);
+            }
+            commands.entity(entity).insert(Initialized {});
+        }
+    }
+}
+//adjust the default of each inputs here
+pub fn init_host_port_input_system(
+    commands: Commands,
+    host_port_query: Query<(Entity, &mut Text, &mut HostPortInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<HostPortInput>("8085", commands, host_port_query);
+}
+
+pub fn init_join_host_port_input_system(
+    commands: Commands,
+    join_host_port_query: Query<(Entity, &mut Text, &mut JoinHostPortInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<JoinHostPortInput>("8085", commands, join_host_port_query);
+}
+
+pub fn init_join_port_input_system(
+    commands: Commands,
+    join_port_query: Query<(Entity, &mut Text, &mut JoinPortInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<JoinPortInput>("8086", commands, join_port_query);
+}
+
+pub fn init_join_ip_input_system(
+    commands: Commands,
+    join_ip_query: Query<(Entity, &mut Text, &mut JoinIPInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<JoinIPInput>("127.0.0.1", commands, join_ip_query);
+}
+
+
+
+
