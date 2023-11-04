@@ -8,6 +8,7 @@ use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+use crate::game::player::PlayerShield;
 
 
 pub const MAX_ENEMIES: usize = 32;
@@ -117,7 +118,7 @@ pub fn handle_attack(
     asset_server: Res<AssetServer>,
     time: Res<Time>,
     mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
-    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps), With<Player>>
+    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
@@ -137,9 +138,10 @@ pub fn handle_attack(
                 EnemyWeapon,
                 Fade {current: 1.0, max: 1.0}));
             });
-            for (player_transform, mut player_hp, player_power_ups) in player_query.iter_mut() {
+            for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
                     // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
+                    if shield.active { continue }
                     if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
                     {
                         match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
