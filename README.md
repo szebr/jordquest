@@ -55,5 +55,5 @@ roughly two football sized fields. If the players move 3.5 m/s, the map should b
 
 ## Stretch Goals
 
-* Lag Compensated and clientside prediction net code. Specifically this stretch goal should solve much less input lag and a fairer, more singleplayer-feeling experience. Network architecture design will have to be planned around our networked gameplay. The challenges involved in implemented lag compensated netcode include: BLAH BLAH BLAH IAN FIXIE
+* Lag compensation and clientside prediction net code. Specifically this stretch goal should enable a fairer (no guessing), more singleplayer-feeling (low delay) experience. Gameplay will have to be designed with this in mind, and our networking code will have to be entirely oriented around lag compensation in order to work at all. The challenges involved in this stretch goal are: understanding how to reconcile differences between clients' predictions and perceptions of the game state, processing corrections on the clientside, and knowing what information to lag compensate for a fair experience.
 * Scoring: Working leaderboard with statistics, scoring, and timer. Included on the scoreboard would be the stats names, player kills, monster kills, camps captured, deaths, and k/d ratio. The overall score should increase when the player kills enemy npcs, captures bases, or eliminate enemy players.
