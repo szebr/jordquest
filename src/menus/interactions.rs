@@ -81,11 +81,11 @@ pub fn update_input<T: InputType>(
 
     if let Some(new_char) = new_char {
         for (mut text, mut input_type) in query.iter_mut() {
-            if new_char != '\u{8}' {
+            if new_char != '\u{8}' && new_char != '\u{7f}' {
                 text.sections[0].value.push(new_char);
                 input_type.push_char(new_char);
             }
-            if keyboard_input.just_pressed(KeyCode::Back) {
+            else{
                 if !input_type.is_empty() {
                     text.sections[0].value.pop();
                     input_type.pop_char();
