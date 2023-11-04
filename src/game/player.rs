@@ -61,6 +61,11 @@ pub struct HealthBar;
 #[derive(Component)]
 struct DespawnPlayerWeaponTimer(Timer);
 
+#[derive(Component)]
+pub struct Shield {
+    pub active: bool, //shield on boolean
+}
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
@@ -76,7 +81,9 @@ impl Plugin for PlayerPlugin{
                 move_player.run_if(in_state(AppState::Game)),
                 packet, usercmd))
             .add_systems(OnEnter(AppState::Game), spawn_players)
-            .add_systems(OnExit(AppState::Game), despawn_players)
+            .add_systems(OnExit(AppState::Game), remove_players)
+            .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
+            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)))
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
@@ -326,6 +333,49 @@ fn line_intersects_aabb(start: Vec2, end: Vec2, box_center: Vec2, box_size: Vec2
     let t = if tmin < 0.0 { tmax } else { tmin };
     return t > 0.0 && t * t < (end - start).length_squared();
 }
+
+pub fn spawn_shield_on_right_click(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    query: Query<(Entity, &Transform), With<LocalPlayer>>,
+) {
+    if mouse_button_inputs.just_pressed(MouseButton::Right) {
+        let shield_texture_handle = asset_server.load("shield01.png"); //where to replace the shield image
+
+        for (player_entity, _player_transform) in query.iter() {
+            commands.entity(player_entity).with_children(|parent| {
+                parent.spawn(SpriteBundle {
+                    texture: shield_texture_handle.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(0.0, 0.0, 0.5),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }).insert(Shield { active: true });
+            });
+        }
+    }
+}
+
+pub fn despawn_shield_on_right_click_release(
+    mut commands: Commands,
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    query: Query<(Entity, &Children), With<LocalPlayer>>,
+    shield_query: Query<Entity, With<Shield>>,
+) {
+    if mouse_button_inputs.just_released(MouseButton::Right) {
+        for (_player, children) in query.iter() {
+            for &child in children.iter() {
+                if shield_query.get(child).is_ok() {
+                    commands.entity(child).despawn();
+                }
+            }
+        }
+    }
+}
+
+
 
 
 pub fn fixed(
