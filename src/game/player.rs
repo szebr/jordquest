@@ -88,7 +88,7 @@ impl Plugin for PlayerPlugin{
             .add_systems(OnEnter(AppState::Respawn), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
-            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)))
+            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)).after(spawn_shield_on_right_click))
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
