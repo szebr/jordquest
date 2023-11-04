@@ -218,13 +218,14 @@ pub fn handle_attack(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps), With<LocalPlayer>>,
+    mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
     mut enemies: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
     cameras: Query<&Transform, With<SpatialCameraBundle>>
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (e, tf, p, mut c, spu) = player.unwrap();
+    let (e, tf, p, mut c, spu, shield) = player.unwrap();
+    if shield.active { return }
     let camera = cameras.get_single();
     if camera.is_err() { return }
     let camera = camera.unwrap();
