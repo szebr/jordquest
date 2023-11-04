@@ -1,3 +1,4 @@
+use bevy::ecs::system::Command;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use crate::{AppState, net};
@@ -230,10 +231,10 @@ pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(&PosBuffer, &mut Aggro), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (epb, mut aggro) in &mut enemies {
+    for (enemy_entity, epb, mut aggro) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -253,20 +254,21 @@ pub fn fixed_aggro(
         }
         else {
             if aggro.0.is_none() {
-                commands.spawn((
+                let exlaim = commands.spawn((
                     SpriteBundle {
                         texture: asset_server.load("aggro.png").into(),
                         transform: Transform {
-                            translation: Vec3::new(prev.x, prev.y + 32., 5.0),
+                            translation: Vec3::new(0.0, 32., 5.0),
                             ..Default::default()
                         },
                         ..Default::default()
                     },
                     Fade {
-                        current: 1.0,
-                        max: 1.0
+                        current: 2.0,
+                        max: 2.0
                     }
-                ));
+                )).id();
+                commands.entity(enemy_entity).push_children(&[exlaim]);
             }
             let _ = aggro.0.insert(closest_player.unwrap().0);
         }
