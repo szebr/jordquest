@@ -10,7 +10,7 @@ use crate::game::player;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
-const MINIMAP_DIMENSIONS: UVec2 = UVec2::new(256, 256);
+const MINIMAP_DIMENSIONS: UVec2 = UVec2::new(map::MAPSIZE as u32, map::MAPSIZE as u32);
 const MINIMAP_PAD: UVec2 = UVec2::new(32, 32); // How many pixels between top right of window and top right of minimap (not border)
 const MINIMAP_TRANSLATION: Vec3 = Vec3::new(
     ((super::WIN_W / 2.) as u32 - MINIMAP_PAD.x - (MINIMAP_DIMENSIONS.x / 2)) as f32 * GAME_PROJ_SCALE,
@@ -255,14 +255,10 @@ fn respawn_update(
             println!("invalid");
         } else {
             // Within bounds, convert to map tile coordinate
-            cursor_to_map.x = (cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2;
-            cursor_to_map.y = (cursor_position.y as u32 - ((super::WIN_H / 2.) as u32 - MINIMAP_DIMENSIONS.y)) / 2;
+            cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
+            cursor_to_map.y = ((cursor_position.y as u32 - ((super::WIN_H / 2.) as u32 - MINIMAP_DIMENSIONS.y)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
 
             println!("{}", cursor_to_map);
-
-            // Clamp for annoying out of bounds cases
-            if cursor_to_map.x > 255 { cursor_to_map.x = 255 };
-            if cursor_to_map.y > 255 { cursor_to_map.y = 255 };
 
             // Check if coordinate is wall
             let tile = map.biome_map[cursor_to_map.y as usize][cursor_to_map.x as usize];
