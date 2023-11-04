@@ -389,6 +389,9 @@ pub fn spawn_players(
             StoredPowerUps {
                 power_ups: [0; NUM_POWERUPS],
             },
+            PlayerShield {
+                active: false,
+            },
         )).id();
 
         if i as u8 == res_id.0 {
