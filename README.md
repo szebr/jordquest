@@ -55,5 +55,5 @@ roughly two football sized fields. If the players move 3.5 m/s, the map should b
 
 ## Stretch Goals
 
-* Rollback and prediction net code. Specifically this stretch goal should solve much less input lag and a fairer, more singleplayer-feeling experience. Network architecture design will have to be planned around our networked gameplay. The challenges involved in implemented rollback netcode include: detecting a rollback packet, designing the game to play smoothly while being rolled back a few frames from time to time, re-simulating multiple frames on the host upon receiving a rollback packet.
+* Lag Compensated and clientside prediction net code. Specifically this stretch goal should solve much less input lag and a fairer, more singleplayer-feeling experience. Network architecture design will have to be planned around our networked gameplay. The challenges involved in implemented lag compensated netcode include: BLAH BLAH BLAH IAN FIXIE
 * Scoring: Working leaderboard with statistics, scoring, and timer. Included on the scoreboard would be the stats names, player kills, monster kills, camps captured, deaths, and k/d ratio. The overall score should increase when the player kills enemy npcs, captures bases, or eliminate enemy players.
