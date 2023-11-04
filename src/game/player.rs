@@ -64,8 +64,11 @@ pub struct Cooldown(pub Timer);
 pub struct HealthBar;
 
 #[derive(Component)]
-pub struct Shield {
-    pub active: bool, //shield on boolean
+pub struct Shield;
+
+#[derive(Component)]
+pub struct PlayerShield {
+    pub active: bool,
 }
 
 pub struct PlayerPlugin;
@@ -85,7 +88,7 @@ impl Plugin for PlayerPlugin{
             .add_systems(OnEnter(AppState::Respawn), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
-            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)))
+            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)).after(spawn_shield_on_right_click))
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>();
     }
@@ -215,13 +218,14 @@ pub fn handle_attack(
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps), With<LocalPlayer>>,
+    mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
     mut enemies: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
     cameras: Query<&Transform, With<SpatialCameraBundle>>
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (e, tf, p, mut c, spu) = player.unwrap();
+    let (e, tf, p, mut c, spu, shield) = player.unwrap();
+    if shield.active { return }
     let camera = cameras.get_single();
     if camera.is_err() { return }
     let camera = camera.unwrap();
@@ -306,12 +310,13 @@ pub fn spawn_shield_on_right_click(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    query: Query<(Entity, &Transform), With<LocalPlayer>>,
+    mut query: Query<(Entity, &Transform, &mut PlayerShield), With<LocalPlayer>>,
 ) {
     if mouse_button_inputs.just_pressed(MouseButton::Right) {
         let shield_texture_handle = asset_server.load("shield01.png"); //where to replace the shield image
 
-        for (player_entity, _player_transform) in query.iter() {
+        for (player_entity, _player_transform, mut shield) in query.iter_mut() {
+            shield.active = true;
             commands.entity(player_entity).with_children(|parent| {
                 parent.spawn(SpriteBundle {
                     texture: shield_texture_handle.clone(),
@@ -320,7 +325,7 @@ pub fn spawn_shield_on_right_click(
                         ..Default::default()
                     },
                     ..Default::default()
-                }).insert(Shield { active: true });
+                }).insert(Shield);
             });
         }
     }
@@ -329,11 +334,12 @@ pub fn spawn_shield_on_right_click(
 pub fn despawn_shield_on_right_click_release(
     mut commands: Commands,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    query: Query<(Entity, &Children), With<LocalPlayer>>,
+    mut query: Query<(Entity, &Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
     if mouse_button_inputs.just_released(MouseButton::Right) {
-        for (_player, children) in query.iter() {
+        for (_player, children, mut shield) in query.iter_mut() {
+            shield.active = false;
             for &child in children.iter() {
                 if shield_query.get(child).is_ok() {
                     commands.entity(child).despawn();
@@ -383,6 +389,9 @@ pub fn spawn_players(
             Cooldown(Timer::from_seconds(0.2, TimerMode::Once)),
             StoredPowerUps {
                 power_ups: [0; NUM_POWERUPS],
+            },
+            PlayerShield {
+                active: false,
             },
         )).id();
 
