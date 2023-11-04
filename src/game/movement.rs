@@ -53,7 +53,7 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 /// Player movement function. Runs on Update schedule.
 pub fn handle_move(
     keyboard_input: Res<Input<KeyCode>>,
-    mut players: Query<(&Player, &mut Transform, &Health, &Collider, &StoredPowerUps), With<LocalPlayer>>,
+    mut players: Query<(&Player, &mut Transform, &Health, &Collider, &StoredPowerUps, Option<&Shield>), With<LocalPlayer>>,
     other_colliders: Query<(&Transform, &Collider, &Health), Without<LocalPlayer>>,
     map: Res<map::WorldMap>,
     time: Res<Time>,
@@ -67,8 +67,9 @@ pub fn handle_move(
     let hp = player.2;
     let collider = player.3;
     let spu = player.4;
+    let shield = player.5;
 
-    if hp.dead { return }
+    if hp.dead || shield.is_some() { return }
 
     let mut mv: usize = keyboard_input.pressed(key_binds.up) as usize * 0b0001;
     mv |= keyboard_input.pressed(key_binds.down) as usize * 0b0010;
