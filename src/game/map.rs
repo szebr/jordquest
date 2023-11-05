@@ -1,12 +1,16 @@
+use bevy::utils::petgraph::adj::NodeIndex;
 use bevy::{prelude::*, utils::HashMap};
 use std::{
     error::Error, 
-    fs::File, 
+    // fs::File, 
     // thread::spawn
 };
-use csv::ReaderBuilder;
+// use csv::ReaderBuilder;
 use rand::Rng;
-//use crate::noise::Perlin;
+use crate::noise::Perlin;
+use bevy::utils::petgraph::algo::min_spanning_tree;
+use bevy::utils::petgraph::graph::{DiGraph, UnGraph};
+use bevy::utils::petgraph::data::FromElements;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -63,92 +67,221 @@ impl Plugin for MapPlugin {
     }
 }
 
+pub const PATH_WIDTH: u8 = 10;
+
 // Perlin Noise Generated Map (for post midterm)
-// fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
-//     // new perlin noise generator with random u64 as seed
-//     let mut rng = rand::thread_rng();
-//     let random_u64: u64 = rng.gen();
-//     // seed, amplitude, frequency, octaves
-//     let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
+fn read_map(
+    map: &mut WorldMap,
+    raw_camp_nodes: &mut Vec<Vec2>,
+) -> Result<(), Box<dyn Error>> {
+    // new perlin noise generator with random u64 as seed
+    let mut rng = rand::thread_rng();
+    let random_u64: u64 = rng.gen();
+    // seed, amplitude, frequency, octaves
+    let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
 
-//     for row in 0..MAPSIZE {
-//         for col in 0..MAPSIZE {
-//             let v = perlin.noise(row,col);
-//             /*let r = (255 as f64 * v);
-//             let y: u32 = r as u32;
-//             let t = y % 85 as u32;
-//             let x = y - t;*/
+    for row in 0..MAPSIZE {
+        for col in 0..MAPSIZE {
+            let v = perlin.noise(row,col);
+            /*let r = (255 as f64 * v);
+            let y: u32 = r as u32;
+            let t = y % 85 as u32;
+            let x = y - t;*/
 
-//             if v < 0.4 {
-//                 map.biome_map[row][col] = Biome::Free;
-//             }
-//             if v < 0.7 {
-//                 map.biome_map[row][col] = Biome::Ground;
-//             }
-//             else {
-//                 map.biome_map[row][col] = Biome::Camp;
-//             }
-//             if row % (MAPSIZE-1) == 0 {
-//                 map.biome_map[row][col] = Biome::Wall;
-//             }
-//             if col % (MAPSIZE-1) == 0 {
-//                 map.biome_map[row][col] = Biome::Wall;
-//             }
-//         }
-//     }
-//     Ok(())
-// }
-
-// CSV Read Map (for midterm)
-fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
-    let path = "assets/midterm_map.csv";
-    let file = File::open(path)?;
-    //let mut reader = csv::Reader::from_reader(file);
-    let mut reader = ReaderBuilder::new()
-        .has_headers(false)
-        .from_reader(file);
-
-    let mut row = 0;
-    let mut col = 0;
-
-    for result in reader.records() {
-        let record = result?;
-        for field in record.iter() {
-            match field {
-                "w" => {
-                    map.biome_map[row][col] = Biome::Wall;
-                }
-                "g" => {
-                    map.biome_map[row][col] = Biome::Ground;
-                }
-                "c" => {
-                    map.biome_map[row][col] = Biome::Camp;
-                }
-                &_ => {
-
-                }
-            };
-            col += 1;
+            if v < 0.32 {
+                map.biome_map[row][col] = Biome::Camp;
+                raw_camp_nodes.push(Vec2::new(row as f32, col as f32));
+            }
+            else if v > 0.68 {
+                map.biome_map[row][col] = Biome::Wall;
+            }
+            else {
+                map.biome_map[row][col] = Biome::Ground;
+            }
+            if row % (MAPSIZE-1) == 0 {
+                map.biome_map[row][col] = Biome::Wall;
+            }
+            if col % (MAPSIZE-1) == 0 {
+                map.biome_map[row][col] = Biome::Wall;
+            }
         }
-        row += 1;
-        col = 0;
     }
     Ok(())
 }
 
+// calculate the euclidean distance between two points
+fn euclidean_distance(a: Vec2, b: Vec2) -> f32 {
+    (a - b).length()
+}
+
+// Remove coordinates that are too close to each other
+fn simplify_coordinates(coordinates: &mut Vec<Vec2>) {
+    let mut simplified_coordinates = Vec::new();
+
+    for &coordinate in coordinates.iter() {
+        let is_far_enough = simplified_coordinates.iter().all(|&simplified| {
+            euclidean_distance(coordinate, simplified) > 10.0
+        });
+
+        if is_far_enough {
+            simplified_coordinates.push(coordinate);
+        }
+    }
+
+    *coordinates = simplified_coordinates;
+}
+
+fn create_mst(points: Vec<Vec2>) -> UnGraph<Vec2, f32> {
+    // Create an undirected graph
+    let mut graph: UnGraph<Vec2, f32> = UnGraph::new_undirected();
+
+    // Add nodes from points to the graph
+    for point in points.iter() {
+        graph.add_node(*point);
+    }
+
+    // Add edges using points and distance between points
+    for i in points.iter().enumerate() {
+        for j in points.iter().enumerate() {
+            if i != j {
+                let distance = euclidean_distance(*i.1,*j.1);
+                graph.add_edge((i.0 as u32).into(), (j.0 as u32).into(), distance);
+            }
+        }
+    }
+
+    // Find the minimum spanning tree
+    let mst = UnGraph::<Vec2, f32>::from_elements(min_spanning_tree(&graph));
+
+    mst
+}
+
+// CSV Read Map (for midterm)
+// fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
+//     let path = "assets/midterm_map.csv";
+//     let file = File::open(path)?;
+//     //let mut reader = csv::Reader::from_reader(file);
+//     let mut reader = ReaderBuilder::new()
+//         .has_headers(false)
+//         .from_reader(file);
+//     let mut row = 0;
+//     let mut col = 0;
+//     for result in reader.records() {
+//         let record = result?;
+//         for field in record.iter() {
+//             match field {
+//                 "w" => {
+//                     map.biome_map[row][col] = Biome::Wall;
+//                 }
+//                 "g" => {
+//                     map.biome_map[row][col] = Biome::Ground;
+//                 }
+//                 "c" => {
+//                     map.biome_map[row][col] = Biome::Camp;
+//                 }
+//                 &_ => {
+//                 }
+//             };
+//             col += 1;
+//         }
+//         row += 1;
+//         col = 0;
+//     }
+//     Ok(())
+// }
+
+// create the map, spawn the tiles, and add the WorldMap resource
 pub fn setup(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    
-    //Initialize the WorldMap Component
+    //Initialize the WorldMap Component and the raw_camp_nodes vector
     let mut world_map = WorldMap{
         map_size: MAPSIZE,
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
+    let mut camp_nodes: Vec<Vec2> = Vec::new();
+
+    // Generate the map and read it into the WorldMap Component
+    // Also mark the camp tiles into raw_camp_nodes
+    let _ = read_map(&mut world_map, &mut camp_nodes);
+
+    // Any camp tiles that are too close to each other are removed from raw_camp_nodes
+    // Because we only need the coordinate for the camp, not the coordinates for all the tiles in a camp
+    simplify_coordinates(&mut camp_nodes);
+    // println!("raw_camp_nodes: {:?}", raw_camp_nodes);
+
+    // create a mst from the graph
+    let mst = create_mst(camp_nodes);
+    println!("minimum_spanning_tree: {:?}", mst);
     
+    // enumerate over the mst and create paths between each node
+    for edge_index in mst.edge_indices() {
+        let (source_node_index, target_node_index) = mst.edge_endpoints(edge_index).unwrap();
+        let source_node = &mst[source_node_index]; // from
+        let target_node = &mst[target_node_index]; // to
+        let edge = &mst[edge_index];
+        // println!(
+        //     "Edge: {:?}, From: {:?}, To: {:?}",
+        //     edge, source_node, target_node
+        // );
+        // Calculate the direction vector for the path
+        let direction = (*target_node - *source_node).normalize();
+        let distance = euclidean_distance(*source_node, *target_node);
+
+        // Number of steps between the two points
+        let num_steps = distance as usize;
+
+        // Update the map cells along the path
+        for step in 0..=num_steps {
+            let step_ratio = step as f32 / num_steps as f32;
+            let step_position = *source_node + direction * (step_ratio * distance);
+
+            // Calculate the corresponding row and column in the map for this step
+            let row = (step_position.y) as usize; // Adjust as needed
+            let col = (step_position.x) as usize; // Adjust as needed
+
+            // Update the map cell to Biome::Ground
+            if row < world_map.biome_map.len() && col < world_map.biome_map[0].len() {
+                world_map.biome_map[row][col] = Biome::Camp;
+                if (row < 255) {
+                    world_map.biome_map[row+1][col] = Biome::Camp;
+                }
+                if (row > 0) {
+                    world_map.biome_map[row-1][col] = Biome::Camp;
+                }
+                if (col < 255) {
+                    world_map.biome_map[row][col+1] = Biome::Camp;
+                }
+                if (col > 0) {
+                    world_map.biome_map[row][col-1] = Biome::Camp;
+                }
+                if (row < 255 && col < 255) {
+                    world_map.biome_map[row+1][col+1] = Biome::Camp;
+                }
+                if (row > 0 && col > 0) {
+                    world_map.biome_map[row-1][col-1] = Biome::Camp;
+                }
+                if (row < 255 && col > 0) {
+                    world_map.biome_map[row+1][col-1] = Biome::Camp;
+                }
+                if (row > 0 && col < 255) {
+                    world_map.biome_map[row-1][col+1] = Biome::Camp;
+                }
+            }
+        }
+    }
+
+    // spawn some camps around the map
+    // let mut rng = rand::thread_rng();
+    // for _ in 0..10 {
+    //     let row = rng.gen_range(0..MAPSIZE);
+    //     let col = rng.gen_range(0..MAPSIZE);
+    //     world_map.biome_map[row][col] = Biome::Camp;
+    // }
+
     //Initialize the tilesheets for ground and camp
     let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall]
         .into_iter()
@@ -170,8 +303,6 @@ pub fn setup(
             )
         })
         .collect();
-
-    let _ = read_map(&mut world_map);
 
     //create an rng to randomly choose a tile from the tilesheet
     let mut rng = rand::thread_rng();
@@ -200,6 +331,8 @@ pub fn setup(
         }
         x_coord+=1.0;
     }
+
+    // Spawn the map
     commands.insert_resource(world_map);
 }
 
