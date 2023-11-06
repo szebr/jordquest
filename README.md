@@ -31,8 +31,8 @@ and performance.
     
 ### Procedural Generation
 
-Each round starts with a randomly generated arena, placing enemy camps, items,
-decorations, shops, obstacles, and terrain throughout the map. Focus on balance,
+Each round starts with a randomly generated arena, placing enemy camps,
+decorations, obstacles, and terrain throughout the map. Focus on balance,
 complexity, and natural appearance.
 
 ## Midterm Goals
