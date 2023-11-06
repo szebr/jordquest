@@ -215,14 +215,13 @@ pub fn setup(
 
     // create a mst from the graph
     let mst = create_mst(camp_nodes);
-    println!("minimum_spanning_tree: {:?}", mst);
+    // println!("minimum_spanning_tree: {:?}", mst);
     
     // enumerate over the mst and create paths between each node
     for edge_index in mst.edge_indices() {
         let (source_node_index, target_node_index) = mst.edge_endpoints(edge_index).unwrap();
         let source_node = &mst[source_node_index]; // from
         let target_node = &mst[target_node_index]; // to
-        let edge = &mst[edge_index];
         // println!(
         //     "Edge: {:?}, From: {:?}, To: {:?}",
         //     edge, source_node, target_node
@@ -245,30 +244,15 @@ pub fn setup(
 
             // Update the map cell to Biome::Ground
             if row < world_map.biome_map.len() && col < world_map.biome_map[0].len() {
-                world_map.biome_map[row][col] = Biome::Camp;
-                if (row < 255) {
-                    world_map.biome_map[row+1][col] = Biome::Camp;
-                }
-                if (row > 0) {
-                    world_map.biome_map[row-1][col] = Biome::Camp;
-                }
-                if (col < 255) {
-                    world_map.biome_map[row][col+1] = Biome::Camp;
-                }
-                if (col > 0) {
-                    world_map.biome_map[row][col-1] = Biome::Camp;
-                }
-                if (row < 255 && col < 255) {
-                    world_map.biome_map[row+1][col+1] = Biome::Camp;
-                }
-                if (row > 0 && col > 0) {
-                    world_map.biome_map[row-1][col-1] = Biome::Camp;
-                }
-                if (row < 255 && col > 0) {
-                    world_map.biome_map[row+1][col-1] = Biome::Camp;
-                }
-                if (row > 0 && col < 255) {
-                    world_map.biome_map[row-1][col+1] = Biome::Camp;
+                let offsets: [usize; 6] = [0, 1, 2, 3, 4, 5];
+
+                for &row_offset in &offsets {
+                    for &col_offset in &offsets {
+                        if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1
+                        {
+                            world_map.biome_map[row + row_offset][col + col_offset] = Biome::Ground;
+                        }
+                    }
                 }
             }
         }
@@ -282,6 +266,16 @@ pub fn setup(
     //     world_map.biome_map[row][col] = Biome::Camp;
     // }
 
+    // Create the outer walls
+    for row in 0..MAPSIZE {
+        world_map.biome_map[row][0] = Biome::Wall;
+        world_map.biome_map[row][MAPSIZE-1] = Biome::Wall;    
+    }
+    for col in 0..MAPSIZE {
+        world_map.biome_map[0][col] = Biome::Wall;
+        world_map.biome_map[MAPSIZE-1][col] = Biome::Wall;    
+    }
+
     //Initialize the tilesheets for ground and camp
     let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall]
         .into_iter()
@@ -289,7 +283,7 @@ pub fn setup(
             let (fname, cols, rows) = match s {
                 SheetTypes::Camp => ("camptilesheet.png", 50, 1),
                 SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
-                SheetTypes::Wall => ("wall.png", 2, 2),
+                SheetTypes::Wall => ("green-wall.png", 2, 2),
             };
             let handle = asset_server.load(fname);
             let atlas = 
