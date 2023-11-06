@@ -52,6 +52,8 @@ pub struct WorldMap{
 //CHANGE THIS TO CHANGE MAP SIZE
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
+pub const PATHWIDTH: usize = 10;
+pub const CAMPSIZE: usize = 10;
 
 #[derive(Component)]
 struct Background;
@@ -65,53 +67,6 @@ impl Plugin for MapPlugin {
         //new background
         app.add_systems(Startup, setup);
     }
-}
-
-pub const PATH_WIDTH: u8 = 10;
-
-// Perlin Noise Generated Map (for post midterm)
-fn read_map(
-    map: &mut WorldMap,
-    raw_camp_nodes: &mut Vec<Vec2>,
-) -> Result<(), Box<dyn Error>> {
-    // new perlin noise generator with random u64 as seed
-    let mut rng = rand::thread_rng();
-    let random_u64: u64 = rng.gen();
-    // seed, amplitude, frequency, octaves
-    let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
-
-    for row in 0..MAPSIZE {
-        for col in 0..MAPSIZE {
-            let v = perlin.noise(row,col);
-            /*let r = (255 as f64 * v);
-            let y: u32 = r as u32;
-            let t = y % 85 as u32;
-            let x = y - t;*/
-
-            if v < 0.32 {
-                map.biome_map[row][col] = Biome::Camp;
-                raw_camp_nodes.push(Vec2::new(row as f32, col as f32));
-            }
-            else if v > 0.68 {
-                map.biome_map[row][col] = Biome::Wall;
-            }
-            else {
-                map.biome_map[row][col] = Biome::Ground;
-            }
-            if row % (MAPSIZE-1) == 0 {
-                map.biome_map[row][col] = Biome::Wall;
-            }
-            if col % (MAPSIZE-1) == 0 {
-                map.biome_map[row][col] = Biome::Wall;
-            }
-        }
-    }
-    Ok(())
-}
-
-// calculate the euclidean distance between two points
-fn euclidean_distance(a: Vec2, b: Vec2) -> f32 {
-    (a - b).length()
 }
 
 // Remove coordinates that are too close to each other
@@ -155,6 +110,128 @@ fn create_mst(points: Vec<Vec2>) -> UnGraph<Vec2, f32> {
 
     mst
 }
+
+// Perlin Noise Generated Map (for post midterm)
+fn read_map(
+    map: &mut WorldMap,
+    camp_nodes: &mut Vec<Vec2>,
+) -> Result<(), Box<dyn Error>> {
+    // new perlin noise generator with random u64 as seed
+    let mut rng = rand::thread_rng();
+    let random_u64: u64 = rng.gen();
+    // seed, amplitude, frequency, octaves
+    let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
+
+    for row in 0..MAPSIZE {
+        for col in 0..MAPSIZE {
+            let v = perlin.noise(row,col);
+            /*let r = (255 as f64 * v);
+            let y: u32 = r as u32;
+            let t = y % 85 as u32;
+            let x = y - t;*/
+
+            if v < 0.32 {
+                map.biome_map[row][col] = Biome::Ground;
+                camp_nodes.push(Vec2::new(row as f32, col as f32));
+            }
+            else if v > 0.68 {
+                map.biome_map[row][col] = Biome::Wall;
+            }
+            else {
+                map.biome_map[row][col] = Biome::Ground;
+            }
+        }
+    }
+
+    // Any camp tiles that are too close to each other are removed from raw_camp_nodes
+    // Because we only need the coordinate for the camp, not the coordinates for all the tiles in a camp
+    simplify_coordinates(camp_nodes);
+
+    // create a mst from the graph
+    let mst = create_mst(camp_nodes.to_vec());
+    
+    // enumerate over the mst and create paths between each node
+    for edge_index in mst.edge_indices() {
+        let (source_node_index, target_node_index) = mst.edge_endpoints(edge_index).unwrap();
+        let source_node = &mst[source_node_index]; // from
+        let target_node = &mst[target_node_index]; // to
+
+        // Calculate the direction vector for the path
+        let direction = (*target_node - *source_node).normalize();
+        let distance = euclidean_distance(*source_node, *target_node);
+
+        // Number of steps between the two points
+        let num_steps = distance as usize;
+
+        // Update the map cells along the path
+        for step in 0..=num_steps {
+            // Calculate the ratio of the current step to the total number of steps
+            let step_ratio = step as f32 / num_steps as f32;
+            // randomize the direction vector a bit so the lines aren't completely straight
+            let direction = direction + Vec2::new(
+                rand::thread_rng().gen_range(-0.2..0.2),
+                rand::thread_rng().gen_range(-0.2..0.2),
+            );
+            // Calculate the position of the current step
+            let step_position = *source_node + direction * (step_ratio * distance);
+
+            // Calculate the corresponding row and column in the map for this step
+            let row = (step_position.y) as usize; // Adjust as needed
+            let col = (step_position.x) as usize; // Adjust as needed
+
+            // Update the map biomes along the path to Biome::Ground (camp for debug)
+            if row < map.biome_map.len() && col < map.biome_map[0].len() {
+                for row_offset in 0..PATHWIDTH {
+                    for col_offset in 0..PATHWIDTH {
+                        if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1
+                        {
+                            map.biome_map[row + row_offset][col + col_offset] = Biome::Ground;
+                            // map.biome_map[row + row_offset][col + col_offset] = Biome::Camp; // for debug
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    
+
+    // Make the camps bigger by expanding the area around the camp tiles, but randomly
+    for node in mst.node_indices() {
+        let node = &mst[node];
+        let row = node.y as usize;
+        let col = node.x as usize;
+        for row_offset in 0..CAMPSIZE {
+            for col_offset in 0..CAMPSIZE {
+                if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
+                    let v =  perlin.noise(row + row_offset,col + col_offset);
+                    if v < 0.68 {
+                        map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
+                    }
+                }
+            }
+        }
+    }
+
+    // Create the outer walls
+    for row in 0..MAPSIZE {
+        map.biome_map[row][0] = Biome::Wall;
+        map.biome_map[row][MAPSIZE-1] = Biome::Wall;    
+    }
+    for col in 0..MAPSIZE {
+        map.biome_map[0][col] = Biome::Wall;
+        map.biome_map[MAPSIZE-1][col] = Biome::Wall;    
+    }
+
+    Ok(())
+}
+
+// calculate the euclidean distance between two points
+fn euclidean_distance(a: Vec2, b: Vec2) -> f32 {
+    (a - b).length()
+}
+
+
 
 // CSV Read Map (for midterm)
 // fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
@@ -208,73 +285,7 @@ pub fn setup(
     // Also mark the camp tiles into raw_camp_nodes
     let _ = read_map(&mut world_map, &mut camp_nodes);
 
-    // Any camp tiles that are too close to each other are removed from raw_camp_nodes
-    // Because we only need the coordinate for the camp, not the coordinates for all the tiles in a camp
-    simplify_coordinates(&mut camp_nodes);
-    // println!("raw_camp_nodes: {:?}", raw_camp_nodes);
-
-    // create a mst from the graph
-    let mst = create_mst(camp_nodes);
-    // println!("minimum_spanning_tree: {:?}", mst);
     
-    // enumerate over the mst and create paths between each node
-    for edge_index in mst.edge_indices() {
-        let (source_node_index, target_node_index) = mst.edge_endpoints(edge_index).unwrap();
-        let source_node = &mst[source_node_index]; // from
-        let target_node = &mst[target_node_index]; // to
-        // println!(
-        //     "Edge: {:?}, From: {:?}, To: {:?}",
-        //     edge, source_node, target_node
-        // );
-        // Calculate the direction vector for the path
-        let direction = (*target_node - *source_node).normalize();
-        let distance = euclidean_distance(*source_node, *target_node);
-
-        // Number of steps between the two points
-        let num_steps = distance as usize;
-
-        // Update the map cells along the path
-        for step in 0..=num_steps {
-            let step_ratio = step as f32 / num_steps as f32;
-            let step_position = *source_node + direction * (step_ratio * distance);
-
-            // Calculate the corresponding row and column in the map for this step
-            let row = (step_position.y) as usize; // Adjust as needed
-            let col = (step_position.x) as usize; // Adjust as needed
-
-            // Update the map cell to Biome::Ground
-            if row < world_map.biome_map.len() && col < world_map.biome_map[0].len() {
-                let offsets: [usize; 6] = [0, 1, 2, 3, 4, 5];
-
-                for &row_offset in &offsets {
-                    for &col_offset in &offsets {
-                        if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1
-                        {
-                            world_map.biome_map[row + row_offset][col + col_offset] = Biome::Ground;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // spawn some camps around the map
-    // let mut rng = rand::thread_rng();
-    // for _ in 0..10 {
-    //     let row = rng.gen_range(0..MAPSIZE);
-    //     let col = rng.gen_range(0..MAPSIZE);
-    //     world_map.biome_map[row][col] = Biome::Camp;
-    // }
-
-    // Create the outer walls
-    for row in 0..MAPSIZE {
-        world_map.biome_map[row][0] = Biome::Wall;
-        world_map.biome_map[row][MAPSIZE-1] = Biome::Wall;    
-    }
-    for col in 0..MAPSIZE {
-        world_map.biome_map[0][col] = Biome::Wall;
-        world_map.biome_map[MAPSIZE-1][col] = Biome::Wall;    
-    }
 
     //Initialize the tilesheets for ground and camp
     let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall]
@@ -283,7 +294,7 @@ pub fn setup(
             let (fname, cols, rows) = match s {
                 SheetTypes::Camp => ("camptilesheet.png", 50, 1),
                 SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
-                SheetTypes::Wall => ("green-wall.png", 2, 2),
+                SheetTypes::Wall => ("wall2.png", 3, 1),
             };
             let handle = asset_server.load(fname);
             let atlas = 
