@@ -144,7 +144,7 @@ pub fn save_host_input(
                     println!("setting res_id to {:?}", res_id.0);
                     is_host.0 = true;
                 }
-                app_state_next_state.set(AppState::Respawn);
+                app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();
@@ -255,7 +255,7 @@ pub fn save_join_input(
                     net_address.host_port =join_host_port_input.port.clone();
                 }
                 is_host.0 = false;
-                app_state_next_state.set(AppState::Respawn);
+                app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
-use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
+use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP};
 use crate::{map, map::WorldMap};
 use crate::movement;
 use crate::AppState;
@@ -42,10 +42,9 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
-            .add_systems(Update, respawn_update.run_if(in_state(AppState::Respawn)))
+            .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
-            .add_systems(OnEnter(AppState::Respawn), configure_map)
-            .add_systems(OnExit(AppState::Respawn), configure_map);
+            .add_systems(Update, configure_map_on_event);
     }
 }
 
@@ -186,23 +185,33 @@ fn draw_minimap(
     return minimap;
 }
 
-fn configure_map(
+fn configure_map_on_event(
     mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut marker: Query<&mut Transform, (With<Marker>, Without<Minimap>, Without<MinimapBorder>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<LocalPlayer>)>,
-    app_state: Res<State<AppState>>
+    mut death_reader: EventReader<LocalPlayerDeathEvent>,
+    mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
 ) {
-    // Set params based on current state
-    let mut new_translation: Vec2 = Vec2::new(0., 0.);
-    let mut new_scale: f32 = 1.;
-
-    match app_state.get() {
-        AppState::Game => {
-            new_translation = Vec2::new(MINIMAP_TRANSLATION.x, MINIMAP_TRANSLATION.y);
-            new_scale = GAME_PROJ_SCALE;
+    let mut spawn_mode: Option<bool> = None;
+    for _ in death_reader.iter() {
+        spawn_mode = Some(true);
+    }
+    if spawn_mode.is_none() {
+        for _ in spawn_reader.iter() {
+            spawn_mode = Some(false);
         }
-        _ => { }
+    }
+    if spawn_mode.is_none() {
+        return;
+    }
+    // minimap mode
+    let mut new_translation: Vec2 = Vec2::new(MINIMAP_TRANSLATION.x, MINIMAP_TRANSLATION.y);
+    let mut new_scale: f32 = GAME_PROJ_SCALE;
+
+    if spawn_mode.unwrap() {
+        new_translation = Vec2::new(0., 0.);
+        new_scale = 1.;
     }
 
     // Move minimap and border back to corner, show marker
@@ -235,7 +244,8 @@ fn respawn_update(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
-    map: Res<WorldMap>
+    map: Res<WorldMap>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -277,6 +287,7 @@ fn respawn_update(
                     hp.current = PLAYER_DEFAULT_HP;
                     hp.dead = false;
                     *vis = Visibility::Visible;
+                    spawn_writer.send(LocalPlayerSpawnEvent);
                     tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
                 }
