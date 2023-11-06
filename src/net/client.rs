@@ -14,15 +14,12 @@ pub fn connect(
 ) {
     // I think if you communicate over LAN, you have to use local ip rather than loopback ip
     let client_ip = Ipv4Addr::new(127,0,0,1);
-    //let client_port = u16::from_str(&addresses.client_port).expect("bad client port");
-    let client_port: u16 = 8086;
+    let client_port = u16::from_str(&addresses.client_port).expect("bad client port");
     let client_addr = SocketAddr::new(IpAddr::from(client_ip), client_port);
     sock.0 = Some(UdpSocket::bind(client_addr).expect("client port in use"));
     sock.0.as_mut().unwrap().set_nonblocking(true).expect("can't set nonblocking");
-    //let host_ip = Ipv4Addr::from_str(&addresses.ip).expect("bad ip");
-    let host_ip = Ipv4Addr::from_str("127.0.0.1").expect("bad ip");
-    //let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
-    let host_port: u16 = 8085;
+    let host_ip = Ipv4Addr::from_str(&addresses.ip).expect("bad ip");
+    let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
     sock.0.as_mut().unwrap().connect(host_addr).expect("can't connect to host");
     println!("connection successful");
