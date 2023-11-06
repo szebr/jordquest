@@ -167,6 +167,11 @@ fn draw_minimap(
                     //rgba = vec![71,109,40,255]; // FULL COLOR
                     rgba = vec![131,91,20,255]; // SEPIA
                 }
+                map::Biome::Path => {
+                    //rgba = vec![240,169,83,255]; // FULL COLOR
+                    rgba = vec![241,213,166,255]; // SEPIA
+                
+                }
             }
             minimap_data.append(&mut rgba);
         }

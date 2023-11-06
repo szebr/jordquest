@@ -8,9 +8,12 @@ use std::{
 // use csv::ReaderBuilder;
 use rand::Rng;
 use crate::noise::Perlin;
-use bevy::utils::petgraph::algo::min_spanning_tree;
-use bevy::utils::petgraph::graph::{DiGraph, UnGraph};
-use bevy::utils::petgraph::data::FromElements;
+use bevy::utils::petgraph::{
+    algo::min_spanning_tree, 
+    visit::EdgeRef,
+    graph::UnGraph, 
+    data::FromElements,};
+use rand::seq::SliceRandom;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -18,6 +21,7 @@ pub enum Biome{
     Wall,
     Ground,
     Camp,
+    Path,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -25,6 +29,7 @@ enum SheetTypes{
     Ground,
     Camp,
     Wall,
+    Path,
 }
 
 struct SheetData {
@@ -41,6 +46,9 @@ struct Camp;
 #[derive(Component)]
 struct Wall;
 
+#[derive(Component)]
+struct Path;
+
 #[derive(Resource)]
 pub struct WorldMap{
     pub map_size: usize,
@@ -52,8 +60,11 @@ pub struct WorldMap{
 //CHANGE THIS TO CHANGE MAP SIZE
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
-pub const PATHWIDTH: usize = 6;
-pub const CAMPSIZE: usize = 10;
+pub const PATHWIDTH: usize = 5; // Width of the paths in tiles
+pub const CAMPSIZE: usize = 15; // Size of the camp in tiles
+pub const NUMCAMPS: usize = 10; // Number of camps to spawn
+pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
+pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 
 #[derive(Component)]
 struct Background;
@@ -152,14 +163,56 @@ fn read_map(
     // Because we only need the coordinate for the camp, not the coordinates for all the tiles in a camp
     simplify_coordinates(camp_nodes);
 
-    // create a mst from the graph
-    let mst = create_mst(camp_nodes.to_vec());
+    // Shuffle the nodes so that the camps are in random order for truncation
+    camp_nodes.shuffle(&mut rand::thread_rng());
+
+    // Slice the coordinates to only have the number of elements equal to NUMCAMPS variable
+    if (camp_nodes.len() > NUMCAMPS) {
+        camp_nodes.truncate(NUMCAMPS);
+    }
+
+    // Create a vector of coordinates for extra nodes for the graph equal to EXTRANODES variable
+    // TODO: Try and find a way to select the extra nodes so that they are not too close to each other
+    // And that they are picked more organically. Currently, they are just randomly generated
+    let mut extra_nodes: Vec<Vec2> = Vec::new();
+    for _ in 0..EXTRANODES {
+        extra_nodes.push(Vec2::new(
+            rand::thread_rng().gen_range(0..MAPSIZE) as f32,
+            rand::thread_rng().gen_range(0..MAPSIZE) as f32,
+        ));
+    }
+
+    // Combine the camp nodes and extra nodes into one vector
+    let mut all_nodes: Vec<Vec2> = Vec::new();
+    all_nodes.extend(camp_nodes.iter().cloned());
+    all_nodes.extend(extra_nodes.iter().cloned());
     
-    // enumerate over the mst and create paths between each node
-    for edge_index in mst.edge_indices() {
-        let (source_node_index, target_node_index) = mst.edge_endpoints(edge_index).unwrap();
-        let source_node = &mst[source_node_index]; // from
-        let target_node = &mst[target_node_index]; // to
+    // create a mst from all nodes
+    let mut all_nodes_graph = create_mst(all_nodes.to_vec());
+
+    // Add extra paths to the mst, making it a regular graph
+    // TODO: If edge already exists between nodes, try to make another edge
+    // Currently, if the edge already exists, it just doesn't add the edge and moves on
+    // TODO: Try and find a way to select the extra paths so that they are more spread apart
+    // And that they are picked more organically. Currently, they are just randomly generated
+    let num_nodes = all_nodes_graph.node_count();
+    for _ in 0..EXTRAPATHS 
+    {
+        let source_node = all_nodes_graph.node_indices().nth(rand::thread_rng().gen_range(0..num_nodes)).unwrap();
+        let target_node = all_nodes_graph.node_indices().nth(rand::thread_rng().gen_range(0..num_nodes)).unwrap();
+        // Check if the edge already exists
+        if !(all_nodes_graph.edges(source_node).any(|edge| edge.target() == target_node))
+        {
+            let distance = euclidean_distance(all_nodes_graph[source_node], all_nodes_graph[target_node]);
+            all_nodes_graph.add_edge(source_node, target_node, distance);
+        }
+    }
+    
+    // enumerate over the graph and create paths between each node
+    for edge_index in all_nodes_graph.edge_indices() {
+        let (source_node_index, target_node_index) = all_nodes_graph.edge_endpoints(edge_index).unwrap();
+        let source_node = &all_nodes_graph[source_node_index]; // from
+        let target_node = &all_nodes_graph[target_node_index]; // to
 
         // Calculate the direction vector for the path
         let direction = (*target_node - *source_node).normalize();
@@ -174,8 +227,8 @@ fn read_map(
             let step_ratio = step as f32 / num_steps as f32;
             // randomize the direction vector a bit so the lines aren't completely straight
             let direction = direction + Vec2::new(
-                rand::thread_rng().gen_range(-0.2..0.2),
-                rand::thread_rng().gen_range(-0.2..0.2),
+                rand::thread_rng().gen_range(-0.05..0.05),
+                rand::thread_rng().gen_range(-0.05..0.05),
             );
             // Calculate the position of the current step
             let step_position = *source_node + direction * (step_ratio * distance);
@@ -184,14 +237,15 @@ fn read_map(
             let row = (step_position.y) as usize; // Adjust as needed
             let col = (step_position.x) as usize; // Adjust as needed
 
-            // Update the map biomes along the path to Biome::Ground (camp for debug)
+            // Update the map biomes along the path to Biome::Path
+            // Currently only updates the path to the right and down, not left and up
+            // TODO: Update the path so it goes both ways
             if row < map.biome_map.len() && col < map.biome_map[0].len() {
                 for row_offset in 0..PATHWIDTH {
                     for col_offset in 0..PATHWIDTH {
                         if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1
                         {
-                            map.biome_map[row + row_offset][col + col_offset] = Biome::Ground;
-                            // map.biome_map[row + row_offset][col + col_offset] = Biome::Camp; // for debug
+                            map.biome_map[row + row_offset][col + col_offset] = Biome::Path;
                         }
                     }
                 }
@@ -199,17 +253,22 @@ fn read_map(
         }
     }
 
+    // Create a mst from only the camp nodes
+    let camp_nodes_mst = create_mst(camp_nodes.to_vec());
     // Make the camps bigger by expanding the area around the camp tiles, 
     // but using Perlin Noise to determine which tiles to expand to
-    for node in mst.node_indices() {
-        let node = &mst[node];
+    for node in camp_nodes_mst.node_indices() {
+        let node = &camp_nodes_mst[node];
         let row = node.y as usize;
         let col = node.x as usize;
+        let perlin_threshold = 0.52;
+        // Expand the camp tiles to the right and down
+        // TODO: Expand the camp tiles to all directions
         for row_offset in 0..CAMPSIZE {
             for col_offset in 0..CAMPSIZE {
                 if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
                     let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < 0.52 {
+                    if v < perlin_threshold {
                         map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
                     }
                 }
@@ -284,16 +343,15 @@ pub fn setup(
     // Also mark the camp tiles into raw_camp_nodes
     let _ = read_map(&mut world_map, &mut camp_nodes);
 
-    
-
     //Initialize the tilesheets for ground and camp
-    let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall]
+    let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall, SheetTypes::Path]
         .into_iter()
         .map(|s|{
             let (fname, cols, rows) = match s {
                 SheetTypes::Camp => ("camptilesheet.png", 50, 1),
                 SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
                 SheetTypes::Wall => ("wall.png", 3, 1),
+                SheetTypes::Path => ("pathtilesheet.png", 50, 1),
             };
             let handle = asset_server.load(fname);
             let atlas = 
@@ -321,15 +379,15 @@ pub fn setup(
             if world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
                 spawn_tile(&mut commands, &sheets_data[&SheetTypes::Wall], sheet_index, Wall, &x_coord, &y_coord);
-
-                
             }else if world_map.biome_map[col][row] == Biome::Ground {
-                // Spawn a Ground sprite if the current tile is Ground
+                // Spawn a ground sprite if the current tile is Ground
                 spawn_tile(&mut commands, &sheets_data[&SheetTypes::Ground], sheet_index, Ground, &x_coord, &y_coord);
-
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
                 spawn_tile(&mut commands, &sheets_data[&SheetTypes::Camp], sheet_index, Camp, &x_coord, &y_coord);
+            }else if world_map.biome_map[col][row] == Biome::Path {
+                // Spawn a path sprite if the current tile is a path
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Path], sheet_index, Path, &x_coord, &y_coord);
             }
             y_coord-=1.0;
         }
