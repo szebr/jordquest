@@ -194,7 +194,7 @@ pub fn update_enemies(
             }
             // decrement the enemy counter of the camp that this enemy is apart of
             for (camp_num, mut enemies_in_camp) in camp_query.iter_mut() {
-                if camp_num.0 == enemy_camp_num.0 {
+                if camp_num.0 == ec.0 {
                     enemies_in_camp.current_enemies -= 1;
                 }
 

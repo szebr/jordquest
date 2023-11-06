@@ -1,5 +1,4 @@
-use bevy::ecs::query;
-use bevy::prelude::{*, IntoSystemConfigs};
+use bevy::prelude::*;
 use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
@@ -32,8 +31,8 @@ pub fn setup(
     // spawn a camp at a specified position
 
     //placeholder variables for initialization
-    let CAMP_GRADE: u8 = 1;
-    let CAMP_ENEMIES: u8 = 5;
+    const CAMP_GRADE: u8 = 1;
+    const CAMP_ENEMIES: u8 = 5;
     let pos: Vec2 = get_spawn_vec(138., 109.);
 
     //TODO: spawn enemies at a camp in the spawn_camp_enemy function instead of just in setup (part of prefab implementation)
@@ -73,8 +72,6 @@ pub fn setup(
 // }
 
 pub fn handle_camp_clear(
-    mut commands: Commands,
-    entity_atlas:Res<Atlas>,
     mut camp_query: Query<(&Camp, &CampEnemies, &mut CampStatus), With<Camp>>,
 ){
     for (camp_num, enemies_in_camp, mut camp_status) in camp_query.iter_mut(){
