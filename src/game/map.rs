@@ -69,6 +69,11 @@ impl Plugin for MapPlugin {
     }
 }
 
+// calculate the euclidean distance between two points
+fn euclidean_distance(a: Vec2, b: Vec2) -> f32 {
+    (a - b).length()
+}
+
 // Remove coordinates that are too close to each other
 fn simplify_coordinates(coordinates: &mut Vec<Vec2>) {
     let mut simplified_coordinates = Vec::new();
@@ -143,7 +148,7 @@ fn read_map(
         }
     }
 
-    // Any camp tiles that are too close to each other are removed from raw_camp_nodes
+    // Any camp tiles that are too close to each other are removed from camp_nodes
     // Because we only need the coordinate for the camp, not the coordinates for all the tiles in a camp
     simplify_coordinates(camp_nodes);
 
@@ -194,7 +199,8 @@ fn read_map(
         }
     }
 
-    // Make the camps bigger by expanding the area around the camp tiles, but randomly
+    // Make the camps bigger by expanding the area around the camp tiles, 
+    // but using Perlin Noise to determine which tiles to expand to
     for node in mst.node_indices() {
         let node = &mst[node];
         let row = node.y as usize;
@@ -222,11 +228,6 @@ fn read_map(
     }
 
     Ok(())
-}
-
-// calculate the euclidean distance between two points
-fn euclidean_distance(a: Vec2, b: Vec2) -> f32 {
-    (a - b).length()
 }
 
 
@@ -271,7 +272,7 @@ pub fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    //Initialize the WorldMap Component and the raw_camp_nodes vector
+    //Initialize the WorldMap Component and the camp_nodes vector
     let mut world_map = WorldMap{
         map_size: MAPSIZE,
         tile_size: TILESIZE,
