@@ -55,6 +55,7 @@ fn startup(
     spawn_camera(commands);
 }
 
+// Spawns the main game camera as a child of a SpatialBundle that will follow the player in Game state
 fn spawn_camera(
     mut commands: Commands
 ) {
@@ -75,6 +76,7 @@ fn spawn_camera(
     );
 }
 
+// Spawns the minimap, its border, and the player marker and parents the SpatialBundle to them
 fn spawn_minimap(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -132,6 +134,8 @@ fn spawn_minimap(
         Marker,
     )).id();
 
+    // The minimap-related bundles are made children of SpatialCameraBundle because
+    // they need to remain in the same screen position and Bevy UI stuff is icky
     for parent in &mut cam_bundle {
         commands.entity(parent).add_child(border_ent);
         commands.entity(parent).add_child(minimap_ent);
@@ -139,6 +143,7 @@ fn spawn_minimap(
     }
 }
 
+// Creates and returns the Image of the minimap from the map data
 fn draw_minimap(
     map: Res<WorldMap>,
 ) -> Image 
@@ -186,6 +191,7 @@ fn draw_minimap(
     return minimap;
 }
 
+// Adjusts minimap/border/marker position and size based on being in Game or Respawn state
 fn configure_map(
     mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
@@ -205,7 +211,7 @@ fn configure_map(
         _ => { }
     }
 
-    // Move minimap and border back to corner, show marker
+    // Set minimap/border/marker translation/scale with aforementioned parameters
     for mut minimap_tf in &mut minimap {
         minimap_tf.translation.x = new_translation.x;
         minimap_tf.translation.y = new_translation.y;
@@ -230,6 +236,7 @@ fn configure_map(
     }
 }
 
+// Runs in Respawn state, waits for mouse click to get player's desired (re)spawn position
 fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
@@ -252,7 +259,7 @@ fn respawn_update(
             (cursor_position.y < ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) ||
             (cursor_position.y > ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
         {
-            println!("invalid");
+            // Outside map bounds, invalid position
         } else {
             // Within bounds, convert to map tile coordinate
             cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
@@ -265,11 +272,10 @@ fn respawn_update(
 
             match tile {
                 map::Biome::Wall => {
-                    println!("in wall");
+                    // In wall, invalid position
                 }
                 _ => {
                     // Valid spawn tile
-                    println!("valid");
                     app_state_next_state.set(AppState::Game);
 
                     let (mut tf, mut hp, mut vis) = player.single_mut();
@@ -285,12 +291,14 @@ fn respawn_update(
     }
 }
 
+// Runs in Game state, makes SpatialCameraBundle follow player and moves marker to reflect player position
 fn game_update(
     player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
     mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Marker>, Without<LocalPlayer>)>
 ) {
     for player_tf in &player {
+        // Set marker position on minimap to reflect the player's current position in the game world
         for mut marker_tf in &mut marker {
             if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
                 marker_tf.translation.x = MINIMAP_TRANSLATION.x + player_tf.translation.x / 32.
@@ -300,6 +308,7 @@ fn game_update(
             }
         }
     
+        // Make SpatialCameraBundle follow player
         for mut camera_tf in &mut camera {
             camera_tf.translation.x = player_tf.translation.x;
             camera_tf.translation.y = player_tf.translation.y;
