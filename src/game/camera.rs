@@ -259,7 +259,7 @@ fn respawn_update(
             (cursor_position.y < ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) ||
             (cursor_position.y > ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
         {
-            println!("invalid");
+            // Outside map bounds, invalid position
         } else {
             // Within bounds, convert to map tile coordinate
             cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
@@ -272,11 +272,10 @@ fn respawn_update(
 
             match tile {
                 map::Biome::Wall => {
-                    println!("in wall");
+                    // In wall, invalid position
                 }
                 _ => {
                     // Valid spawn tile
-                    println!("valid");
                     app_state_next_state.set(AppState::Game);
 
                     let (mut tf, mut hp, mut vis) = player.single_mut();
