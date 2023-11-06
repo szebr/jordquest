@@ -100,6 +100,58 @@ pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     }
 }
 
+pub fn spawn_players(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>,
+    asset_server: Res<AssetServer>,
+    res_id: Res<PlayerId>
+) {
+    for i in 0..MAX_PLAYERS {
+        let pl = commands.spawn((
+            Player(i as u8),
+            PosBuffer(CircularBuffer::new()),
+            Score(0),
+            Health {
+                current: 0,
+                max: PLAYER_DEFAULT_HP,
+                dead: false
+            },
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                visibility: Visibility::Hidden,
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            },
+            Collider(PLAYER_SIZE),
+            Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
+            StoredPowerUps {
+                power_ups: [0; NUM_POWERUPS],
+            },
+            PlayerShield {
+                active: false,
+            },
+        )).id();
+
+        if i as u8 == res_id.0 {
+            commands.entity(pl).insert(LocalPlayer);
+        }
+
+        let health_bar = commands.spawn((
+            SpriteBundle {
+                texture: asset_server.load("healthbar.png"),
+                transform: Transform {
+                    translation: Vec3::new(0., 24., 2.),
+                    ..Default::default()
+                },
+                ..Default::default()},
+            HealthBar,
+        )).id();
+
+        commands.entity(pl).push_children(&[health_bar]);
+    }
+}
+
 pub fn remove_players(
     mut commands: Commands,
     players: Query<Entity, With<Player>>,
@@ -349,70 +401,7 @@ pub fn despawn_shield_on_right_click_release(
     }
 }
 
-
-
-
-pub fn update_buffer(
-        tick: Res<net::TickNum>,
-        mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
-    ) {
-    let player = players.get_single_mut();
-    if player.is_err() { return }
-    let (mut pos_buffer, current_pos) = player.unwrap();
-    pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
-}
-
-pub fn spawn_players(
-    mut commands: Commands,
-    entity_atlas: Res<Atlas>,
-    asset_server: Res<AssetServer>,
-    res_id: Res<PlayerId>
-) {
-    for i in 0..MAX_PLAYERS {
-        let pl = commands.spawn((
-            Player(i as u8),
-            PosBuffer(CircularBuffer::new()),
-            Score(0),
-            Health {
-                current: 0,
-                max: PLAYER_DEFAULT_HP,
-                dead: true
-            },
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                visibility: Visibility::Hidden,
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            },
-            Collider(PLAYER_SIZE),
-            Cooldown(Timer::from_seconds(0.2, TimerMode::Once)),
-            StoredPowerUps {
-                power_ups: [0; NUM_POWERUPS],
-            },
-            PlayerShield {
-                active: false,
-            },
-        )).id();
-
-        if i as u8 == res_id.0 {
-            commands.entity(pl).insert(LocalPlayer);
-        }
-
-        let health_bar = commands.spawn((
-            SpriteBundle {
-                texture: asset_server.load("healthbar.png"),
-                transform: Transform {
-                    translation: Vec3::new(0., 24., 2.),
-                    ..Default::default()
-                },
-                ..Default::default()},
-            HealthBar,
-        )).id();
-
-        commands.entity(pl).push_children(&[health_bar]);
-    }
-}
+// EVENT HANDLERS
 
 pub fn handle_tick_events(
     mut player_reader: EventReader<PlayerTickEvent>,
