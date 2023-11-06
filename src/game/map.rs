@@ -225,11 +225,11 @@ fn read_map(
         for step in 0..=num_steps {
             // Calculate the ratio of the current step to the total number of steps
             let step_ratio = step as f32 / num_steps as f32;
+            
             // randomize the direction vector a bit so the lines aren't completely straight
-            let direction = direction + Vec2::new(
-                rand::thread_rng().gen_range(-0.05..0.05),
-                rand::thread_rng().gen_range(-0.05..0.05),
-            );
+            let noise_value = perlin.noise(step, step); // Adjust dimension as needed
+            let direction = direction + Vec2::new(noise_value as f32 * 0.2, noise_value as f32 * 0.2); // Adjust the scaling factor
+
             // Calculate the position of the current step
             let step_position = *source_node + direction * (step_ratio * distance);
 
@@ -261,14 +261,13 @@ fn read_map(
         let node = &camp_nodes_mst[node];
         let row = node.y as usize;
         let col = node.x as usize;
-        let perlin_threshold = 0.52;
         // Expand the camp tiles to the right and down
         // TODO: Expand the camp tiles to all directions
         for row_offset in 0..CAMPSIZE {
             for col_offset in 0..CAMPSIZE {
                 if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
                     let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < perlin_threshold {
+                    if v < 0.62 {
                         map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
                     }
                 }
