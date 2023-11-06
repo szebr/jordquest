@@ -52,8 +52,8 @@ pub struct WorldMap{
 //CHANGE THIS TO CHANGE MAP SIZE
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
-pub const PATHWIDTH: usize = 10;
-pub const CAMPSIZE: usize = 15;
+pub const PATHWIDTH: usize = 6;
+pub const CAMPSIZE: usize = 10;
 
 #[derive(Component)]
 struct Background;
@@ -203,7 +203,7 @@ fn read_map(
             for col_offset in 0..CAMPSIZE {
                 if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
                     let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < 0.50 {
+                    if v < 0.52 {
                         map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
                     }
                 }
@@ -292,7 +292,7 @@ pub fn setup(
             let (fname, cols, rows) = match s {
                 SheetTypes::Camp => ("camptilesheet.png", 50, 1),
                 SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
-                SheetTypes::Wall => ("wall2.png", 3, 1),
+                SheetTypes::Wall => ("wall.png", 3, 1),
             };
             let handle = asset_server.load(fname);
             let atlas = 
