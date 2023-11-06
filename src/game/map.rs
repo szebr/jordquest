@@ -53,7 +53,7 @@ pub struct WorldMap{
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
 pub const PATHWIDTH: usize = 10;
-pub const CAMPSIZE: usize = 10;
+pub const CAMPSIZE: usize = 15;
 
 #[derive(Component)]
 struct Background;
@@ -194,8 +194,6 @@ fn read_map(
         }
     }
 
-    
-
     // Make the camps bigger by expanding the area around the camp tiles, but randomly
     for node in mst.node_indices() {
         let node = &mst[node];
@@ -205,7 +203,7 @@ fn read_map(
             for col_offset in 0..CAMPSIZE {
                 if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
                     let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < 0.68 {
+                    if v < 0.50 {
                         map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
                     }
                 }
