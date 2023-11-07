@@ -226,7 +226,7 @@ pub fn grab_powerup(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
     powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
-    mut powerup_displays: Query<&mut Text, With<PowerupDisplayText>>,
+    mut powerup_displays: Query<(&mut Text, &PowerupDisplayText), With<PowerupDisplayText>>,
 ) {
     for (player_transform, mut player_health, mut cooldown, mut player_power_ups) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
@@ -257,6 +257,48 @@ pub fn grab_powerup(
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                     },
                 }
+
+                // Update all powerup display text here
+                for (mut powerup, index) in &mut powerup_displays {
+                    // For every powerup, match the index
+                    match index.0
+                    {
+                        0 => {
+                            // Damage dealt up
+                            powerup.sections[0].value = format!("{:.2}x", 
+                                (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
+                                / SWORD_DAMAGE as f32);
+                        }
+                        1 => {
+                            // Damage reduction up
+                            powerup.sections[0].value = format!("{:.2}x", 
+                                (15 + player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) as f32
+                                / 15 as f32); // TODO: If we ever get around to it, replace 15 with player's base defense value
+                        }
+                        2 => {
+                            // Max HP up
+                            powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
+                                / PLAYER_DEFAULT_HP as f32);
+                        }
+                        3 => {
+                            // Attack speed up
+                            powerup.sections[0].value = format!("{:.2}x",
+                                (DEFAULT_COOLDOWN
+                                / (cooldown.0.duration().as_millis() as f32 / 1000.)));
+                        }
+                        4 => {
+                            // Movement speed up
+                            powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
+                                / PLAYER_SPEED as f32);
+                        }
+                        _ => {
+                            
+                        }
+                    }
+                }
+
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
             }
