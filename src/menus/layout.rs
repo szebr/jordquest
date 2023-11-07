@@ -1175,6 +1175,45 @@ pub fn build_in_game_menu(
             }).insert(GameTimer {
                 remaining_time: 5.0 * 60.0,
             });
+
+            // Powerup Display
+            parent.spawn(ImageBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(PADDING),
+                    top: Val::Px(SCREEN_HEIGHT / 2. - 176.),
+                    ..default()
+                },
+                image: asset_server.load("powerup_icons.png").into(),
+                ..default()
+            });
+
+            parent.spawn(NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(PADDING + 72.),
+                    top: Val::Px(SCREEN_HEIGHT / 2. - 137.),
+                    row_gap: Val::Px(40.),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ..default()
+            }).with_children(|parent| {
+                for _ in 0..NUM_POWERUPS {
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "1.0x",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 32.0,
+                                color: Color::WHITE,
+                            },
+                        ),
+                        PowerupDisplayText,
+                    ));
+                }
+            });
         })
         .id();
 
