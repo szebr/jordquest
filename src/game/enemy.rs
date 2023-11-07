@@ -1,14 +1,16 @@
 use bevy::ecs::system::Command;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use crate::{AppState, net};
+use crate::{AppState, game, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
+use movement::correct_wall_collisions;
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+use crate::game::movement;
 use crate::game::player::PlayerShield;
 
 
@@ -316,43 +318,7 @@ pub fn fixed_resolve(
         let pos_buffer = enemy_pos_buffer.into_inner();
         let pos = pos_buffer.0.get(tick.0);
         let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
-        for _ in 0..5 {
-            let mut done = true;
-            let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
-            let north = pos3 + Vec3::new(0.0, half_collider.y, 0.0);
-            let south = pos3 - Vec3::new(0.0, half_collider.y, 0.0);
-            let east = pos3 + Vec3::new(half_collider.x, 0.0, 0.0);
-            let west = pos3 - Vec3::new(half_collider.x, 0.0, 0.0);
-
-            let offset: f32 = 0.1;
-            if get_tile_at_pos(&north, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = tilepos.y + offset;
-                pos3.y -= adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&south, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = TILESIZE as f32 - tilepos.y + offset;
-                pos3.y += adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&east, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = tilepos.x + offset;
-                pos3.x -= adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&west, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = TILESIZE as f32 - tilepos.x + offset;
-                pos3.x += adjustment;
-                done = false;
-            }
-            if done {
-                break;
-            }
-        }
+        pos3 = correct_wall_collisions(&pos3, &collider.0, &map.biome_map);
         pos_buffer.0.set(tick.0, pos3.xy());
     }
 }
