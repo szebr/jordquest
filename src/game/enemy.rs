@@ -193,7 +193,7 @@ pub fn update_enemies(
             }
             // decrement the enemy counter of the camp that this enemy is apart of
             for (camp_num, mut enemies_in_camp) in camp_query.iter_mut() {
-                if camp_num.0 == ec.0 {
+                if camp_num.0 == ec_num.0 {
                     enemies_in_camp.current_enemies -= 1;
                 }
 
@@ -209,7 +209,7 @@ pub fn update_enemies(
             }
 
             // despawn the enemy and increment the score of the player who killed it
-            commands.entity(entity).despawn_recursive();
+            commands.entity(e).despawn_recursive();
             for (mut score, pl) in scores.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
                     score.0 += 1;
