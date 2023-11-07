@@ -226,6 +226,7 @@ pub fn grab_powerup(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
     powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
+    mut powerup_displays: Query<&mut Text, With<PowerupDisplayText>>,
 ) {
     for (player_transform, mut player_health, mut cooldown, mut player_power_ups) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
