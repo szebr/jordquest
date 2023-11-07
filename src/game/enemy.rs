@@ -312,11 +312,11 @@ pub fn fixed_resolve(
     map: Res<WorldMap>,
     tick: Res<TickNum>,
 ) {
-    for (mut enemy_pos_buffer, collider) in &mut enemies {
+    for (enemy_pos_buffer, collider) in &mut enemies {
         let pos_buffer = enemy_pos_buffer.into_inner();
         let pos = pos_buffer.0.get(tick.0);
         let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
-        for i in 0..5 {
+        for _ in 0..5 {
             let mut done = true;
             let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
             let north = pos3 + Vec3::new(0.0, half_collider.y, 0.0);

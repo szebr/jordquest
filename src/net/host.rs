@@ -1,7 +1,8 @@
 use std::net::*;
+use std::str::FromStr;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
-use crate::game::{enemy, player, PlayerId};
+use crate::game::{enemy, player};
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
 use crate::game::player::UserCmdEvent;
@@ -26,8 +27,7 @@ pub fn connect(addresses: Res<menus::NetworkAddresses>,
     mut sock: ResMut<net::Socket>
 ) {
     let host_ip = Ipv4Addr::new(127,0,0,1);
-    //let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
-    let host_port: u16 = 8085;
+    let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
     sock.0 = Some(UdpSocket::bind(host_addr).expect("host port in use"));
     sock.0.as_mut().unwrap().set_nonblocking(true).expect("can't set nonblocking");

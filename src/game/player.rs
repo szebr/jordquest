@@ -2,14 +2,13 @@ use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use crate::{enemy, net};
+use crate::enemy;
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
 use serde::{Deserialize, Serialize};
 use crate::buffers::*;
 use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
-use crate::game::components;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
@@ -50,6 +49,12 @@ pub struct UserCmd {
     pub dir: f32,
 }
 
+#[derive(Event)]
+pub struct LocalPlayerDeathEvent;
+
+#[derive(Event)]
+pub struct LocalPlayerSpawnEvent;
+
 /// Marks the player controlled by the local computer
 #[derive(Component)]
 pub struct LocalPlayer;
@@ -85,18 +90,72 @@ impl Plugin for PlayerPlugin{
                 handle_move.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(OnEnter(AppState::Respawn), (spawn_players, reset_cooldowns))
+            .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
             .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)).after(spawn_shield_on_right_click))
             .add_event::<PlayerTickEvent>()
-            .add_event::<UserCmdEvent>();
+            .add_event::<UserCmdEvent>()
+            .add_event::<LocalPlayerDeathEvent>()
+            .add_event::<LocalPlayerSpawnEvent>();
     }
 }
 
 pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     for mut c in &mut query {
         c.0.tick(Duration::from_secs_f32(100.));
+    }
+}
+
+pub fn spawn_players(
+    mut commands: Commands,
+    entity_atlas: Res<Atlas>,
+    asset_server: Res<AssetServer>,
+    res_id: Res<PlayerId>
+) {
+    for i in 0..MAX_PLAYERS {
+        let pl = commands.spawn((
+            Player(i as u8),
+            PosBuffer(CircularBuffer::new()),
+            Score(0),
+            Health {
+                current: 0,
+                max: PLAYER_DEFAULT_HP,
+                dead: false
+            },
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                visibility: Visibility::Hidden,
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            },
+            Collider(PLAYER_SIZE),
+            Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
+            StoredPowerUps {
+                power_ups: [0; NUM_POWERUPS],
+            },
+            PlayerShield {
+                active: false,
+            },
+        )).id();
+
+        if i as u8 == res_id.0 {
+            commands.entity(pl).insert(LocalPlayer);
+        }
+
+        let health_bar = commands.spawn((
+            SpriteBundle {
+                texture: asset_server.load("healthbar.png"),
+                transform: Transform {
+                    translation: Vec3::new(0., 24., 2.),
+                    ..Default::default()
+                },
+                ..Default::default()},
+            HealthBar,
+        )).id();
+
+        commands.entity(pl).push_children(&[health_bar]);
     }
 }
 
@@ -140,14 +199,17 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Transform, &mut Health, &mut Visibility, Option<&LocalPlayer>, &StoredPowerUps), (With<Player>, Without<Enemy>)>,
+    mut players: Query<(&mut Health, &mut Visibility, &StoredPowerUps, Option<&LocalPlayer>), (With<Player>, Without<Enemy>)>,
     mut scores: Query<&mut Score, (With<Player>, Without<Enemy>)>,
-    mut app_state_next_state: ResMut<NextState<AppState>>
+    mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut tf, mut health, mut vis, lp, spu) in players.iter_mut() {
+    for (mut health, mut vis, spu, lp) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
+            if lp.is_some() {
+                death_writer.send(LocalPlayerDeathEvent);
+            }
             for mut score in scores.iter_mut() {
                 if (score.0.checked_sub(1)).is_some() {
                     score.0 -= 1;
@@ -155,22 +217,11 @@ pub fn update_players(
                     score.0 = 0;
                 }
             }
-
-            // Local player died, transition to Respawn state
-            if lp.is_some() {
-                print!("local player died\n");
-                app_state_next_state.set(AppState::Respawn);
-            }
-
-            print!("You died!\n");
-            let translation = Vec3::new(0.0, 0.0, 1.0);
-            tf.translation = translation;
-            health.current = PLAYER_DEFAULT_HP + spu.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
         }
     }
 }
 
-// if the player collides with a powerup, add it to the player's powerup list
+// if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
 pub fn grab_powerup(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
@@ -186,22 +237,22 @@ pub fn grab_powerup(
                 // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
                 match power_up.0
                 {
-                    components::PowerUpType::DamageDealtUp => {
+                    PowerUpType::DamageDealtUp => {
                         player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
                     },
-                    components::PowerUpType::DamageReductionUp => {
+                    PowerUpType::DamageReductionUp => {
                         player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
                     },
-                    components::PowerUpType::MaxHPUp => {
+                    PowerUpType::MaxHPUp => {
                         player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_health.current += MAX_HP_UP;
                     },
-                    components::PowerUpType::AttackSpeedUp => {
+                    PowerUpType::AttackSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
-                        let updated_duration = cooldown.0.duration().mul_f32(0.9);
+                        let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
                     },
-                    components::PowerUpType::MovementSpeedUp => {
+                    PowerUpType::MovementSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                     },
                 }
@@ -210,6 +261,31 @@ pub fn grab_powerup(
             }
         }
     }
+}
+
+fn trace_attack_line(player_transform: &Transform, weapon_offset: Vec2) -> (Vec2, Vec2) {
+    let start = player_transform.translation.truncate();
+    let end = start + weapon_offset;
+    (start, end)
+}
+
+fn line_intersects_aabb(start: Vec2, end: Vec2, box_center: Vec2, box_size: Vec2) -> bool {
+    let dir = (end - start).normalize();
+
+    let t1 = (box_center.x - box_size.x / 2.0 - start.x) / dir.x;
+    let t2 = (box_center.x + box_size.x / 2.0 - start.x) / dir.x;
+    let t3 = (box_center.y - box_size.y / 2.0 - start.y) / dir.y;
+    let t4 = (box_center.y + box_size.y / 2.0 - start.y) / dir.y;
+
+    let tmin = t1.min(t2).max(t3.min(t4));
+    let tmax = t1.max(t2).min(t3.max(t4));
+
+    if tmax < 0.0 || tmin > tmax {
+        return false;
+    }
+
+    let t = if tmin < 0.0 { tmax } else { tmin };
+    return t > 0.0 && t * t < (end - start).length_squared();
 }
 
 pub fn handle_attack(
@@ -281,30 +357,6 @@ pub fn handle_attack(
     }
 }
 
-fn trace_attack_line(player_transform: &Transform, weapon_offset: Vec2) -> (Vec2, Vec2) {
-    let start = player_transform.translation.truncate();
-    let end = start + weapon_offset;
-    (start, end)
-}
-
-fn line_intersects_aabb(start: Vec2, end: Vec2, box_center: Vec2, box_size: Vec2) -> bool {
-    let dir = (end - start).normalize();
-
-    let t1 = (box_center.x - box_size.x / 2.0 - start.x) / dir.x;
-    let t2 = (box_center.x + box_size.x / 2.0 - start.x) / dir.x;
-    let t3 = (box_center.y - box_size.y / 2.0 - start.y) / dir.y;
-    let t4 = (box_center.y + box_size.y / 2.0 - start.y) / dir.y;
-
-    let tmin = t1.min(t2).max(t3.min(t4));
-    let tmax = t1.max(t2).min(t3.max(t4));
-
-    if tmax < 0.0 || tmin > tmax {
-        return false;
-    }
-
-    let t = if tmin < 0.0 { tmax } else { tmin };
-    return t > 0.0 && t * t < (end - start).length_squared();
-}
 
 pub fn spawn_shield_on_right_click(
     mut commands: Commands,
@@ -349,70 +401,7 @@ pub fn despawn_shield_on_right_click_release(
     }
 }
 
-
-
-
-pub fn update_buffer(
-        tick: Res<net::TickNum>,
-        mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
-    ) {
-    let player = players.get_single_mut();
-    if player.is_err() { return }
-    let (mut pos_buffer, current_pos) = player.unwrap();
-    pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
-}
-
-pub fn spawn_players(
-    mut commands: Commands,
-    entity_atlas: Res<Atlas>,
-    asset_server: Res<AssetServer>,
-    res_id: Res<PlayerId>
-) {
-    for i in 0..MAX_PLAYERS {
-        let pl = commands.spawn((
-            Player(i as u8),
-            PosBuffer(CircularBuffer::new()),
-            Score(0),
-            Health {
-                current: 0,
-                max: PLAYER_DEFAULT_HP,
-                dead: true
-            },
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                visibility: Visibility::Hidden,
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            },
-            Collider(PLAYER_SIZE),
-            Cooldown(Timer::from_seconds(0.2, TimerMode::Once)),
-            StoredPowerUps {
-                power_ups: [0; NUM_POWERUPS],
-            },
-            PlayerShield {
-                active: false,
-            },
-        )).id();
-
-        if i as u8 == res_id.0 {
-            commands.entity(pl).insert(LocalPlayer);
-        }
-
-        let health_bar = commands.spawn((
-            SpriteBundle {
-                texture: asset_server.load("healthbar.png"),
-                transform: Transform {
-                    translation: Vec3::new(0., 24., 2.),
-                    ..Default::default()
-                },
-                ..Default::default()},
-            HealthBar,
-        )).id();
-
-        commands.entity(pl).push_children(&[health_bar]);
-    }
-}
+// EVENT HANDLERS
 
 pub fn handle_tick_events(
     mut player_reader: EventReader<PlayerTickEvent>,
@@ -443,4 +432,13 @@ pub fn handle_usercmd_events(
             }
         }
     }
+}
+
+// RUN CONDITIONS
+
+pub fn local_player_dead(health: Query<&Health, With<LocalPlayer>>) -> bool {
+    let health = health.get_single();
+    if health.is_err() { return false; }
+    let health = health.unwrap();
+    return health.dead;
 }

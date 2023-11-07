@@ -1,7 +1,6 @@
 // The idea behind this file is to hold components which will be used across gameplay files
 // Components which are only used locally can be left inside a more localized file.
 use bevy::prelude::*;
-use crate::enemy;
 use core::fmt::Debug;
 
 #[derive(Component)]
@@ -21,8 +20,9 @@ pub const NUM_POWERUPS: usize = 5;
 pub const DAMAGE_DEALT_UP: u8 = 10;
 pub const DAMAGE_REDUCTION_UP: u8 = 5;
 pub const MAX_HP_UP: u8 = 20;
-pub const ATTACK_SPEED_UP: u8 = 5;
+pub const ATTACK_SPEED_UP: f32 = 1.1;
 pub const MOVEMENT_SPEED_UP: u8 = 15;
+
 #[derive(Debug)]
 pub enum PowerUpType {
     DamageDealtUp = 0,

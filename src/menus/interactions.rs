@@ -61,7 +61,6 @@ pub fn interact_with_credits_button(
 
 pub fn update_input<T: InputType>(
     mut char_events: EventReader<ReceivedCharacter>,
-    keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Text, &mut T)>,
     switch_query: Option<Query<&Switch>>,
 ) {
@@ -96,37 +95,33 @@ pub fn update_input<T: InputType>(
 }
 pub fn update_host_input(
     char_events: EventReader<ReceivedCharacter>,
-    keyboard_input: Res<Input<KeyCode>>,
     query: Query<(&mut Text, &mut HostPortInput)>,
 ) {
-    update_input::<HostPortInput>(char_events, keyboard_input, query, None);
+    update_input::<HostPortInput>(char_events, query, None);
 }
 
 pub fn update_join_port_input(
     char_events: EventReader<ReceivedCharacter>,
-    keyboard_input: Res<Input<KeyCode>>,
     query: Query<(&mut Text, &mut JoinPortInput)>,
     switch_query: Query<&Switch>,
 ) {
-    update_input::<JoinPortInput>(char_events, keyboard_input, query, Some(switch_query));
+    update_input::<JoinPortInput>(char_events, query, Some(switch_query));
 }
 
 pub fn update_join_host_port_input(
     char_events: EventReader<ReceivedCharacter>,
-    keyboard_input: Res<Input<KeyCode>>,
     query: Query<(&mut Text, &mut JoinHostPortInput)>,
     switch_query: Query<&Switch>,
 ) {
-    update_input::<JoinHostPortInput>(char_events, keyboard_input, query, Some(switch_query));
+    update_input::<JoinHostPortInput>(char_events, query, Some(switch_query));
 }
 
 pub fn update_join_ip_input(
     char_events: EventReader<ReceivedCharacter>,
-    keyboard_input: Res<Input<KeyCode>>,
     query: Query<(&mut Text, &mut JoinIPInput)>,
     switch_query: Query<&Switch>,
 ) {
-    update_input::<JoinIPInput>(char_events, keyboard_input, query, Some(switch_query));
+    update_input::<JoinIPInput>(char_events, query, Some(switch_query));
 }
 
 pub fn save_host_input(
@@ -149,7 +144,7 @@ pub fn save_host_input(
                     println!("setting res_id to {:?}", res_id.0);
                     is_host.0 = true;
                 }
-                app_state_next_state.set(AppState::Respawn);
+                app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();
@@ -260,7 +255,7 @@ pub fn save_join_input(
                     net_address.host_port =join_host_port_input.port.clone();
                 }
                 is_host.0 = false;
-                app_state_next_state.set(AppState::Respawn);
+                app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();

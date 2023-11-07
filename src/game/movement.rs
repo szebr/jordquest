@@ -1,12 +1,13 @@
-use std::ops::{Div, Sub};
+use std::ops::Sub;
 use bevy::prelude::*;
 use crate::player::*;
-use bevy::sprite::collide_aabb::{collide, Collision};
+use bevy::sprite::collide_aabb::collide;
 use crate::map;
 use crate::components::*;
+use crate::game::buffers::PosBuffer;
 use crate::game::map::Biome::Wall;
-use crate::game::map::{get_pos_in_tile, get_tile_at_pos, get_tile_midpoint_position, TILESIZE};
-use crate::map::{Biome, get_surrounding_tiles};
+use crate::game::map::{get_pos_in_tile, get_tile_at_pos, TILESIZE};
+use crate::net::TickNum;
 
 #[derive(Resource)]
 pub struct KeyBinds {
@@ -76,7 +77,7 @@ pub fn handle_move(
     mv |= keyboard_input.pressed(key_binds.left) as usize * 0b0100;
     mv |= keyboard_input.pressed(key_binds.right) as usize * 0b1000;
     let dir = MOVE_VECTORS[mv];
-    let mut can_move = true;
+    let can_move = true;
 
 
     let mut new_pos = Vec3 {
@@ -145,50 +146,14 @@ pub fn handle_move(
             break;
         }
     }
-    /*
-    // try another method
-    let tiles = get_surrounding_tiles(&pos.translation, &map.biome_map);
-    let middle_tile_midpoint = get_tile_midpoint_position(&pos.translation, &map.biome_map);
-    let wall_collider_size = Vec2::new(TILESIZE as f32 / 2.0, TILESIZE as f32 / 2.0);
-    let mut tile_colliders = Vec::new();
-    for i in 0..3 {
-        for j in 0..3 {
-            let tile_offset_from_center = Vec3::new((i as isize - 1 * TILESIZE as isize) as f32, -(j as isize - 1 * TILESIZE as isize) as f32, 0.0);
-            if tiles[i][j] == Biome::Wall {
-                let wall_pos = middle_tile_midpoint + tile_offset_from_center;
-                //println!("Next to a wall player at x: {:2} y: {:2} wall at x: {:2} y: {:2}", &pos.translation.x, &pos.translation.y, wall_pos.x, wall_pos.y);
-                tile_colliders.push(wall_pos);
-            }
-        }
-    }
-    for wall in tile_colliders {
-        if let Some(collision) = collide(
-            wall,
-            wall_collider_size,
-            pos.translation,
-            collider.0,
-        ) {
-            match collision {
-                Collision::Left => {
-                    println!("left");
-                    let x_dist = (wall.x - &pos.translation.x).abs();
-                    let required_distance = TILESIZE as f32 / 2.0 + collider.0.x;
-                    //pos.translation.x -= required_distance - x_dist;
-                }
-                Collision::Right => {
-                    println!("right");
-                }
-                Collision::Top => {
-                    println!("top");
-                }
-                Collision::Bottom => {
-                    println!("bottom");
-                }
-                Collision::Inside => {
-                    println!("inside");
-                }
-            }
-        }
-    }
-     */
+}
+
+pub fn update_buffer(
+    tick: Res<TickNum>,
+    mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
+) {
+    let player = players.get_single_mut();
+    if player.is_err() { return }
+    let (mut pos_buffer, current_pos) = player.unwrap();
+    pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
 }

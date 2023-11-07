@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
-use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
+use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP};
 use crate::{map, map::WorldMap};
 use crate::movement;
 use crate::AppState;
@@ -42,10 +42,9 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
-            .add_systems(Update, respawn_update.run_if(in_state(AppState::Respawn)))
+            .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
-            .add_systems(OnEnter(AppState::Respawn), configure_map)
-            .add_systems(OnExit(AppState::Respawn), configure_map);
+            .add_systems(Update, configure_map_on_event);
     }
 }
 
@@ -55,6 +54,7 @@ fn startup(
     spawn_camera(commands);
 }
 
+// Spawns the main game camera as a child of a SpatialBundle that will follow the player in Game state
 fn spawn_camera(
     mut commands: Commands
 ) {
@@ -75,6 +75,7 @@ fn spawn_camera(
     );
 }
 
+// Spawns the minimap, its border, and the player marker and parents the SpatialBundle to them
 fn spawn_minimap(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -132,6 +133,8 @@ fn spawn_minimap(
         Marker,
     )).id();
 
+    // The minimap-related bundles are made children of SpatialCameraBundle because
+    // they need to remain in the same screen position and Bevy UI stuff is icky
     for parent in &mut cam_bundle {
         commands.entity(parent).add_child(border_ent);
         commands.entity(parent).add_child(minimap_ent);
@@ -139,6 +142,7 @@ fn spawn_minimap(
     }
 }
 
+// Creates and returns the Image of the minimap from the map data
 fn draw_minimap(
     map: Res<WorldMap>,
 ) -> Image 
@@ -167,6 +171,11 @@ fn draw_minimap(
                     //rgba = vec![71,109,40,255]; // FULL COLOR
                     rgba = vec![131,91,20,255]; // SEPIA
                 }
+                map::Biome::Path => {
+                    //rgba = vec![240,169,83,255]; // FULL COLOR
+                    rgba = vec![241,213,166,255]; // SEPIA
+                
+                }
             }
             minimap_data.append(&mut rgba);
         }
@@ -186,26 +195,37 @@ fn draw_minimap(
     return minimap;
 }
 
-fn configure_map(
+// Adjusts minimap/border/marker position and size based on being in Game or Respawn state
+fn configure_map_on_event(
     mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut marker: Query<&mut Transform, (With<Marker>, Without<Minimap>, Without<MinimapBorder>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<LocalPlayer>)>,
-    app_state: Res<State<AppState>>
+    mut death_reader: EventReader<LocalPlayerDeathEvent>,
+    mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
 ) {
-    // Set params based on current state
-    let mut new_translation: Vec2 = Vec2::new(0., 0.);
-    let mut new_scale: f32 = 1.;
-
-    match app_state.get() {
-        AppState::Game => {
-            new_translation = Vec2::new(MINIMAP_TRANSLATION.x, MINIMAP_TRANSLATION.y);
-            new_scale = GAME_PROJ_SCALE;
+    let mut spawn_mode: Option<bool> = None;
+    for _ in death_reader.iter() {
+        spawn_mode = Some(true);
+    }
+    if spawn_mode.is_none() {
+        for _ in spawn_reader.iter() {
+            spawn_mode = Some(false);
         }
-        _ => { }
+    }
+    if spawn_mode.is_none() {
+        return;
+    }
+    // minimap mode
+    let mut new_translation: Vec2 = Vec2::new(MINIMAP_TRANSLATION.x, MINIMAP_TRANSLATION.y);
+    let mut new_scale: f32 = GAME_PROJ_SCALE;
+
+    if spawn_mode.unwrap() {
+        new_translation = Vec2::new(0., 0.);
+        new_scale = 1.;
     }
 
-    // Move minimap and border back to corner, show marker
+    // Set minimap/border/marker translation/scale with aforementioned parameters
     for mut minimap_tf in &mut minimap {
         minimap_tf.translation.x = new_translation.x;
         minimap_tf.translation.y = new_translation.y;
@@ -230,12 +250,14 @@ fn configure_map(
     }
 }
 
+// Runs in Respawn state, waits for mouse click to get player's desired (re)spawn position
 fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
-    map: Res<WorldMap>
+    map: Res<WorldMap>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -252,7 +274,7 @@ fn respawn_update(
             (cursor_position.y < ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) ||
             (cursor_position.y > ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
         {
-            println!("invalid");
+            // Outside map bounds, invalid position
         } else {
             // Within bounds, convert to map tile coordinate
             cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
@@ -265,11 +287,10 @@ fn respawn_update(
 
             match tile {
                 map::Biome::Wall => {
-                    println!("in wall");
+                    // In wall, invalid position
                 }
                 _ => {
                     // Valid spawn tile
-                    println!("valid");
                     app_state_next_state.set(AppState::Game);
 
                     let (mut tf, mut hp, mut vis) = player.single_mut();
@@ -277,6 +298,7 @@ fn respawn_update(
                     hp.current = PLAYER_DEFAULT_HP;
                     hp.dead = false;
                     *vis = Visibility::Visible;
+                    spawn_writer.send(LocalPlayerSpawnEvent);
                     tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
                 }
@@ -285,12 +307,14 @@ fn respawn_update(
     }
 }
 
+// Runs in Game state, makes SpatialCameraBundle follow player and moves marker to reflect player position
 fn game_update(
     player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
     mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Marker>, Without<LocalPlayer>)>
 ) {
     for player_tf in &player {
+        // Set marker position on minimap to reflect the player's current position in the game world
         for mut marker_tf in &mut marker {
             if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
                 marker_tf.translation.x = MINIMAP_TRANSLATION.x + player_tf.translation.x / 32.
@@ -300,6 +324,7 @@ fn game_update(
             }
         }
     
+        // Make SpatialCameraBundle follow player
         for mut camera_tf in &mut camera {
             camera_tf.translation.x = player_tf.translation.x;
             camera_tf.translation.y = player_tf.translation.y;

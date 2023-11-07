@@ -17,7 +17,6 @@ pub enum AppState {
     Joining,
     Controls,
     Game,
-    Respawn,
     GameOver,
     Credits,
 }
