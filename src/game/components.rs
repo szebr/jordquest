@@ -52,7 +52,7 @@ pub struct Score(pub u8);
 pub struct ScoreDisplay;
 
 #[derive(Component)]
-pub struct PowerupDisplayText;
+pub struct PowerupDisplayText(pub u8);
 
 #[derive(Component)]
 pub struct Enemy(pub u8);  // holds id
