@@ -221,7 +221,7 @@ pub fn update_players(
     }
 }
 
-// if the player collides with a powerup, add it to the player's powerup list
+// if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
 pub fn grab_powerup(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
