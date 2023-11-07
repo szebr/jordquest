@@ -227,8 +227,8 @@ fn read_map(
             let step_ratio = step as f32 / num_steps as f32;
             
             // randomize the direction vector a bit so the lines aren't completely straight
-            let noise_value = perlin.noise(step, step); // Adjust dimension as needed
-            let direction = direction + Vec2::new(noise_value as f32 * 0.2, noise_value as f32 * 0.2); // Adjust the scaling factor
+            let noise_value = perlin.noise(step, 0); // Adjust dimension as needed
+            let direction = direction + Vec2::new(noise_value as f32 * 0.15, noise_value as f32 * 0.15); // Adjust the scaling factor
 
             // Calculate the position of the current step
             let step_position = *source_node + direction * (step_ratio * distance);
@@ -245,7 +245,10 @@ fn read_map(
                     for col_offset in 0..PATHWIDTH {
                         if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1
                         {
-                            map.biome_map[row + row_offset][col + col_offset] = Biome::Path;
+                            let v = perlin.noise(row + row_offset,col + col_offset);
+                            if v > 0.64 || v < 0.60 {
+                                map.biome_map[row + row_offset][col + col_offset] = Biome::Path;
+                            }
                         }
                     }
                 }
@@ -267,7 +270,7 @@ fn read_map(
             for col_offset in 0..CAMPSIZE {
                 if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
                     let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < 0.62 {
+                    if v < 0.52 {
                         map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
                     }
                 }
