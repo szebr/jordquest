@@ -386,16 +386,15 @@ pub fn spawn_shield_on_right_click(
 pub fn despawn_shield_on_right_click_release(
     mut commands: Commands,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut query: Query<(Entity, &Children, &mut PlayerShield), With<LocalPlayer>>,
+    mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    if mouse_button_inputs.just_released(MouseButton::Right) {
-        for (_player, children, mut shield) in query.iter_mut() {
-            shield.active = false;
-            for &child in children.iter() {
-                if shield_query.get(child).is_ok() {
-                    commands.entity(child).despawn();
-                }
+    let (player_children, mut player_shield) = query.get_single_mut().unwrap();
+    if !mouse_button_inputs.pressed(MouseButton::Right) {
+        player_shield.active = false;
+        for &child in player_children.iter() {
+            if shield_query.get(child).is_ok() {
+                commands.entity(child).despawn();
             }
         }
     }
