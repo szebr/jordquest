@@ -10,7 +10,6 @@ use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
 use crate::game::player::PlayerShield;
 
-
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;

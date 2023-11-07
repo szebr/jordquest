@@ -51,25 +51,31 @@ pub fn setup(
             grade: CAMP_GRADE,
         },
         CampEnemies{
-            current_enemies: CAMP_ENEMIES,
+            max_enemies: 5,
+            current_enemies: 5,
         },
         CampStatus{
             status: true,
         },
     ));
 
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, 1, Vec2::new(pos.x - 100., pos.y - 100.), 2, PowerUpType::DamageDealtUp);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, 1, Vec2::new(pos.x - 70., pos.y), 2, PowerUpType::DamageReductionUp);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, 1, Vec2::new(pos.x - 20., pos.y + 100.), 2, PowerUpType::AttackSpeedUp);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, 1, Vec2::new(pos.x + 40. , pos.y + 20.), 2, PowerUpType::MovementSpeedUp);
-    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, 1, Vec2::new(pos.x + 100., pos.y + 100.), 2, PowerUpType::MaxHPUp);
-
 }
 
 //TODO: Implement this 
-// pub fn spawn_camp_enemy(){
-
-// }
+pub fn spawn_camp_enemy(
+    mut commands: Commands,
+    entity_atlas:Res<Atlas>,
+    campid: u8,
+    camp_grade: u8,
+    pos: Vec2,
+){
+    let camp_grade = camp_grade as i32;
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(pos.x - 100., pos.y - 100.), camp_grade, PowerUpType::DamageDealtUp);
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(pos.x - 70., pos.y), camp_grade, PowerUpType::DamageReductionUp);
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(pos.x - 20., pos.y + 100.), camp_grade, PowerUpType::AttackSpeedUp);
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(pos.x + 40. , pos.y + 20.), camp_grade, PowerUpType::MovementSpeedUp);
+    enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(pos.x + 100., pos.y + 100.), camp_grade, PowerUpType::MaxHPUp);
+}
 
 pub fn handle_camp_clear(
     mut camp_query: Query<(&Camp, &CampEnemies, &mut CampStatus), With<Camp>>,

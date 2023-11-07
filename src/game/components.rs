@@ -57,22 +57,21 @@ pub struct Enemy(pub u8);  // holds id
 #[derive(Component)]
 pub struct Player(pub u8);  // holds id
 
+// camp stuff
 #[derive(Component)]
-pub struct Camp(pub u8);
-//id
+pub struct Camp(pub u8); // holds id
+
 
 #[derive(Component)]
 pub struct Grade{
+    // determines camp and enemy type
+    // random number between 1 and 5
     pub grade: u8,
 }
 
 #[derive(Component)]
-pub struct CampEnemyType{
-    pub camp_enemy_type: u8,
-}
-
-#[derive(Component)]
 pub struct CampEnemies{
+    pub max_enemies: u8, 
     pub current_enemies: u8,
 }
 
@@ -83,6 +82,6 @@ pub struct CampStatus{
 }
 
 #[derive(Component)]
-pub struct EnemyCamp(pub u8);
+pub struct EnemyCamp(pub u8); // holds id of enemy's parent camp
 
 
