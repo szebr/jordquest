@@ -148,6 +148,51 @@ pub fn handle_move(
     }
 }
 
+pub fn correct_wall_collisions(
+    pos: &Vec3,
+    collider: &Vec2,
+    map: &[[map::Biome; map::MAPSIZE]; map::MAPSIZE],
+) -> Vec3 {
+    let mut pos = pos.clone();
+    for _ in 0..5 {
+        let mut done = true;
+        let north = pos + Vec3::new(0.0, collider.y / 2.0, 0.0);
+        let south = pos - Vec3::new(0.0, collider.y / 2.0, 0.0);
+        let east = pos + Vec3::new(collider.x / 2.0, 0.0, 0.0);
+        let west = pos - Vec3::new(collider.x / 2.0, 0.0, 0.0);
+
+        let offset: f32 = 0.1;
+        if get_tile_at_pos(&north, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
+            let adjustment = tilepos.y + offset;
+            pos.y -= adjustment;
+            done = false;
+        }
+        if get_tile_at_pos(&south, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
+            let adjustment = TILESIZE as f32 - tilepos.y + offset;
+            pos.y += adjustment;
+            done = false;
+        }
+        if get_tile_at_pos(&east, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
+            let adjustment = tilepos.x + offset;
+            pos.x -= adjustment;
+            done = false;
+        }
+        if get_tile_at_pos(&west, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
+            let adjustment = TILESIZE as f32 - tilepos.x + offset;
+            pos.x += adjustment;
+            done = false;
+        }
+        if done {
+            break;
+        }
+    }
+    pos
+}
+
 pub fn update_buffer(
     tick: Res<TickNum>,
     mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
