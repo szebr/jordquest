@@ -1,18 +1,16 @@
-use bevy::utils::petgraph::adj::NodeIndex;
 use bevy::{prelude::*, utils::HashMap};
 use std::{
     error::Error, 
-    // fs::File, 
-    // thread::spawn
+    thread::spawn,
 };
-// use csv::ReaderBuilder;
 use rand::Rng;
 use crate::noise::Perlin;
 use bevy::utils::petgraph::{
     algo::min_spanning_tree, 
     visit::EdgeRef,
     graph::UnGraph, 
-    data::FromElements,};
+    data::FromElements,
+};
 use rand::seq::SliceRandom;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -290,42 +288,6 @@ fn read_map(
 
     Ok(())
 }
-
-
-
-// CSV Read Map (for midterm)
-// fn read_map(map: &mut WorldMap) -> Result<(), Box<dyn Error>> {
-//     let path = "assets/midterm_map.csv";
-//     let file = File::open(path)?;
-//     //let mut reader = csv::Reader::from_reader(file);
-//     let mut reader = ReaderBuilder::new()
-//         .has_headers(false)
-//         .from_reader(file);
-//     let mut row = 0;
-//     let mut col = 0;
-//     for result in reader.records() {
-//         let record = result?;
-//         for field in record.iter() {
-//             match field {
-//                 "w" => {
-//                     map.biome_map[row][col] = Biome::Wall;
-//                 }
-//                 "g" => {
-//                     map.biome_map[row][col] = Biome::Ground;
-//                 }
-//                 "c" => {
-//                     map.biome_map[row][col] = Biome::Camp;
-//                 }
-//                 &_ => {
-//                 }
-//             };
-//             col += 1;
-//         }
-//         row += 1;
-//         col = 0;
-//     }
-//     Ok(())
-// }
 
 // create the map, spawn the tiles, and add the WorldMap resource
 pub fn setup(
