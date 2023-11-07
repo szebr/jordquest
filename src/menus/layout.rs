@@ -1195,22 +1195,22 @@ pub fn build_in_game_menu(
                     top: Val::Px(SCREEN_HEIGHT / 2. - 137.),
                     row_gap: Val::Px(40.),
                     flex_direction: FlexDirection::Column,
-                    align_items: AlignItems::Center,
+                    align_items: AlignItems::Start,
                     ..default()
                 },
                 ..default()
             }).with_children(|parent| {
-                for _ in 0..NUM_POWERUPS {
+                for i in 0..NUM_POWERUPS {
                     parent.spawn((
                         TextBundle::from_section(
-                            "1.0x",
+                            "1.00x",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 32.0,
                                 color: Color::WHITE,
                             },
                         ),
-                        PowerupDisplayText,
+                        PowerupDisplayText(i as u8), // Dunno whether to attach this to NodeBundle or the individual TextBundles
                     ));
                 }
             });
