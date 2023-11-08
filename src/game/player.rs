@@ -389,7 +389,7 @@ pub fn despawn_shield_on_right_click_release(
     mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    let (player_children, mut player_shield) = query.get_single_mut().unwrap();
+    let (player_children, mut player_shield) = query.single_mut();
     if !mouse_button_inputs.pressed(MouseButton::Right) {
         player_shield.active = false;
         for &child in player_children.iter() {
