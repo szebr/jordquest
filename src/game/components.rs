@@ -18,7 +18,7 @@ pub struct Fade {
 
 pub const NUM_POWERUPS: usize = 5;
 pub const DAMAGE_DEALT_UP: u8 = 10;
-pub const DAMAGE_REDUCTION_UP: u8 = 5;
+pub const DAMAGE_REDUCTION_UP: f32 = 0.9;
 pub const MAX_HP_UP: u8 = 20;
 pub const ATTACK_SPEED_UP: f32 = 1.1;
 pub const MOVEMENT_SPEED_UP: u8 = 15;
@@ -50,6 +50,9 @@ pub struct Score(pub u8);
 
 #[derive(Component)]
 pub struct ScoreDisplay;
+
+#[derive(Component)]
+pub struct PowerupDisplayText(pub u8);
 
 #[derive(Component)]
 pub struct Enemy(pub u8);  // holds id
