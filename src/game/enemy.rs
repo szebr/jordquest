@@ -145,10 +145,10 @@ pub fn handle_attack(
                     // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
-                    let dmg: f32 = CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32);
-                    if dmg as u8 > 0
+                    let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
+                    if dmg > 0
                     {
-                        match player_hp.current.checked_sub(dmg as u8) {
+                        match player_hp.current.checked_sub(dmg) {
                             Some(v) => {
                                 player_hp.current = v;
                             }
