@@ -124,8 +124,8 @@ pub fn handle_camp_clear(
 
 // convert given row and col into x and y coordinates. Returns a vec2 of these coordinates
 fn get_spawn_vec(row: f32, col:f32) -> Vec2{
-    let x_coord = TILESIZE as f32 * (col - (MAPSIZE as f32/2.));
-    let y_coord = TILESIZE as f32 * ((MAPSIZE as f32/2.) - row);
+    let x_coord = TILESIZE as f32 * (row - (MAPSIZE as f32/2. + 0.5));
+    let y_coord = TILESIZE as f32 * ((MAPSIZE as f32/2. - 0.5) - col);
 
     Vec2::new(x_coord, y_coord)
 }
