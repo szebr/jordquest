@@ -240,65 +240,63 @@ pub fn grab_powerup(
                 {
                     PowerUpType::DamageDealtUp => {
                         player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 0 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
+                                / SWORD_DAMAGE as f32);
+                            }
+                        }
                     },
                     PowerUpType::DamageReductionUp => {
                         player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 1 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (15 + player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) as f32
+                                / 15 as f32); // TODO: If we ever get around to it, replace 15 with player's base defense value
+                            }
+                        }
                     },
                     PowerUpType::MaxHPUp => {
                         player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_health.current += MAX_HP_UP;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 2 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
+                                / PLAYER_DEFAULT_HP as f32);
+                            }
+                        }
                     },
                     PowerUpType::AttackSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 3 {
+                                powerup.sections[0].value = format!("{:.2}x",
+                                (DEFAULT_COOLDOWN
+                                / (cooldown.0.duration().as_millis() as f32 / 1000.)));
+                            }
+                        }
                     },
                     PowerUpType::MovementSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
-                    },
-                }
 
-                // Update all powerup display text here
-                for (mut powerup, index) in &mut powerup_displays {
-                    // For every powerup, match the index
-                    match index.0
-                    {
-                        0 => {
-                            // Damage dealt up
-                            powerup.sections[0].value = format!("{:.2}x", 
-                                (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
-                                / SWORD_DAMAGE as f32);
-                        }
-                        1 => {
-                            // Damage reduction up
-                            powerup.sections[0].value = format!("{:.2}x", 
-                                (15 + player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) as f32
-                                / 15 as f32); // TODO: If we ever get around to it, replace 15 with player's base defense value
-                        }
-                        2 => {
-                            // Max HP up
-                            powerup.sections[0].value = format!("{:.2}x", 
-                                (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
-                                / PLAYER_DEFAULT_HP as f32);
-                        }
-                        3 => {
-                            // Attack speed up
-                            powerup.sections[0].value = format!("{:.2}x",
-                                (DEFAULT_COOLDOWN
-                                / (cooldown.0.duration().as_millis() as f32 / 1000.)));
-                        }
-                        4 => {
-                            // Movement speed up
-                            powerup.sections[0].value = format!("{:.2}x", 
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 4 {
+                                powerup.sections[0].value = format!("{:.2}x", 
                                 (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
                                 / PLAYER_SPEED as f32);
+                            }
                         }
-                        _ => {
-                            
-                        }
-                    }
+                    },
                 }
-
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
             }
