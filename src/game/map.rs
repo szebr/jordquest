@@ -151,7 +151,7 @@ fn read_map(
                 map.biome_map[row][col] = Biome::Ground;
                 camp_nodes.push(Vec2::new(row as f32, col as f32));
             }
-            else if v > 0.68 {
+            else if v > 0.72 {
                 map.biome_map[row][col] = Biome::Wall;
             }
             else {
