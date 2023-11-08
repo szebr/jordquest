@@ -12,9 +12,7 @@ use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
 use crate::game::movement;
 use crate::game::player::PlayerShield;
-
 use super::player::PLAYER_DEFAULT_DEF;
-
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -79,9 +77,13 @@ impl Plugin for EnemyPlugin{
 }
 
 pub fn spawn_enemy(
-    commands: &mut Commands,
-    entity_atlas: &Res<Atlas>,
-    id: u8, pos: Vec2, sprite: i32, power_up_type: PowerUpType
+    commands: &mut Commands, 
+    entity_atlas: &Res<Atlas>, 
+    id: u8, 
+    campid: u8, 
+    pos: Vec2, 
+    sprite: i32, 
+    power_up_type: PowerUpType
 ) {
     let pb = PosBuffer(CircularBuffer::new_from(pos));
     let mut pu: [u8; NUM_POWERUPS];
@@ -95,9 +97,11 @@ pub fn spawn_enemy(
             max: ENEMY_MAX_HP,
             dead: false,
         },
+        EnemyCamp(campid),
         SpriteSheetBundle {
             texture_atlas: entity_atlas.handle.clone(),
             sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(0, sprite), ..default()},
+            //TODO: change this to translate based on parent xyz
             transform: Transform::from_xyz(0., 0., 2.),
             ..default()
         },
@@ -169,11 +173,12 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform), With<Enemy>>,
+    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp), With<Enemy>>,
     mut scores: Query<(&mut Score, &Player)>,
     asset_server: Res<AssetServer>,
+    mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf) in enemies.iter_mut() {
+    for (e, hp, la, spu, mut sp, tf, ec_num) in enemies.iter_mut() {
         if hp.current <= 0 {
             // drop powerups by cycling through the stored powerups of the enemy
             // and spawning the appropriate one
@@ -192,6 +197,24 @@ pub fn update_enemies(
                     ));
                 }
             }
+            // decrement the enemy counter of the camp that this enemy is apart of
+            for (camp_num, mut enemies_in_camp, camp_status) in camp_query.iter_mut() {
+                if camp_num.0 == ec_num.0 {
+                    enemies_in_camp.current_enemies -= 1;
+                }
+
+                // check if the camp is cleared and assign 5 points for clearing the camp
+                if enemies_in_camp.current_enemies == 0 && camp_status.status == true{
+                    for (mut score, pl) in scores.iter_mut() {
+                        if pl.0 == la.0.expect("camp has no attacker") {
+                            score.0 += 5;
+                            println!("5 points awarded for clearing camp {}", camp_num.0)
+                        }
+                    }
+                }
+            }
+
+            // despawn the enemy and increment the score of the player who killed it
             commands.entity(e).despawn_recursive();
             for (mut score, pl) in scores.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {

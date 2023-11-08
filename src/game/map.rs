@@ -1,7 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 use std::{
     error::Error, 
-    thread::spawn,
+    //thread::spawn,
 };
 use rand::Rng;
 use crate::noise::Perlin;
@@ -46,6 +46,9 @@ struct Wall;
 
 #[derive(Component)]
 struct Path;
+
+#[derive(Resource)]
+pub struct CampNodes(pub Vec<Vec2>);
 
 #[derive(Resource)]
 pub struct WorldMap{
@@ -148,7 +151,7 @@ fn read_map(
                 map.biome_map[row][col] = Biome::Ground;
                 camp_nodes.push(Vec2::new(row as f32, col as f32));
             }
-            else if v > 0.68 {
+            else if v > 0.72 {
                 map.biome_map[row][col] = Biome::Wall;
             }
             else {
@@ -165,7 +168,7 @@ fn read_map(
     camp_nodes.shuffle(&mut rand::thread_rng());
 
     // Slice the coordinates to only have the number of elements equal to NUMCAMPS variable
-    if (camp_nodes.len() > NUMCAMPS) {
+    if camp_nodes.len() > NUMCAMPS {
         camp_nodes.truncate(NUMCAMPS);
     }
 
@@ -329,11 +332,12 @@ pub fn setup(
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
-    let mut camp_nodes: Vec<Vec2> = Vec::new();
+
+    let mut camp_nodes = CampNodes(Vec::new());
 
     // Generate the map and read it into the WorldMap Component
     // Also mark the camp tiles into raw_camp_nodes
-    let _ = read_map(&mut world_map, &mut camp_nodes);
+    let _ = read_map(&mut world_map, &mut camp_nodes.0);
 
     //Initialize the tilesheets for ground and camp
     let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall, SheetTypes::Path]
@@ -388,6 +392,7 @@ pub fn setup(
 
     // Spawn the map
     commands.insert_resource(world_map);
+    commands.insert_resource(camp_nodes);
 }
 
 fn spawn_tile<T>(
