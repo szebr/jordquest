@@ -107,12 +107,8 @@ pub fn handle_move(
     pos.translation = correct_wall_collisions(&pos.translation, &collider.0, &map.biome_map);
     if get_tile_at_pos(&pos.translation, &map.biome_map) == Wall {
         hp.current = match hp.current.checked_sub(WALL_DAMAGE) {
-            None => {
-                0
-            }
-            Some(x) => {
-                x
-            }
+            None => { 0 }
+            Some(x) => { x }
         }
     }
 }
