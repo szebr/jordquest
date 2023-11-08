@@ -9,6 +9,8 @@ use crate::game::map::Biome::Wall;
 use crate::game::map::{get_pos_in_tile, get_tile_at_pos, TILESIZE};
 use crate::net::TickNum;
 
+pub const WALL_DAMAGE: u8 = 5;
+
 #[derive(Resource)]
 pub struct KeyBinds {
     pub up: KeyCode,
@@ -54,7 +56,7 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 /// Player movement function. Runs on Update schedule.
 pub fn handle_move(
     keyboard_input: Res<Input<KeyCode>>,
-    mut players: Query<(&Player, &mut Transform, &Health, &Collider, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
+    mut players: Query<(&Player, &mut Transform, &mut Health, &Collider, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
     other_colliders: Query<(&Transform, &Collider, &Health), Without<LocalPlayer>>,
     map: Res<map::WorldMap>,
     time: Res<Time>,
@@ -63,12 +65,7 @@ pub fn handle_move(
     // should only be a single entry in this query (with localplayer)
     let player = players.get_single_mut();
     if player.is_err() { return; }
-    let player = player.unwrap();
-    let pos = player.1.into_inner();
-    let hp = player.2;
-    let collider = player.3;
-    let spu = player.4;
-    let shield = player.5;
+    let (_, mut pos, mut hp, collider, spu, shield) = player.unwrap();
 
     if hp.dead || shield.active { return }
 
@@ -108,6 +105,12 @@ pub fn handle_move(
     }
 
     pos.translation = correct_wall_collisions(&pos.translation, &collider.0, &map.biome_map);
+    if get_tile_at_pos(&pos.translation, &map.biome_map) == Wall {
+        hp.current = match hp.current.checked_sub(WALL_DAMAGE) {
+            None => 0,
+            Some(x) => x
+        }
+    }
 }
 
 pub fn correct_wall_collisions(
@@ -116,32 +119,32 @@ pub fn correct_wall_collisions(
     map: &[[map::Biome; map::MAPSIZE]; map::MAPSIZE],
 ) -> Vec3 {
     let mut pos = pos.clone();
-        let north = pos + Vec3::new(0.0, collider.y / 2.0, 0.0);
-        let south = pos - Vec3::new(0.0, collider.y / 2.0, 0.0);
-        let east = pos + Vec3::new(collider.x / 2.0, 0.0, 0.0);
-        let west = pos - Vec3::new(collider.x / 2.0, 0.0, 0.0);
+    let north = pos + Vec3::new(0.0, collider.y / 2.0, 0.0);
+    let south = pos - Vec3::new(0.0, collider.y / 2.0, 0.0);
+    let east = pos + Vec3::new(collider.x / 2.0, 0.0, 0.0);
+    let west = pos - Vec3::new(collider.x / 2.0, 0.0, 0.0);
 
-        let offset: f32 = 0.1;
-        if get_tile_at_pos(&north, map) == Wall {
-            let tilepos = get_pos_in_tile(&north);
-            let adjustment = tilepos.y + offset;
-            pos.y -= adjustment;
-        }
-        if get_tile_at_pos(&south, map) == Wall {
-            let tilepos = get_pos_in_tile(&north);
-            let adjustment = TILESIZE as f32 - tilepos.y + offset;
-            pos.y += adjustment;
-        }
-        if get_tile_at_pos(&east, map) == Wall {
-            let tilepos = get_pos_in_tile(&north);
-            let adjustment = tilepos.x + offset;
-            pos.x -= adjustment;
-        }
-        if get_tile_at_pos(&west, map) == Wall {
-            let tilepos = get_pos_in_tile(&north);
-            let adjustment = TILESIZE as f32 - tilepos.x + offset;
-            pos.x += adjustment;
-        }
+    let offset: f32 = 0.1;
+    if get_tile_at_pos(&north, map) == Wall {
+        let tilepos = get_pos_in_tile(&north);
+        let adjustment = tilepos.y + offset;
+        pos.y -= adjustment;
+    }
+    if get_tile_at_pos(&south, map) == Wall {
+        let tilepos = get_pos_in_tile(&north);
+        let adjustment = TILESIZE as f32 - tilepos.y + offset;
+        pos.y += adjustment;
+    }
+    if get_tile_at_pos(&east, map) == Wall {
+        let tilepos = get_pos_in_tile(&north);
+        let adjustment = tilepos.x + offset;
+        pos.x -= adjustment;
+    }
+    if get_tile_at_pos(&west, map) == Wall {
+        let tilepos = get_pos_in_tile(&north);
+        let adjustment = TILESIZE as f32 - tilepos.x + offset;
+        pos.x += adjustment;
+    }
     pos
 }
 
