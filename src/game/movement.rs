@@ -107,45 +107,42 @@ pub fn handle_move(
         pos.translation.y = new_pos.y;
     }
 
-    // Check that we aren't colliding with a wall and move out if we are
-    // repeat in case we put ourselves in a wall the first time
-    for _ in 0..5 {
-        let mut done = true;
-        let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
-        let player_north = pos.translation + Vec3::new(0.0, half_collider.y, 0.0);
-        let player_south = pos.translation - Vec3::new(0.0, half_collider.y, 0.0);
-        let player_east = pos.translation + Vec3::new(half_collider.x, 0.0, 0.0);
-        let player_west = pos.translation - Vec3::new(half_collider.x, 0.0, 0.0);
+    pos.translation = correct_wall_collisions(&pos.translation, &collider.0, &map.biome_map);
+}
+
+pub fn correct_wall_collisions(
+    pos: &Vec3,
+    collider: &Vec2,
+    map: &[[map::Biome; map::MAPSIZE]; map::MAPSIZE],
+) -> Vec3 {
+    let mut pos = pos.clone();
+        let north = pos + Vec3::new(0.0, collider.y / 2.0, 0.0);
+        let south = pos - Vec3::new(0.0, collider.y / 2.0, 0.0);
+        let east = pos + Vec3::new(collider.x / 2.0, 0.0, 0.0);
+        let west = pos - Vec3::new(collider.x / 2.0, 0.0, 0.0);
 
         let offset: f32 = 0.1;
-        if get_tile_at_pos(&player_north, &map.biome_map) == Wall {
-            let tilepos = get_pos_in_tile(&player_north);
+        if get_tile_at_pos(&north, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
             let adjustment = tilepos.y + offset;
-            pos.translation.y -= adjustment;
-            done = false;
+            pos.y -= adjustment;
         }
-        if get_tile_at_pos(&player_south, &map.biome_map) == Wall {
-            let tilepos = get_pos_in_tile(&player_north);
+        if get_tile_at_pos(&south, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
             let adjustment = TILESIZE as f32 - tilepos.y + offset;
-            pos.translation.y += adjustment;
-            done = false;
+            pos.y += adjustment;
         }
-        if get_tile_at_pos(&player_east, &map.biome_map) == Wall {
-            let tilepos = get_pos_in_tile(&player_north);
+        if get_tile_at_pos(&east, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
             let adjustment = tilepos.x + offset;
-            pos.translation.x -= adjustment;
-            done = false;
+            pos.x -= adjustment;
         }
-        if get_tile_at_pos(&player_west, &map.biome_map) == Wall {
-            let tilepos = get_pos_in_tile(&player_north);
+        if get_tile_at_pos(&west, map) == Wall {
+            let tilepos = get_pos_in_tile(&north);
             let adjustment = TILESIZE as f32 - tilepos.x + offset;
-            pos.translation.x += adjustment;
-            done = false;
+            pos.x += adjustment;
         }
-        if done {
-            break;
-        }
-    }
+    pos
 }
 
 pub fn update_buffer(
