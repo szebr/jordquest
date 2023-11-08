@@ -428,7 +428,7 @@ pub fn get_tile_at_pos(
 ) -> Biome {
     let col = (player_pos.x + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
     let row = (-player_pos.y + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
-    map[row][col]
+    map[row.clamp(0, MAPSIZE - 1)][col.clamp(0, MAPSIZE - 1)]
 }
 
 pub fn get_pos_in_tile(
