@@ -23,7 +23,7 @@ pub const MAX_HP_UP: u8 = 20;
 pub const ATTACK_SPEED_UP: f32 = 1.1;
 pub const MOVEMENT_SPEED_UP: u8 = 15;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum PowerUpType {
     DamageDealtUp = 0,
     DamageReductionUp = 1,
@@ -63,11 +63,7 @@ pub struct Camp(pub u8); // holds id
 
 
 #[derive(Component)]
-pub struct Grade{
-    // determines camp and enemy type
-    // random number between 1 and 5
-    pub grade: u8,
-}
+pub struct Grade(pub u8);
 
 #[derive(Component)]
 pub struct CampEnemies{

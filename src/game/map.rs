@@ -1,7 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 use std::{
     error::Error, 
-    thread::spawn,
+    //thread::spawn,
 };
 use rand::Rng;
 use crate::noise::Perlin;
@@ -48,7 +48,7 @@ struct Wall;
 struct Path;
 
 #[derive(Resource)]
-struct CampNodes(pub Vec<Vec2>);
+pub struct CampNodes(pub Vec<Vec2>);
 
 #[derive(Resource)]
 pub struct WorldMap{
