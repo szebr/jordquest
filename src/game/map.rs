@@ -258,23 +258,51 @@ fn read_map(
     let camp_nodes_mst = create_mst(camp_nodes.to_vec());
     // Make the camps bigger by expanding the area around the camp tiles, 
     // but using Perlin Noise to determine which tiles to expand to
+    let camp_nodes_mst = create_mst(camp_nodes.to_vec());
+
+    // Define the radius of the camp circle
+    let camp_radius = CAMPSIZE / 2;
+
     for node in camp_nodes_mst.node_indices() {
         let node = &camp_nodes_mst[node];
-        let row = node.y as usize;
-        let col = node.x as usize;
-        // Expand the camp tiles to the right and down
-        // TODO: Expand the camp tiles to all directions
-        for row_offset in 0..CAMPSIZE {
-            for col_offset in 0..CAMPSIZE {
-                if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
-                    let v =  perlin.noise(row + row_offset,col + col_offset);
-                    if v < 0.52 {
-                        map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
+        let center_row = node.y as usize;
+        let center_col = node.x as usize;
+
+        for row_offset in -(camp_radius as i32)..=camp_radius as i32 {
+            for col_offset in -(camp_radius as i32)..=camp_radius as i32 {
+                let row = center_row as i32 + row_offset;
+                let col = center_col as i32 + col_offset;
+
+                // Check if the current position is within the camp circle
+                let distance_squared = (row - center_row as i32).pow(2) + (col - center_col as i32).pow(2);
+                let camp_radius_squared = (camp_radius as i32).pow(2);
+
+                if row >= 0 && row < MAPSIZE as i32 && col >= 0 && col < MAPSIZE as i32 {
+                    let v = perlin.noise(row as usize, col as usize);
+                    if distance_squared <= camp_radius_squared && v < 0.99 {
+                        map.biome_map[row as usize][col as usize] = Biome::Camp;
                     }
                 }
             }
         }
     }
+    // for node in camp_nodes_mst.node_indices() {
+    //     let node = &camp_nodes_mst[node];
+    //     let row = node.y as usize;
+    //     let col = node.x as usize;
+    //     // Expand the camp tiles to the right and down
+    //     // TODO: Expand the camp tiles to all directions
+    //     for row_offset in 0..CAMPSIZE {
+    //         for col_offset in 0..CAMPSIZE {
+    //             if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
+    //                 let v =  perlin.noise(row + row_offset,col + col_offset);
+    //                 if v < 0.52 {
+    //                     map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     // Create the outer walls
     for row in 0..MAPSIZE {
