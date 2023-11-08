@@ -9,7 +9,7 @@ use crate::components::*;
 
 use crate::buffers::*;
 
-const CAMP_ENEMIES: u8 = 5;
+const CAMP_ENEMIES: u8 = 1;
 
 pub struct CampPlugin;
 
@@ -33,7 +33,9 @@ pub fn setup(
 
     //placeholder variables for initialization
     
-    let pos: Vec2 = get_spawn_vec(138., 109.);
+    let pos: Vec2 = get_spawn_vec(0., 0.);
+    println!("x is {} y is {}", pos.x, pos.y);
+
 
     //TODO: spawn enemies at a camp in the spawn_camp_enemy function instead of just in setup (part of prefab implementation)
     
@@ -47,9 +49,10 @@ pub fn setup(
     let mut rng = rand::thread_rng();
 
     for camps in camp_nodes.0.iter(){
+        println!("x: {}, y: {}", camps.x, camps.y);
 
         // x-y position of the camp
-        let camp_pos = Vec2::new(camps.x, camps.y);
+        let camp_pos: Vec2 = get_spawn_vec(camps.x, camps.y);
         // determines camp/enemy type
         let camp_grade: u8 = rng.gen_range(1..=5);
 
@@ -57,7 +60,7 @@ pub fn setup(
         commands.spawn((
             Camp(campid),
             pb,
-            Grade(1),
+            Grade(camp_grade),
             CampEnemies{
                 max_enemies: CAMP_ENEMIES,
                 current_enemies: CAMP_ENEMIES,
@@ -69,9 +72,9 @@ pub fn setup(
         ));
 
         //spawn enemies for this camp
-        let mut x_off: f32 = 100.;
-        let mut y_off: f32 = 100.;
-        for n in 0..CAMP_ENEMIES{
+        // let mut x_off: f32 = 100.;
+        // let mut y_off: f32 = 100.;
+        // for n in 0..CAMP_ENEMIES{
 
             //generate a random powerup to drop from each enemy
             let powerups: [PowerUpType; 5] = [PowerUpType::DamageDealtUp, PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp, PowerUpType::MaxHPUp];
@@ -79,16 +82,17 @@ pub fn setup(
             //account for type
             let camp_grade = camp_grade as i32;
 
-            enemy::spawn_enemy(&mut commands, &entity_atlas, n, campid, Vec2::new(camp_pos.x - x_off, camp_pos.y - y_off), camp_grade, powerups[rpu]);
+            enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(camp_pos.x, camp_pos.y), camp_grade, powerups[rpu]);
             
             // increase x and y offsets to stagger enemies
-            x_off += rng.gen_range((50.)..(200.));
-            if x_off > 350.{
-                x_off = 50.;
-                y_off += 250.;
-            }
+            // x_off += rng.gen_range((50.)..(200.));
+            // if x_off > 350.{
+            //     x_off = 50.;
+            //     y_off += 250.;
+            // }
 
-        }
+        //end for
+        //}
             // enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(camp_pos.x - 70., camp_pos.y), camp_grade, powerups[rpu]);
             // enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(camp_pos.x - 20., camp_pos.y + 100.), camp_grade, powerups[rpu]);
             // enemy::spawn_enemy(&mut commands, &entity_atlas, 0, campid, Vec2::new(camp_pos.x + 40. , camp_pos.y + 20.), camp_grade, powerups[rpu]);
