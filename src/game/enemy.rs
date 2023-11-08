@@ -1,14 +1,18 @@
+use bevy::ecs::system::Command;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use crate::{AppState, net};
+use crate::{AppState, game, net};
 use crate::Atlas;
 use serde::{Deserialize, Serialize};
+use movement::correct_wall_collisions;
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+use crate::game::movement;
 use crate::game::player::PlayerShield;
+use super::player::PLAYER_DEFAULT_DEF;
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -59,7 +63,7 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, (
                 fixed_aggro,
                 fixed_move.after(fixed_aggro),
-                fixed_resolve.after(fixed_move)
+                fixed_resolve.after(fixed_move).after(net::lerp::resolve_collisions),
                 ).run_if(is_host)
             )
             .add_systems(Update, (
@@ -147,9 +151,11 @@ pub fn handle_attack(
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
                     // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
                     if shield.active { continue }
-                    if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
+                    // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
+                    let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
+                    if dmg > 0
                     {
-                        match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
+                        match player_hp.current.checked_sub(dmg) {
                             Some(v) => {
                                 player_hp.current = v;
                             }
@@ -254,10 +260,10 @@ pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(&PosBuffer, &mut Aggro), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (epb, mut aggro) in &mut enemies {
+    for (enemy_entity, epb, mut aggro) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -277,20 +283,21 @@ pub fn fixed_aggro(
         }
         else {
             if aggro.0.is_none() {
-                commands.spawn((
+                let exlaim = commands.spawn((
                     SpriteBundle {
                         texture: asset_server.load("aggro.png").into(),
                         transform: Transform {
-                            translation: Vec3::new(prev.x, prev.y + 32., 5.0),
+                            translation: Vec3::new(0.0, 32., 5.0),
                             ..Default::default()
                         },
                         ..Default::default()
                     },
                     Fade {
-                        current: 1.0,
-                        max: 1.0
+                        current: 2.0,
+                        max: 2.0
                     }
-                ));
+                )).id();
+                commands.entity(enemy_entity).push_children(&[exlaim]);
             }
             let _ = aggro.0.insert(closest_player.unwrap().0);
         }
@@ -338,43 +345,7 @@ pub fn fixed_resolve(
         let pos_buffer = enemy_pos_buffer.into_inner();
         let pos = pos_buffer.0.get(tick.0);
         let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
-        for _ in 0..5 {
-            let mut done = true;
-            let half_collider = Vec2::new(collider.0.x / 2.0, collider.0.y / 2.0);
-            let north = pos3 + Vec3::new(0.0, half_collider.y, 0.0);
-            let south = pos3 - Vec3::new(0.0, half_collider.y, 0.0);
-            let east = pos3 + Vec3::new(half_collider.x, 0.0, 0.0);
-            let west = pos3 - Vec3::new(half_collider.x, 0.0, 0.0);
-
-            let offset: f32 = 0.1;
-            if get_tile_at_pos(&north, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = tilepos.y + offset;
-                pos3.y -= adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&south, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = TILESIZE as f32 - tilepos.y + offset;
-                pos3.y += adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&east, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = tilepos.x + offset;
-                pos3.x -= adjustment;
-                done = false;
-            }
-            if get_tile_at_pos(&west, &map.biome_map) == Biome::Wall {
-                let tilepos = get_pos_in_tile(&north);
-                let adjustment = TILESIZE as f32 - tilepos.x + offset;
-                pos3.x += adjustment;
-                done = false;
-            }
-            if done {
-                break;
-            }
-        }
+        pos3 = correct_wall_collisions(&pos3, &collider.0, &map.biome_map);
         pos_buffer.0.set(tick.0, pos3.xy());
     }
 }

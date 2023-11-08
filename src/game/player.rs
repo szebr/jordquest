@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
@@ -15,6 +16,7 @@ use crate::net::{is_client, is_host};
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
+pub const PLAYER_DEFAULT_DEF: f32 = 1.;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
@@ -226,6 +228,7 @@ pub fn grab_powerup(
     mut commands: Commands,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
     powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
+    mut powerup_displays: Query<(&mut Text, &PowerupDisplayText), With<PowerupDisplayText>>,
 ) {
     for (player_transform, mut player_health, mut cooldown, mut player_power_ups) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
@@ -239,21 +242,62 @@ pub fn grab_powerup(
                 {
                     PowerUpType::DamageDealtUp => {
                         player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 0 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
+                                / SWORD_DAMAGE as f32);
+                            }
+                        }
                     },
                     PowerUpType::DamageReductionUp => {
                         player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 1 {
+                                // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_DEFAULT_DEF as f32
+                                / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
+                            }
+                        }
                     },
                     PowerUpType::MaxHPUp => {
                         player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_health.current += MAX_HP_UP;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 2 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
+                                / PLAYER_DEFAULT_HP as f32);
+                            }
+                        }
                     },
                     PowerUpType::AttackSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 3 {
+                                powerup.sections[0].value = format!("{:.2}x",
+                                (DEFAULT_COOLDOWN
+                                / (cooldown.0.duration().as_millis() as f32 / 1000.)));
+                            }
+                        }
                     },
                     PowerUpType::MovementSpeedUp => {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
+
+                        for (mut powerup, index) in &mut powerup_displays {
+                            if index.0 == 4 {
+                                powerup.sections[0].value = format!("{:.2}x", 
+                                (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
+                                / PLAYER_SPEED as f32);
+                            }
+                        }
                     },
                 }
                 // despawn powerup
@@ -386,16 +430,15 @@ pub fn spawn_shield_on_right_click(
 pub fn despawn_shield_on_right_click_release(
     mut commands: Commands,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut query: Query<(Entity, &Children, &mut PlayerShield), With<LocalPlayer>>,
+    mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    if mouse_button_inputs.just_released(MouseButton::Right) {
-        for (_player, children, mut shield) in query.iter_mut() {
-            shield.active = false;
-            for &child in children.iter() {
-                if shield_query.get(child).is_ok() {
-                    commands.entity(child).despawn();
-                }
+    let (player_children, mut player_shield) = query.single_mut();
+    if !mouse_button_inputs.pressed(MouseButton::Right) {
+        player_shield.active = false;
+        for &child in player_children.iter() {
+            if shield_query.get(child).is_ok() {
+                commands.entity(child).despawn();
             }
         }
     }

@@ -4,6 +4,8 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use crate::game::buffers::PosBuffer;
 use crate::game::components::{Collider, Health};
+use crate::game::map::WorldMap;
+use crate::game::movement;
 use crate::game::player::LocalPlayer;
 use crate::net;
 
@@ -28,6 +30,7 @@ pub fn lerp_pos(
 /// We check to see if things are colliding and if they are we stop them from doing so.
 pub fn resolve_collisions(
     tick: Res<net::TickNum>,
+    map: Res<WorldMap>,
     mut colliders: Query<(&mut PosBuffer, &Health, &Collider)>,
 ) {
     let mut iter = colliders.iter_combinations_mut();
@@ -38,8 +41,10 @@ pub fn resolve_collisions(
         let b_pos = pb2.0.get(tick.0);
         let b_pos = Vec3::new(b_pos.x, b_pos.y, 0.0);
         if collide(a_pos, collider1.0, b_pos, collider2.0).is_some() {
-            let new_a_pos = a_pos + (a_pos.sub(b_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
-            let new_b_pos = b_pos + (b_pos.sub(a_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
+            let mut new_a_pos = a_pos + (a_pos.sub(b_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
+            new_a_pos = movement::correct_wall_collisions(&new_a_pos, &collider1.0, &map.biome_map);
+            let mut new_b_pos = b_pos + (b_pos.sub(a_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
+            new_b_pos = movement::correct_wall_collisions(&new_b_pos, &collider1.0, &map.biome_map);
             pb1.0.set(tick.0, new_a_pos.xy());
             pb2.0.set(tick.0, new_b_pos.xy());
         }
