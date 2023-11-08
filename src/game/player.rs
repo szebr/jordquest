@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
@@ -15,6 +16,7 @@ use crate::net::{is_client, is_host};
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
+pub const PLAYER_DEFAULT_DEF: f32 = 1.;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
@@ -254,9 +256,10 @@ pub fn grab_powerup(
 
                         for (mut powerup, index) in &mut powerup_displays {
                             if index.0 == 1 {
+                                // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
                                 powerup.sections[0].value = format!("{:.2}x", 
-                                (15 + player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) as f32
-                                / 15 as f32); // TODO: If we ever get around to it, replace 15 with player's base defense value
+                                (PLAYER_DEFAULT_DEF as f32
+                                / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
                             }
                         }
                     },

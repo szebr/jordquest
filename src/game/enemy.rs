@@ -10,6 +10,8 @@ use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
 use crate::game::player::PlayerShield;
 
+use super::player::PLAYER_DEFAULT_DEF;
+
 
 pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -142,9 +144,11 @@ pub fn handle_attack(
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
                     // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
                     if shield.active { continue }
-                    if CIRCLE_DAMAGE > player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP
+                    // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
+                    let dmg: f32 = CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32);
+                    if dmg as u8 > 0
                     {
-                        match player_hp.current.checked_sub(CIRCLE_DAMAGE - player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] * DAMAGE_REDUCTION_UP) {
+                        match player_hp.current.checked_sub(dmg as u8) {
                             Some(v) => {
                                 player_hp.current = v;
                             }
