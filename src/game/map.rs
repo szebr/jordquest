@@ -1,4 +1,9 @@
-use bevy::{prelude::*, utils::{HashMap, petgraph::adj}, ecs::world, render::texture};
+use bevy::{
+    prelude::*, 
+    // utils::{HashMap, petgraph::adj}, 
+    // ecs::world, 
+    // render::texture
+};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::{
     error::Error, 
@@ -21,19 +26,6 @@ pub enum Biome{
     Ground,
     Camp,
     Path,
-}
-
-#[derive(PartialEq, Eq, Hash)]
-enum SheetTypes{
-    Ground,
-    Camp,
-    Wall,
-    Path,
-}
-
-struct SheetData {
-    len: usize,
-    handle: Handle<TextureAtlas>,
 }
 
 #[derive(Component)]
