@@ -57,7 +57,7 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 pub fn handle_move(
     keyboard_input: Res<Input<KeyCode>>,
     mut players: Query<(&Player, &mut Transform, &mut Health, &Collider, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
-    other_colliders: Query<(&Transform, &Collider, &Health), Without<LocalPlayer>>,
+    other_colliders: Query<(&Transform, &Collider, Option<&Health>), Without<LocalPlayer>>,
     map: Res<map::WorldMap>,
     time: Res<Time>,
     key_binds: Res<KeyBinds>
@@ -86,7 +86,7 @@ pub fn handle_move(
     // check collision against entities
     // TODO the player needs to move out of the way of serverside objects, or stay put if it can't
     for (other_position, other_collider, other_health) in other_colliders.iter() {
-        if other_health.dead { continue }
+        if other_health.is_some_and(|health| health.dead ) { continue }
         if collide(new_pos, collider.0, other_position.translation, other_collider.0).is_some() {
             // TODO this is a temporary "push away" collision resolution.
             //can_move = false;
