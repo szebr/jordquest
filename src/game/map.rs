@@ -1,4 +1,5 @@
 use bevy::{prelude::*, utils::{HashMap, petgraph::adj}, ecs::world};
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::{
     error::Error, 
     //thread::spawn,
@@ -71,7 +72,7 @@ pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
 pub const BASECOLOR_CAMP: Color = Color::Rgba{red: 0.278, green: 0.427, blue: 0.157, alpha: 1.0};
 pub const BASECOLOR_PATH: Color = Color::Rgba{red: 0.941, green: 0.663, blue: 0.325, alpha: 1.0};
-pub const BASECOLOR_WALL: Color = Color::Rgba{red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0};
+pub const BASECOLOR_WALL: Color = Color::Rgba{red: 0.216, green: 0.231, blue: 0.369, alpha: 1.0};
 
 #[derive(Component)]
 struct Background;
@@ -330,6 +331,7 @@ fn read_map(
 pub fn setup(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
+    mut assets: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     //Initialize the WorldMap Component and the camp_nodes vector
@@ -345,28 +347,7 @@ pub fn setup(
     // Also mark the camp tiles into raw_camp_nodes
     let _ = read_map(&mut world_map, &mut camp_nodes.0);
 
-    //Initialize the tilesheets for ground and camp
-    let sheets_data: HashMap<_,_> = [SheetTypes::Camp, SheetTypes::Ground, SheetTypes::Wall, SheetTypes::Path]
-        .into_iter()
-        .map(|s|{
-            let (fname, cols, rows) = match s {
-                SheetTypes::Camp => ("camptilesheet.png", 50, 1),
-                SheetTypes::Ground => ("groundtilesheet.png", 50, 1),
-                SheetTypes::Wall => ("wall.png", 3, 1),
-                SheetTypes::Path => ("pathtilesheet.png", 50, 1),
-            };
-            let handle = asset_server.load(fname);
-            let atlas = 
-                TextureAtlas::from_grid(handle, Vec2::splat(TILESIZE as f32), cols, rows, None, None);
-            (
-                s,
-                SheetData {
-                    len: atlas.textures.len(),
-                    handle: texture_atlases.add(atlas),
-                },
-            )
-        })
-        .collect();
+    let tile_handle = assets.add(create_tile_image());
 
     //create an rng to randomly choose a tile from the tilesheet
     let mut rng = rand::thread_rng();
@@ -380,17 +361,17 @@ pub fn setup(
 
             if world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Wall], sheet_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
+                spawn_tile(&mut commands, &tile_handle, sheet_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
             }else if world_map.biome_map[col][row] == Biome::Ground {
                 // Spawn a ground sprite if the current tile is Ground
                 let hue = tile_blend_color(&col, &row, &world_map);
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Ground], sheet_index, Ground, &x_coord, &y_coord, hue);
+                spawn_tile(&mut commands, &tile_handle, sheet_index, Ground, &x_coord, &y_coord, hue);
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Camp], sheet_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
+                spawn_tile(&mut commands, &tile_handle, sheet_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
             }else if world_map.biome_map[col][row] == Biome::Path {
                 // Spawn a path sprite if the current tile is a path
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Path], sheet_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
+                spawn_tile(&mut commands, &tile_handle, sheet_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
             }
             y_coord-=1.0;
         }
@@ -404,7 +385,7 @@ pub fn setup(
 
 fn spawn_tile<T>(
     commands: &mut Commands,
-    data: &SheetData,
+    data: &Handle<Image>,
     index: usize,
     component: T,
     x: &f32,
@@ -413,6 +394,17 @@ fn spawn_tile<T>(
 ) where
     T: Component,
 {
+    commands.spawn(SpriteBundle{
+        sprite: Sprite {
+            color: hue,
+            ..default()
+        },
+        transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
+        texture: data.clone(),
+        ..default()
+    })
+    .insert(component);
+    /*
     commands.spawn(SpriteSheetBundle{
         texture_atlas: data.handle.clone(),
         transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
@@ -424,6 +416,7 @@ fn spawn_tile<T>(
         ..default()
     })
     .insert(component);
+*/
 }
 
 fn tile_blend_color(
@@ -454,6 +447,27 @@ fn tile_blend_color(
     }
 
     return BASECOLOR_GROUND;
+}
+
+fn create_tile_image() -> Image {
+    let mut pixel_data: Vec<u8> = Vec::new();
+
+    for row in 0..TILESIZE {
+        for col in 0..TILESIZE {
+            pixel_data.append(&mut vec![255,255,255,255]);
+        }
+    }
+
+    return Image::new(
+        Extent3d{
+            width: TILESIZE as u32,
+            height: TILESIZE as u32,
+            depth_or_array_layers: 1
+        },
+        TextureDimension::D2,
+        pixel_data,
+        TextureFormat::Rgba8UnormSrgb
+    );
 }
 
 pub fn get_surrounding_tiles(
