@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::{HashMap, petgraph::adj}, ecs::world};
+use bevy::{prelude::*, utils::{HashMap, petgraph::adj}, ecs::world, render::texture};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use std::{
     error::Error, 
@@ -347,9 +347,23 @@ pub fn setup(
     // Also mark the camp tiles into raw_camp_nodes
     let _ = read_map(&mut world_map, &mut camp_nodes.0);
 
+    // Get a handle for a pure white TILESIZE x TILESIZE image to be colored based on tile type later
     let tile_handle = assets.add(create_tile_image());
 
-    //create an rng to randomly choose a tile from the tilesheet
+    // Load in goobers (tile overlays) and turn them into a TextureAtlas so they can be selected later
+    let goober_handle = asset_server.load("goobers.png");
+    let goober_dims = vec![8, 4]; // 8 cols, 4 rows
+    let goober_atlas = TextureAtlas::from_grid(
+        goober_handle,
+        Vec2::splat(TILESIZE as f32),
+        goober_dims[0],
+        goober_dims[1],
+        None,
+        None
+    );
+    let goober_atlas_handle = texture_atlases.add(goober_atlas);
+
+    //create an rng to randomly choose a goober in the near future
     let mut rng = rand::thread_rng();
     // Create this to center the x-positions of the map
     let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
@@ -357,21 +371,29 @@ pub fn setup(
         // Create this to center the y-positions of the map
         let mut y_coord: f32 = ((MAPSIZE as f32)/2.) - 0.5;
         for col in 0..MAPSIZE {
-            let sheet_index = rng.gen_range(0..50);
+            let goober_index; // -1 means NO GOOBER!!!!!!!
+            let goober_chance = vec![0.5, 0.18, 0.18, 0.18]; // Wall, Ground, Camp, Path
 
             if world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
-                spawn_tile(&mut commands, &tile_handle, sheet_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
+                // If goober roll succeeds, make goober_index a random goober for that tile type, adding sheet width to wrap around and reach the correct row
+                // The same logic applies to each instance of this line, just with different values for each tile
+                goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[0] { rng.gen_range(0..2) + 3 * goober_dims[0] as i32 } else { -1 };
+                spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
             }else if world_map.biome_map[col][row] == Biome::Ground {
                 // Spawn a ground sprite if the current tile is Ground
+                // Since we're blending grass tile color, hue must needs be calculated based on the identity of edge-sharing tiles
                 let hue = tile_blend_color(&col, &row, &world_map);
-                spawn_tile(&mut commands, &tile_handle, sheet_index, Ground, &x_coord, &y_coord, hue);
+                goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[1] { rng.gen_range(0..8) } else { -1 };
+                spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Ground, &x_coord, &y_coord, hue);
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
-                spawn_tile(&mut commands, &tile_handle, sheet_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
+                goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[2] { rng.gen_range(0..8) + 2 * goober_dims[0] as i32 } else { -1 };
+                spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
             }else if world_map.biome_map[col][row] == Biome::Path {
                 // Spawn a path sprite if the current tile is a path
-                spawn_tile(&mut commands, &tile_handle, sheet_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
+                goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[3] { rng.gen_range(0..8) + 1 * goober_dims[0] as i32 } else { -1 };
+                spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
             }
             y_coord-=1.0;
         }
@@ -386,7 +408,8 @@ pub fn setup(
 fn spawn_tile<T>(
     commands: &mut Commands,
     data: &Handle<Image>,
-    index: usize,
+    goober_handle: &Handle<TextureAtlas>,
+    goober_index: i32,
     component: T,
     x: &f32,
     y: &f32,
@@ -394,7 +417,7 @@ fn spawn_tile<T>(
 ) where
     T: Component,
 {
-    commands.spawn(SpriteBundle{
+    let tile = commands.spawn(SpriteBundle{
         sprite: Sprite {
             color: hue,
             ..default()
@@ -403,20 +426,21 @@ fn spawn_tile<T>(
         texture: data.clone(),
         ..default()
     })
-    .insert(component);
-    /*
-    commands.spawn(SpriteSheetBundle{
-        texture_atlas: data.handle.clone(),
-        transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
-        sprite: TextureAtlasSprite {
-            index: index % data.len,
-            color: hue,
+    .insert(component)
+    .id();
+
+    if goober_index != -1 {
+        // Goober is allowed
+        commands.entity(tile).insert(SpriteSheetBundle{
+            texture_atlas: goober_handle.clone(),
+            transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
+            sprite: TextureAtlasSprite {
+                index: goober_index as usize,
+                ..default()
+            },
             ..default()
-        },
-        ..default()
-    })
-    .insert(component);
-*/
+        });
+    }
 }
 
 fn tile_blend_color(
@@ -424,6 +448,8 @@ fn tile_blend_color(
     y: &usize,
     world_map: &WorldMap,
 ) -> Color {
+    // Iterate through each edge-sharing tile of the tile at (x, y)
+    // If a path tile is found, return a Color that averages the colors of a ground and path tile together
     for (tile_x, tile_y) in [(*x, y - 1), (*x, y + 1), (x - 1, *y), (x + 1, *y)].iter() {
         if world_map.biome_map[*tile_x][*tile_y] == Biome::Path {
             return Color::Rgba{
@@ -434,6 +460,7 @@ fn tile_blend_color(
             };
         }
         else if world_map.biome_map[*tile_x][*tile_y] == Biome::Camp {
+            // Uncomment to have grass bordering camp biome blend color
             /*
             return Color::Rgba{
                 red: (BASECOLOR_GROUND.r() + BASECOLOR_CAMP.r()) / 2.,
@@ -449,11 +476,12 @@ fn tile_blend_color(
     return BASECOLOR_GROUND;
 }
 
+// Returns a pure white image of size (TILESIZE, TILESIZE) for use with spawn_tile()
 fn create_tile_image() -> Image {
     let mut pixel_data: Vec<u8> = Vec::new();
 
-    for row in 0..TILESIZE {
-        for col in 0..TILESIZE {
+    for _ in 0..TILESIZE {
+        for _ in 0..TILESIZE {
             pixel_data.append(&mut vec![255,255,255,255]);
         }
     }
