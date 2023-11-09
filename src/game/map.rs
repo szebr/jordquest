@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::{HashMap, petgraph::adj}, ecs::world};
 use std::{
     error::Error, 
     //thread::spawn,
@@ -66,6 +66,12 @@ pub const CAMPSIZE: usize = 15; // Size of the camp in tiles
 pub const NUMCAMPS: usize = 10; // Number of camps to spawn
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
+
+// Base colors for navigable tiles
+pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
+pub const BASECOLOR_CAMP: Color = Color::Rgba{red: 0.278, green: 0.427, blue: 0.157, alpha: 1.0};
+pub const BASECOLOR_PATH: Color = Color::Rgba{red: 0.941, green: 0.663, blue: 0.325, alpha: 1.0};
+pub const BASECOLOR_WALL: Color = Color::Rgba{red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0};
 
 #[derive(Component)]
 struct Background;
@@ -374,16 +380,19 @@ pub fn setup(
 
             if world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Wall], sheet_index, Wall, &x_coord, &y_coord);
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Wall], sheet_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
             }else if world_map.biome_map[col][row] == Biome::Ground {
                 // Spawn a ground sprite if the current tile is Ground
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Ground], sheet_index, Ground, &x_coord, &y_coord);
+                let hue = tile_blend_color(&col, &row, BASECOLOR_GROUND, &world_map);
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Ground], sheet_index, Ground, &x_coord, &y_coord, hue);
             }else if world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Camp], sheet_index, Camp, &x_coord, &y_coord);
+                //let hue = tile_blend_color(&col, &row, BASECOLOR_CAMP, &world_map);
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Camp], sheet_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
             }else if world_map.biome_map[col][row] == Biome::Path {
                 // Spawn a path sprite if the current tile is a path
-                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Path], sheet_index, Path, &x_coord, &y_coord);
+                //let hue = tile_blend_color(&col, &row, BASECOLOR_PATH, &world_map);
+                spawn_tile(&mut commands, &sheets_data[&SheetTypes::Path], sheet_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
             }
             y_coord-=1.0;
         }
@@ -402,6 +411,7 @@ fn spawn_tile<T>(
     component: T,
     x: &f32,
     y: &f32,
+    hue: Color,
 ) where
     T: Component,
 {
@@ -410,11 +420,88 @@ fn spawn_tile<T>(
         transform: Transform::from_xyz(x*TILESIZE as f32, y*TILESIZE as f32, 0.),
         sprite: TextureAtlasSprite {
             index: index % data.len,
+            color: hue,
             ..default()
         },
         ..default()
     })
     .insert(component);
+}
+
+fn tile_blend_color(
+    x: &usize,
+    y: &usize,
+    base: Color,
+    world_map: &WorldMap,
+) -> Color {
+    let mut new_color = base;
+
+    // Look at the surrounding tiles and get # of ground, camp, and path
+    let mut adj_tile_cts: [u8; 3] = [0; 3];
+
+    for (tile_x, tile_y) in [(*x, y - 1), (*x, y + 1), (x - 1, *y), (x + 1, *y)].iter() {
+        match world_map.biome_map[*tile_x][*tile_y] {
+            Biome::Ground => {
+                adj_tile_cts[0] += 1;
+            }
+            Biome::Camp => {
+                adj_tile_cts[1] += 1;
+            }
+            Biome::Path => {
+                adj_tile_cts[2] += 1;
+            }
+            _ => {}
+        }
+    }
+    /*
+    // This one will get the colors from all 9 tiles in the 3x3 grid centered around the point
+    for tile_x in (x - 1) .. (x + 2) {
+        for tile_y in (y - 1) .. (y + 2) {
+            match world_map.biome_map[tile_x][tile_y] {
+                Biome::Ground => {
+                    adj_tile_cts[0] += 1;
+                }
+                Biome::Camp => {
+                    adj_tile_cts[1] += 1;
+                }
+                Biome::Path => {
+                    adj_tile_cts[2] += 1;
+                }
+                _ => {}
+            }
+        }
+    }
+    */
+
+    // Do some silly math to get color average
+    new_color.set_r(
+        (
+            new_color.r() +
+            BASECOLOR_GROUND.r() * adj_tile_cts[0] as f32 +
+            BASECOLOR_CAMP.r() * adj_tile_cts[1] as f32 +
+            BASECOLOR_PATH.r() * adj_tile_cts[2] as f32
+        ) / (1 + adj_tile_cts[0] + adj_tile_cts[1] + adj_tile_cts[2]) as f32
+    );
+
+    new_color.set_g(
+        (
+            new_color.g() +
+            BASECOLOR_GROUND.g() * adj_tile_cts[0] as f32 +
+            BASECOLOR_CAMP.g() * adj_tile_cts[1] as f32 +
+            BASECOLOR_PATH.g() * adj_tile_cts[2] as f32
+        ) / (1 + adj_tile_cts[0] + adj_tile_cts[1] + adj_tile_cts[2]) as f32
+    );
+
+    new_color.set_b(
+        (
+            new_color.b() +
+            BASECOLOR_GROUND.b() * adj_tile_cts[0] as f32 +
+            BASECOLOR_CAMP.b() * adj_tile_cts[1] as f32 +
+            BASECOLOR_PATH.b() * adj_tile_cts[2] as f32
+        ) / (1 + adj_tile_cts[0] + adj_tile_cts[1] + adj_tile_cts[2]) as f32
+    );
+
+    return new_color;
 }
 
 pub fn get_surrounding_tiles(
