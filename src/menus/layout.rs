@@ -489,39 +489,333 @@ pub fn build_host_page(
                     });
                 });
 
-            parent.spawn((
-                TextBundle {
-                    style: Style {
-                        width: Val::Px(400.0),
-                        height: Val::Px(80.0),
-                        margin: UiRect {
-                            left: Val::Px(8.),
-                            right: Val::Px(8.),
-                            top: Val::Px(0.0),
-                            bottom: Val::Px(8.0),
-                        },
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    text: Text {
-                        sections: vec![TextSection::new(
-                            "Enter your port number here: ",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 24.0,
-                                color: Color::BLACK,
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
                             },
-                        )],
-                        alignment: TextAlignment::Center,
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                         ..default()
                     },
-                    ..default()
-                },
-                HostPortInput {
-                    port: String::new(),
-                },
-            ));
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    HostPortBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Port#: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        HostPortInput {
+                            port: String::new(),
+                        },
+                    ));
+                });
+
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    NumCampsBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Number of Camps: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        NumCampsInput {
+                            value: String::new(),
+                        },
+                    ));
+                });
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    NumChestsBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Number of Chests: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        NumChestsInput {
+                            value: String::new(),
+                        },
+                    ));
+                });
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    EnemyPerCampBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Enemy per camp: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        EnemyPerCampInput {
+                            value: String::new(),
+                        },
+                    ));
+                });
+
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    MapSeedBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Map seed: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        MapSeedInput {
+                            value: String::new(),
+                        },
+                    ));
+                });
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(500.0),
+                            height: Val::Px(50.0),
+                            margin: UiRect {
+                                left: Val::Px(8.),
+                                right: Val::Px(8.),
+                                top: Val::Px(0.0),
+                                bottom: Val::Px(8.0),
+                            },
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                        ..default()
+                    },
+                    Switch {
+                        host_port: false,
+                        port: false,
+                        ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
+                    },
+                    EIDPercentageBut {},
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text {
+                                sections: vec![TextSection::new(
+                                    "Enemy item-drop percentage: ",
+                                    TextStyle {
+                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                        font_size: 24.0,
+                                        color: Color::WHITE,
+                                    },
+                                )],
+                                alignment: TextAlignment::Center,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        EIDPercentageInput {
+                            value: String::new(),
+                        },
+                    ));
+                });
+                        
 
             parent
                 .spawn((
@@ -704,6 +998,12 @@ pub fn build_join_page(
                         host_port: false,
                         port: false,
                         ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
                     },
                     JoinPortBut {},
                 ))
@@ -753,6 +1053,12 @@ pub fn build_join_page(
                         host_port: false,
                         port: false,
                         ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
                     },
                     JoinHostPortBut {},
                 ))
@@ -802,6 +1108,12 @@ pub fn build_join_page(
                         host_port: false,
                         port: false,
                         ip: false,
+                        host: false,
+                        num_camps: false,
+                        num_chests: false,
+                        enemy_per_camp: false,
+                        map_seed: false,
+                        EID_percentage: false,
                     },
                     JoinIpBut {},
                 ))

@@ -35,6 +35,15 @@ impl Atlas {
 #[derive(Resource)]
 pub struct PlayerId(pub u8);
 
+#[derive(Resource)]
+pub struct MapConfig {
+    pub num_camps: String,
+    pub num_chests: String,
+    pub enemy_per_camp: String,
+    pub map_seed: String,
+    pub eid_percentage: String,
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin{
@@ -78,6 +87,10 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
 
 
     commands.insert_resource(PlayerId(0xFF));
+    commands.insert_resource(MapConfig{
+        num_camps: String::new(), num_chests: String::new(), enemy_per_camp: String::new(),
+        map_seed: String::new(), eid_percentage: String::new(),
+    });
     commands.insert_resource(movement::KeyBinds::new());
 }
 

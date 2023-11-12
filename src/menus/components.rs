@@ -23,6 +23,19 @@ pub struct CreditsPage {}
 #[derive(Component)]
 pub struct Popup;
 
+#[derive(Component)]
+pub struct Switch{
+    pub host_port: bool,
+    pub port: bool,
+    pub ip: bool,
+    pub host: bool,
+    pub num_camps: bool,
+    pub num_chests: bool,
+    pub enemy_per_camp: bool,
+    pub map_seed: bool,
+    pub EID_percentage: bool,
+}
+
 pub trait InputType: Component {
     fn push_char(&mut self, ch: char);
     fn pop_char(&mut self);
@@ -44,12 +57,122 @@ impl InputType for HostPortInput {
         self.port.is_empty()
     }
 
-    fn is_active(_switch: &Switch) -> bool {
-        true
+    fn is_active(switch: &Switch) -> bool {
+        switch.host
     }
 
-    fn is_valid(_active: bool) -> bool {
-        true
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for NumCampsInput {
+    fn push_char(&mut self, ch: char) {
+        self.value.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.value.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.num_camps
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for NumChestsInput {
+    fn push_char(&mut self, ch: char) {
+        self.value.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.value.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.num_chests
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for EnemyPerCampInput {
+    fn push_char(&mut self, ch: char) {
+        self.value.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.value.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.enemy_per_camp
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for MapSeedInput {
+    fn push_char(&mut self, ch: char) {
+        self.value.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.value.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.map_seed
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
+    }
+}
+
+impl InputType for EIDPercentageInput {
+    fn push_char(&mut self, ch: char) {
+        self.value.push(ch);
+    }
+
+    fn pop_char(&mut self) {
+        self.value.pop();
+    }
+
+    fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    fn is_active(switch: &Switch) -> bool {
+        switch.EID_percentage
+    }
+
+    fn is_valid(active: bool) -> bool {
+        active
     }
 }
 
@@ -193,14 +316,50 @@ pub struct HostPortInput {
 pub struct HostPortSaveBut {}//host port save button to save what the user typed in into the network address field
 
 #[derive(Component)]
-pub struct Switch{
-    pub host_port: bool,
-    pub port: bool,
-    pub ip: bool,
-}
+pub struct HostPortBut {}
+
+#[derive(Component)]
+pub struct NumCampsBut {}
+
+#[derive(Component)]
+pub struct NumChestsBut {}
+
+#[derive(Component)]
+pub struct EnemyPerCampBut {}
+
+#[derive(Component)]
+pub struct MapSeedBut {}
+
+#[derive(Component)]
+pub struct EIDPercentageBut {}
 
 #[derive(Component)]
 pub struct JoinHostPortBut {}
+
+#[derive(Component)]
+pub struct NumCampsInput {
+    pub value: String,
+}
+
+#[derive(Component)]
+pub struct NumChestsInput {
+    pub value: String,
+}
+
+#[derive(Component)]
+pub struct EnemyPerCampInput {
+    pub value: String,
+}
+
+#[derive(Component)]
+pub struct  MapSeedInput {
+    pub value: String,
+}
+
+#[derive(Component)]
+pub struct  EIDPercentageInput {
+    pub value: String,
+}
 
 #[derive(Component)]
 pub struct JoinHostPortInput {
