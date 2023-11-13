@@ -25,40 +25,6 @@ pub fn interact_with_button<B: ButtonTypeTrait>(
         }
     }
 }
-pub fn interact_with_host_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<HostButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<HostButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_join_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<JoinButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<JoinButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_back_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<BackToMainMenu>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<BackButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_controls_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<ControlsButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<ControlsButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_credits_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<CreditsButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<CreditsButtonType>(button_query, app_state_next_state);
-}
 
 pub fn update_input<T: InputType>(
     mut char_events: EventReader<ReceivedCharacter>,
@@ -118,12 +84,12 @@ pub fn update_num_chests_input(
     update_input::<NumChestsInput>(char_events, query, Some(switch_query));
 }
 
-pub fn update_enemy_per_camp_input(
+pub fn update_enemies_per_camp_input(
     char_events: EventReader<ReceivedCharacter>,
-    query: Query<(&mut Text, &mut EnemyPerCampInput)>,
+    query: Query<(&mut Text, &mut EnemiesPerCampInput)>,
     switch_query: Query<&Switch>,
 ) {
-    update_input::<EnemyPerCampInput>(char_events, query, Some(switch_query));
+    update_input::<EnemiesPerCampInput>(char_events, query, Some(switch_query));
 }
 
 pub fn update_map_seed_input(
@@ -136,10 +102,10 @@ pub fn update_map_seed_input(
 
 pub fn update_eid_percentage_input(
     char_events: EventReader<ReceivedCharacter>,
-    query: Query<(&mut Text, &mut EIDPercentageInput)>,
+    query: Query<(&mut Text, &mut EidPercentageInput)>,
     switch_query: Query<&Switch>,
 ) {
-    update_input::<EIDPercentageInput>(char_events, query, Some(switch_query));
+    update_input::<EidPercentageInput>(char_events, query, Some(switch_query));
 }
 
 pub fn update_join_port_input(
@@ -165,6 +131,7 @@ pub fn update_join_ip_input(
 ) {
     update_input::<JoinIPInput>(char_events, query, Some(switch_query));
 }
+
 pub fn save_host_input(
     mut is_host: ResMut<crate::net::IsHost>,
     mut res_id: ResMut<PlayerId>,
@@ -173,12 +140,12 @@ pub fn save_host_input(
     host_port_query: Query<&HostPortInput>,
     num_camps_query: Query<&NumCampsInput>,
     num_chests_query: Query<&NumChestsInput>,
-    enemy_per_camp_query: Query<&EnemyPerCampInput>,
+    enemy_per_camp_query: Query<&EnemiesPerCampInput>,
     map_seed_query: Query<&MapSeedInput>,
-    eid_percentage_query: Query<&EIDPercentageInput>,
+    eid_percentage_query: Query<&EidPercentageInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<HostPortSaveBut>),
+        (Changed<Interaction>, With<HostPortSaveButton>),
     >,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {
@@ -188,7 +155,6 @@ pub fn save_host_input(
                 for host_port_input in host_port_query.iter() {
                     net_address.host_port = host_port_input.port.clone();
                     res_id.0 = 0;
-                    println!("setting res_id to {:?}", res_id.0);
                     is_host.0 = true;
                 }
                 for num_camps_input in  num_camps_query.iter() {
@@ -222,7 +188,7 @@ pub fn save_host_input(
 pub fn host_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<HostPortBut>),
+        (Changed<Interaction>, With<HostPortButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -235,7 +201,7 @@ pub fn host_port_but(
                     switch.num_chests = false;
                     switch.enemy_per_camp = false;
                     switch.map_seed = false;
-                    switch.EID_percentage = false;
+                    switch.eid_percentage = false;
                 }
             }
             Interaction::Hovered => {
@@ -251,7 +217,7 @@ pub fn host_port_but(
 pub fn num_camps_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<NumCampsBut>),
+        (Changed<Interaction>, With<NumCampsButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -264,7 +230,7 @@ pub fn num_camps_but(
                     switch.num_chests = false;
                     switch.enemy_per_camp = false;
                     switch.map_seed = false;
-                    switch.EID_percentage = false;
+                    switch.eid_percentage = false;
                 }
             }
             Interaction::Hovered => {
@@ -279,7 +245,7 @@ pub fn num_camps_but(
 pub fn num_chests_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<NumChestsBut>),
+        (Changed<Interaction>, With<NumChestsButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -292,7 +258,7 @@ pub fn num_chests_but(
                     switch.num_chests = true;
                     switch.enemy_per_camp = false;
                     switch.map_seed = false;
-                    switch.EID_percentage = false;
+                    switch.eid_percentage = false;
                 }
             }
             Interaction::Hovered => {
@@ -308,7 +274,7 @@ pub fn num_chests_but(
 pub fn enemy_per_camp_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<EnemyPerCampBut>),
+        (Changed<Interaction>, With<EnemiesPerCampButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -321,7 +287,7 @@ pub fn enemy_per_camp_but(
                     switch.num_chests = false;
                     switch.enemy_per_camp = true;
                     switch.map_seed = false;
-                    switch.EID_percentage = false;
+                    switch.eid_percentage = false;
                 }
             }
             Interaction::Hovered => {
@@ -337,7 +303,7 @@ pub fn enemy_per_camp_but(
 pub fn map_seed_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<MapSeedBut>),
+        (Changed<Interaction>, With<MapSeedButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -350,7 +316,7 @@ pub fn map_seed_but(
                     switch.num_chests = false;
                     switch.enemy_per_camp = false;
                     switch.map_seed = true;
-                    switch.EID_percentage = false;
+                    switch.eid_percentage = false;
                 }
             }
             Interaction::Hovered => {
@@ -365,7 +331,7 @@ pub fn map_seed_but(
 pub fn eid_percentage_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<EIDPercentageBut>),
+        (Changed<Interaction>, With<EidPercentageButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -378,7 +344,7 @@ pub fn eid_percentage_but(
                     switch.num_chests = false;
                     switch.enemy_per_camp = false;
                     switch.map_seed = false;
-                    switch.EID_percentage = true;
+                    switch.eid_percentage = true;
                 }
             }
             Interaction::Hovered => {
@@ -394,7 +360,7 @@ pub fn eid_percentage_but(
 pub fn join_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinPortBut>),
+        (Changed<Interaction>, With<JoinPortButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -420,7 +386,7 @@ pub fn join_port_but(
 pub fn join_ip_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinIpBut>),
+        (Changed<Interaction>, With<JoinIpButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -445,7 +411,7 @@ pub fn join_ip_but(
 pub fn join_host_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinHostPortBut>),
+        (Changed<Interaction>, With<JoinHostPortButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -475,7 +441,7 @@ pub fn save_join_input(
     join_host_port_query: Query<&JoinHostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinSaveBut>),
+        (Changed<Interaction>, With<JoinSaveButton>),
     >,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {

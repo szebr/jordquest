@@ -6,6 +6,7 @@ mod components;
 use crate::AppState;
 use layout::*;
 use interactions::*;
+use crate::menus::components::*;
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
@@ -30,25 +31,20 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnExit(AppState::Joining), despawn_join_page)
         .add_systems(OnEnter(AppState::Controls), spawn_controls_page)
         .add_systems(OnExit(AppState::Controls), despawn_controls_page)
-        .add_systems(OnEnter(AppState::Game), spawn_in_game_menu)
-        .add_systems(OnExit(AppState::Game), despawn_in_game_menu)
-        .add_systems(OnEnter(AppState::Game), spawn_game_over_screen)
-        .add_systems(OnExit(AppState::Game), despawn_game_over_screen)
-        .add_systems(Update, interact_with_host_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_join_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_controls_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_credits_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Hosting)))
-        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Joining)))
-        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Controls)))
-        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Credits)))
-        .add_systems(Update, interact_with_back_button.run_if(in_state(AppState::Game)))
-        .add_systems(Update, interact_with_credits_button.run_if(in_state(AppState::Game)))
-        
+        .add_systems(OnEnter(AppState::Game), spawn_in_game_ui)
+        .add_systems(OnExit(AppState::Game), despawn_in_game_ui)
+        .add_systems(OnEnter(AppState::GameOver), spawn_game_over_screen)
+        .add_systems(OnExit(AppState::GameOver), despawn_game_over_screen)
+        .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<ControlsButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::Game)))
+        .add_systems(Update, interact_with_button::<BackButtonType>)
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_num_camps_input)
         .add_systems(Update, update_num_chests_input)
-        .add_systems(Update, update_enemy_per_camp_input)
+        .add_systems(Update, update_enemies_per_camp_input)
         .add_systems(Update, update_map_seed_input)
         .add_systems(Update, update_eid_percentage_input)
         .add_systems(Update, update_time_remaining_system)

@@ -3,22 +3,22 @@ use bevy::prelude::Component;
 use crate::AppState;
 
 #[derive(Component)]
-pub struct MainMenu {}
+pub struct MainMenu;
 
 #[derive(Component)]
-pub struct InGameMenu {}
+pub struct InGameUi;
 
 #[derive(Component)]
-pub struct HostPage {}
+pub struct HostPage;
 
 #[derive(Component)]
-pub struct JoinPage {}
+pub struct JoinPage;
 
 #[derive(Component)]
-pub struct ControlsPage {}
+pub struct ControlsPage;
 
 #[derive(Component)]
-pub struct CreditsPage {}
+pub struct CreditsPage;
 
 #[derive(Component)]
 pub struct Popup;
@@ -33,7 +33,7 @@ pub struct Switch{
     pub num_chests: bool,
     pub enemy_per_camp: bool,
     pub map_seed: bool,
-    pub EID_percentage: bool,
+    pub eid_percentage: bool,
 }
 
 pub trait InputType: Component {
@@ -110,7 +110,7 @@ impl InputType for NumChestsInput {
     }
 }
 
-impl InputType for EnemyPerCampInput {
+impl InputType for EnemiesPerCampInput {
     fn push_char(&mut self, ch: char) {
         self.value.push(ch);
     }
@@ -154,7 +154,7 @@ impl InputType for MapSeedInput {
     }
 }
 
-impl InputType for EIDPercentageInput {
+impl InputType for EidPercentageInput {
     fn push_char(&mut self, ch: char) {
         self.value.push(ch);
     }
@@ -168,7 +168,7 @@ impl InputType for EIDPercentageInput {
     }
 
     fn is_active(switch: &Switch) -> bool {
-        switch.EID_percentage
+        switch.eid_percentage
     }
 
     fn is_valid(active: bool) -> bool {
@@ -287,54 +287,52 @@ impl ButtonTypeTrait for CreditsButtonType {
     }
 }
 
-
+#[derive(Component)]
+pub struct HostButton;
 
 #[derive(Component)]
-pub struct HostButton {}//host button to go to the host page
+pub struct JoinButton;
 
 #[derive(Component)]
-pub struct JoinButton {}//join button to go to the join page
+pub struct ControlsButton;
 
 #[derive(Component)]
-pub struct ControlsButton {}
+pub struct CreditsButton;
 
 #[derive(Component)]
-pub struct CreditsButton {}
+pub struct BackToMainMenu;
 
 #[derive(Component)]
-pub struct BackToMainMenu {}// back to main menu button
-
-#[derive(Component)]
-pub struct GameOver {}
+pub struct GameOver;
 
 #[derive(Component)]
 pub struct HostPortInput {
     pub port: String,
-} //host port input field
+}
 
 #[derive(Component)]
-pub struct HostPortSaveBut {}//host port save button to save what the user typed in into the network address field
+pub struct HostPortSaveButton;
 
 #[derive(Component)]
-pub struct HostPortBut {}
+pub struct HostPortButton;
 
 #[derive(Component)]
-pub struct NumCampsBut {}
+pub struct NumCampsButton;
 
 #[derive(Component)]
-pub struct NumChestsBut {}
+pub struct NumChestsButton;
 
 #[derive(Component)]
-pub struct EnemyPerCampBut {}
+pub struct EnemiesPerCampButton;
 
 #[derive(Component)]
-pub struct MapSeedBut {}
+pub struct MapSeedButton;
 
 #[derive(Component)]
-pub struct EIDPercentageBut {}
+pub struct EidPercentageButton;
 
 #[derive(Component)]
-pub struct JoinHostPortBut {}
+pub struct JoinHostPortButton;
 
 #[derive(Component)]
 pub struct NumCampsInput {
@@ -347,17 +345,17 @@ pub struct NumChestsInput {
 }
 
 #[derive(Component)]
-pub struct EnemyPerCampInput {
+pub struct EnemiesPerCampInput {
     pub value: String,
 }
 
 #[derive(Component)]
-pub struct  MapSeedInput {
+pub struct MapSeedInput {
     pub value: String,
 }
 
 #[derive(Component)]
-pub struct  EIDPercentageInput {
+pub struct EidPercentageInput {
     pub value: String,
 }
 
@@ -367,23 +365,23 @@ pub struct JoinHostPortInput {
 }
 
 #[derive(Component)]
-pub struct JoinPortBut {}
+pub struct JoinPortButton;
 
 #[derive(Component)]
-pub struct JoinIpBut {}
+pub struct JoinIpButton;
 
 #[derive(Component)]
 pub struct JoinPortInput {
     pub port: String,
-} //joining port input field
+}
 
 #[derive(Component)]
 pub struct JoinIPInput {
     pub ip: String,
-} //joining IP input field
+}
 
 #[derive(Component)]
-pub struct JoinSaveBut {}//Joining port save button to save what the user typed in into the network address field
+pub struct JoinSaveButton;
 
 #[derive(Component)]
-pub struct Initialized{}
+pub struct Initialized;
