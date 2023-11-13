@@ -3,22 +3,22 @@ use bevy::prelude::Component;
 use crate::AppState;
 
 #[derive(Component)]
-pub struct MainMenu {}
+pub struct MainMenu;
 
 #[derive(Component)]
-pub struct InGameMenu {}
+pub struct InGameUi;
 
 #[derive(Component)]
-pub struct HostPage {}
+pub struct HostPage;
 
 #[derive(Component)]
-pub struct JoinPage {}
+pub struct JoinPage;
 
 #[derive(Component)]
-pub struct ControlsPage {}
+pub struct ControlsPage;
 
 #[derive(Component)]
-pub struct CreditsPage {}
+pub struct CreditsPage;
 
 #[derive(Component)]
 pub struct Popup;
@@ -164,33 +164,31 @@ impl ButtonTypeTrait for CreditsButtonType {
     }
 }
 
-
+#[derive(Component)]
+pub struct HostButton;
 
 #[derive(Component)]
-pub struct HostButton {}//host button to go to the host page
+pub struct JoinButton;
 
 #[derive(Component)]
-pub struct JoinButton {}//join button to go to the join page
+pub struct ControlsButton;
 
 #[derive(Component)]
-pub struct ControlsButton {}
+pub struct CreditsButton;
 
 #[derive(Component)]
-pub struct CreditsButton {}
+pub struct BackToMainMenu;
 
 #[derive(Component)]
-pub struct BackToMainMenu {}// back to main menu button
-
-#[derive(Component)]
-pub struct GameOver {}
+pub struct GameOver;
 
 #[derive(Component)]
 pub struct HostPortInput {
     pub port: String,
-} //host port input field
+}
 
 #[derive(Component)]
-pub struct HostPortSaveBut {}//host port save button to save what the user typed in into the network address field
+pub struct HostPortSaveButton;
 
 #[derive(Component)]
 pub struct Switch{
@@ -200,7 +198,7 @@ pub struct Switch{
 }
 
 #[derive(Component)]
-pub struct JoinHostPortBut {}
+pub struct JoinHostPortButton;
 
 #[derive(Component)]
 pub struct JoinHostPortInput {
@@ -208,23 +206,23 @@ pub struct JoinHostPortInput {
 }
 
 #[derive(Component)]
-pub struct JoinPortBut {}
+pub struct JoinPortButton;
 
 #[derive(Component)]
-pub struct JoinIpBut {}
+pub struct JoinIpButton;
 
 #[derive(Component)]
 pub struct JoinPortInput {
     pub port: String,
-} //joining port input field
+}
 
 #[derive(Component)]
 pub struct JoinIPInput {
     pub ip: String,
-} //joining IP input field
+}
 
 #[derive(Component)]
-pub struct JoinSaveBut {}//Joining port save button to save what the user typed in into the network address field
+pub struct JoinSaveButton;
 
 #[derive(Component)]
-pub struct Initialized{}
+pub struct Initialized;

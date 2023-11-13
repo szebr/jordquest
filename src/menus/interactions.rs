@@ -97,7 +97,7 @@ pub fn save_host_input(
     host_port_query: Query<&HostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<HostPortSaveBut>),
+        (Changed<Interaction>, With<HostPortSaveButton>),
     >,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {
@@ -107,7 +107,6 @@ pub fn save_host_input(
                 for host_port_input in host_port_query.iter() {
                     net_address.host_port = host_port_input.port.clone();
                     res_id.0 = 0;
-                    println!("setting res_id to {:?}", res_id.0);
                     is_host.0 = true;
                 }
                 app_state_next_state.set(AppState::Game);
@@ -124,7 +123,7 @@ pub fn save_host_input(
 pub fn join_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinPortBut>),
+        (Changed<Interaction>, With<JoinPortButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -149,7 +148,7 @@ pub fn join_port_but(
 pub fn join_ip_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinIpBut>),
+        (Changed<Interaction>, With<JoinIpButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -174,7 +173,7 @@ pub fn join_ip_but(
 pub fn join_host_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinHostPortBut>),
+        (Changed<Interaction>, With<JoinHostPortButton>),
     >,
     mut switch_query: Query<&mut Switch>,
 ) {
@@ -204,7 +203,7 @@ pub fn save_join_input(
     join_host_port_query: Query<&JoinHostPortInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<JoinSaveBut>),
+        (Changed<Interaction>, With<JoinSaveButton>),
     >,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {

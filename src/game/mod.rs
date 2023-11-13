@@ -14,6 +14,8 @@ pub const TITLE: &str = "JORDQUEST: SPAWNED INTO A PIXELATED WORLD WITH ENEMIES,
 pub const WIN_W: f32 = 1280.;
 pub const WIN_H: f32 = 720.;
 
+pub const ROUND_TIME: f32 = 5.0 * 60.0;
+
 pub const ENTITY_SHEET_DIMS: Vec2 = Vec2 {x: 6., y: 4.}; // (rows, columns)
 
 #[derive(Resource)]
