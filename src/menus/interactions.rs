@@ -24,40 +24,6 @@ pub fn interact_with_button<B: ButtonTypeTrait>(
         }
     }
 }
-pub fn interact_with_host_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<HostButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<HostButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_join_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<JoinButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<JoinButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_back_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<BackToMainMenu>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<BackButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_controls_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<ControlsButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<ControlsButtonType>(button_query, app_state_next_state);
-}
-
-pub fn interact_with_credits_button(
-    button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<CreditsButton>)>,
-    app_state_next_state: ResMut<NextState<AppState>>,
-) {
-    interact_with_button::<CreditsButtonType>(button_query, app_state_next_state);
-}
 
 pub fn update_input<T: InputType>(
     mut char_events: EventReader<ReceivedCharacter>,

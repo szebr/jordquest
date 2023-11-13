@@ -6,6 +6,7 @@ mod components;
 use crate::AppState;
 use layout::*;
 use interactions::*;
+use crate::menus::components::*;
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
@@ -34,20 +35,14 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnExit(AppState::Game), despawn_in_game_menu)
         .add_systems(OnEnter(AppState::Game), spawn_game_over_screen)
         .add_systems(OnExit(AppState::Game), despawn_game_over_screen)
-        .add_systems(Update, interact_with_host_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_join_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_controls_button.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_credits_button
+        .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<ControlsButtonType>.run_if(in_state(AppState::MainMenu)))
+        .add_systems(Update, interact_with_button::<CreditsButtonType>
             .run_if(in_state(AppState::MainMenu))
             .run_if(in_state(AppState::Game))
         )
-        .add_systems(Update, interact_with_back_button
-            .run_if(in_state(AppState::Hosting))
-            .run_if(in_state(AppState::Joining))
-            .run_if(in_state(AppState::Controls))
-            .run_if(in_state(AppState::Credits))
-            .run_if(in_state(AppState::Game))
-        )
+        .add_systems(Update, interact_with_button::<BackButtonType>)
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_time_remaining_system)
         .add_systems(Update, save_host_input)
