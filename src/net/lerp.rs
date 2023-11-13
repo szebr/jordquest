@@ -31,11 +31,11 @@ pub fn lerp_pos(
 pub fn resolve_collisions(
     tick: Res<net::TickNum>,
     map: Res<WorldMap>,
-    mut colliders: Query<(&mut PosBuffer, &Health, &Collider)>,
+    mut colliders: Query<(&mut PosBuffer, Option<&Health>, &Collider)>,
 ) {
     let mut iter = colliders.iter_combinations_mut();
     while let Some([(mut pb1, hp1, collider1), (mut pb2, hp2, collider2)]) = iter.fetch_next() {
-        if hp1.current <= 0 || hp2.current <= 0 { continue }
+        if hp1.is_some_and(|hp| hp.dead) || hp2.is_some_and(|hp| hp.dead) { continue }
         let a_pos = pb1.0.get(tick.0);
         let a_pos = Vec3::new(a_pos.x, a_pos.y, 0.0);
         let b_pos = pb2.0.get(tick.0);
