@@ -75,11 +75,10 @@ pub fn fixed(
             hp: hp.current
         }
     }
-    let mut packet = net::Packet {
+    let packet = net::Packet {
         protocol: net::MAGIC_NUMBER,
         contents: net::PacketContents::HostTick {
             seq_num: tick.0,
-            player_id: 0,
             players,
             enemies,
         },
@@ -87,17 +86,74 @@ pub fn fixed(
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
         let socket = conn.unwrap().socket;
-        match &mut packet.contents {
-            &mut net::PacketContents::HostTick {
-                    seq_num: _,
-                    ref mut player_id,
-                    players: _,
-                    enemies: _
-                } => *player_id = conn.unwrap().player_id,
-            _ => unreachable!()
-        };
         sock.send_to(serialize(&packet).expect("couldn't serialize").as_slice(), socket).expect("send failed");
     }
+}
+
+/// tries to find a player id given an origin
+/// returns Some(player id) if successful, otherwise None
+fn get_id_of_origin(conns: &Connections, origin: &SocketAddr) -> Option<u8> {
+    for conn in &conns.0 {
+        if conn.is_some() {
+            let conn = conn.unwrap();
+            if conn.socket == *origin {
+                return Some(conn.player_id);
+            }
+        }
+    }
+    return None;
+}
+
+/// tries to add a connection using the given origin
+/// returns Some(player id) if successful, otherwise None
+fn add_connection(mut conns: &mut Connections, origin: &SocketAddr) -> Option<u8> {
+    let mut unused = [false; player::MAX_PLAYERS - 1];
+    for conn in &conns.0 {
+        if let Some(conn) = conn {
+            unused[conn.player_id as usize] = true;
+        }
+    }
+    let mut fresh_id: u8 = 1;
+    for (i, b) in unused.into_iter().enumerate() {
+        if i == fresh_id as usize && b {
+            fresh_id += 1;
+        }
+    }
+    for conn in &mut conns.0 {
+        if conn.is_none() {
+            let _ = conn.insert(Connection {
+                socket: *origin,
+                player_id: fresh_id,
+                ack: 0,
+                ack_bits: 0,
+            });
+            return Some(fresh_id);
+        }
+    }
+    return None;
+}
+
+/// sends a standard ServerFull packet
+fn send_server_full(from: &UdpSocket, to: &SocketAddr) {
+    let packet = net::Packet {
+        protocol: net::MAGIC_NUMBER,
+        contents: net::PacketContents::ServerFull
+    };
+    let ser = serialize(&packet).expect("couldn't serialize");
+    from.send_to(ser.as_slice(), to).expect("send failed");
+}
+
+/// sends a connection response packet informing a client of its player id
+fn send_connection_response(from: &UdpSocket, to: &SocketAddr, player_id: u8) {
+    let packet = net::Packet {
+        protocol: net::MAGIC_NUMBER,
+        contents: net::PacketContents::ConnectionResponse {
+            player_id
+        }
+    };
+    let ser = serialize(&packet).expect("couldn't serialize");
+    from.send_to(ser.as_slice(), to).expect("send failed");
+    println!("sent connection response");
 }
 
 pub fn update(
@@ -120,61 +176,26 @@ pub fn update(
         let packet = packet.unwrap();
         if packet.protocol != net::MAGIC_NUMBER { continue; }
         match packet.contents {
+            net::PacketContents::ConnectionRequest => {
+                println!("ConnectionRequest received");
+                let mut maybe_id = get_id_of_origin(&conns, &origin);
+                if maybe_id.is_some() {
+                    continue;  // this user is already in the server
+                }
+                maybe_id = add_connection(&mut conns, &origin);
+                if maybe_id.is_none() {
+                    send_server_full(sock, &origin);
+                }
+                send_connection_response(sock, &origin, maybe_id.unwrap());
+            },
             net::PacketContents::ClientTick {
                 seq_num, tick
             } => {
-                let mut found_connection = false;
-                let mut added_connection = false;
-                let mut id = 0;
-                for conn in &mut conns.0 {
-                    if conn.is_some() {
-                        let conn = conn.unwrap();
-                        if conn.socket == origin {
-                            found_connection = true;
-                            id = conn.player_id;
-                            break;
-                            // TODO update ack for the connection
-                        }
-                    }
+                let maybe_id = get_id_of_origin(&conns, &origin);
+                if maybe_id.is_none() {
+                    continue;  // ignore packets from non connected clients
                 }
-                if !found_connection {
-                    let mut unused = [false; player::MAX_PLAYERS - 1];
-                    for conn in &conns.0 {
-                        if let Some(conn) = conn {
-                            unused[conn.player_id as usize] = true;
-                        }
-                    }
-                    let mut fresh_id = 1;
-                    for (i, b) in unused.into_iter().enumerate() {
-                        if i == fresh_id && b {
-                            fresh_id += 1;
-                        }
-                    }
-                    for conn in &mut conns.0 {
-                        if conn.is_none() {
-                            added_connection = true;
-                            let _ = conn.insert(Connection {
-                                socket: origin,
-                                player_id: fresh_id as u8,
-                                ack: 0,
-                                ack_bits: 0,
-                            });
-                            id = fresh_id as u8;
-                            println!("added connection with id {:?}", fresh_id);
-                            break;
-                        }
-                    }
-                }
-                if !found_connection && !added_connection {
-                    let packet = net::Packet {
-                        protocol: net::MAGIC_NUMBER,
-                        contents: net::PacketContents::ServerFull
-                    };
-                    let ser = serialize(&packet).expect("couldn't serialize");
-                    sock.send_to(ser.as_slice(), origin).expect("send failed");
-                    println!("server full");
-                    continue
-                }
+                let id = maybe_id.unwrap();
                 if seq_num < tick_num.0 - net::DELAY {
                     // TODO deal with packet misses
                     println!("packet late, local is {} remote is {}", tick_num.0, seq_num);
@@ -189,7 +210,7 @@ pub fn update(
             },
             net::PacketContents::Disconnect => {
                 // for disconnect packet, check if they are still connected and remove their connection
-                // TODO remove player from gamestate
+                // TODO make player dead
                 for conn in &mut conns.0 {
                     if conn.is_some() {
                         let s = conn.unwrap().socket;

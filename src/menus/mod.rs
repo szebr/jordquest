@@ -22,9 +22,11 @@ impl Plugin for MainMenuPlugin{
         app
         .add_systems(OnEnter(AppState::MainMenu), spawn_main_menu)
         .add_systems(OnExit(AppState::MainMenu), despawn_main_menu)
-        .add_systems(OnEnter(AppState::Credits), spawn_credits_page)
         .add_systems(Update, show_popup)
+        .add_systems(OnEnter(AppState::Credits), spawn_credits_page)
         .add_systems(OnExit(AppState::Credits), despawn_credits_page)
+        .add_systems(OnEnter(AppState::Connecting), spawn_connecting_page)
+        .add_systems(OnExit(AppState::Connecting), despawn_connecting_page)
         .add_systems(OnEnter(AppState::Hosting), spawn_host_page)
         .add_systems(OnExit(AppState::Hosting), despawn_host_page)
         .add_systems(OnEnter(AppState::Joining), spawn_join_page)

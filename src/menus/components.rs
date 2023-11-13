@@ -21,6 +21,9 @@ pub struct ControlsPage;
 pub struct CreditsPage;
 
 #[derive(Component)]
+pub struct ConnectingPage;
+
+#[derive(Component)]
 pub struct Popup;
 
 #[derive(Component)]

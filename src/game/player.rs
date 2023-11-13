@@ -22,6 +22,9 @@ pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
 const DEFAULT_COOLDOWN: f32 = 0.2;
 
+#[derive(Event)]
+pub struct SetIdEvent(pub u8);
+
 /// sent by network module to disperse information from the host
 #[derive(Event, Debug)]
 pub struct PlayerTickEvent {
@@ -89,14 +92,16 @@ impl Plugin for PlayerPlugin{
                 update_players,
                 handle_attack,
                 grab_powerup,
-                handle_move.run_if(in_state(AppState::Game)),
+                handle_move,
+                spawn_shield_on_right_click,
+                despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
+            .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
-            .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
-            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)).after(spawn_shield_on_right_click))
             .add_event::<PlayerTickEvent>()
+            .add_event::<SetIdEvent>()
             .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
@@ -433,7 +438,9 @@ pub fn despawn_shield_on_right_click_release(
     mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    let (player_children, mut player_shield) = query.single_mut();
+    let player = query.get_single_mut();
+    if player.is_err() { return; }
+    let (player_children, mut player_shield) = player.unwrap();
     if !mouse_button_inputs.pressed(MouseButton::Right) {
         player_shield.active = false;
         for &child in player_children.iter() {
@@ -459,6 +466,17 @@ pub fn handle_tick_events(
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }
+    }
+}
+
+pub fn handle_id_events(
+    mut id_reader: EventReader<SetIdEvent>,
+    mut res_id: ResMut<PlayerId>,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    for ev in &mut id_reader {
+        res_id.0 = ev.0;
+        app_state_next_state.set(AppState::Game);
     }
 }
 

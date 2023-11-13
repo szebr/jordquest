@@ -30,18 +30,18 @@ pub struct IsHost(pub bool);
 pub enum PacketContents {
     ServerFull,  // sent by host every time request is received and server is full
     Disconnect,  // sent by client in disconnected state every time HostTick is received
+    ConnectionRequest,  // sent by client to request connection to a host
+    ConnectionResponse {  // sent by a host to a client who has requested connection
+        player_id: u8,  // tells the player which id they have
+        // TODO map seed
+    },
     HostTick {  // sent by host to all connected clients individually
         seq_num: u16,
-        //ack: u16,
-        //ack_bits: u32,
-        player_id: u8,  // tells the player which player id they have
         players: [player::PlayerTick; player::MAX_PLAYERS],
         enemies: [enemy::EnemyTick; enemy::MAX_ENEMIES],
     },
     ClientTick {  // sent by client to host every FixedUpdate unless ServerFull received
         seq_num: u16,
-        //ack: u16,
-        //ack_bits: u32,
         tick: UserCmd
     }
 }
@@ -56,9 +56,8 @@ pub struct NetPlugin;
 
 impl Plugin for NetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup,
-        (startup,
-        host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
+        app
+            .add_systems(Startup, (startup, host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
             .add_systems(FixedUpdate,
                          (increment_tick.run_if(is_host),
                          client::fixed.run_if(is_client).after(movement::update_buffer),
@@ -68,12 +67,11 @@ impl Plugin for NetPlugin {
                          (lerp::lerp_pos,
                          client::update.run_if(is_client),
                          host::update.run_if(is_host)))
-            .add_systems(OnEnter(AppState::Game),
-                         (client::connect.run_if(is_client),
-                         host::connect.run_if(is_host)))
+            .add_systems(OnEnter(AppState::Game), host::connect.run_if(is_host))
             .add_systems(OnExit(AppState::Game),
                      (client::disconnect.run_if(is_client),
-                      host::disconnect.run_if(is_host)));
+                      host::disconnect.run_if(is_host)))
+            .add_systems(OnEnter(AppState::Connecting), client::connect.run_if(is_client));
     }
 }
 
@@ -81,7 +79,7 @@ pub fn startup(mut commands: Commands) {
     commands.insert_resource(FixedTime::new_from_secs(TICKLEN_S));
     commands.insert_resource(TickNum { 0: 0 });
     commands.insert_resource(Socket(None));
-    commands.insert_resource(IsHost(true));
+    commands.insert_resource(IsHost(true));  // gets changed when you start the game
 }
 
 pub fn increment_tick(mut tick_num: ResMut<TickNum>) {

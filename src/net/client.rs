@@ -2,11 +2,20 @@ use std::net::*;
 use std::str::FromStr;
 use bevy::prelude::*;
 use bincode::{deserialize, serialize};
-use crate::{game, menus, net};
+use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
 use crate::game::enemy::EnemyTickEvent;
-use crate::game::player::{LocalPlayer, PlayerTickEvent, UserCmd};
+use crate::game::player::{LocalPlayer, PlayerTickEvent, SetIdEvent, UserCmd};
 
+/// sends a standard ConnectionRequest packet
+fn send_connection_request(host: &UdpSocket) {
+    let packet = net::Packet {
+        protocol: net::MAGIC_NUMBER,
+        contents: net::PacketContents::ConnectionRequest
+    };
+    let ser = serialize(&packet).expect("couldn't serialize");
+    host.send(ser.as_slice()).expect("send failed");
+}
 
 pub fn connect(
     addresses: Res<menus::NetworkAddresses>,
@@ -21,7 +30,9 @@ pub fn connect(
     let host_ip = Ipv4Addr::from_str(&addresses.ip).expect("bad ip");
     let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
-    sock.0.as_mut().unwrap().connect(host_addr).expect("can't connect to host");
+    let host = sock.0.as_mut().unwrap();
+    host.connect(host_addr).expect("can't connect to host");
+    send_connection_request(host);
     println!("connection successful");
 }
 
@@ -57,8 +68,8 @@ pub fn update(
     mut sock: ResMut<net::Socket>,
     mut player_writer: EventWriter<PlayerTickEvent>,
     mut enemy_writer: EventWriter<EnemyTickEvent>,
+    mut id_writer: EventWriter<SetIdEvent>,
     mut tick_num: ResMut<net::TickNum>,
-    mut res_id: ResMut<game::PlayerId>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -75,10 +86,13 @@ pub fn update(
         let packet = packet.unwrap();
         if packet.protocol != net::MAGIC_NUMBER { continue; }
         match packet.contents {
+            net::PacketContents::ConnectionResponse { player_id } => {
+                println!("ConnectionResponse received");
+                id_writer.send(SetIdEvent(player_id));
+            }
             net::PacketContents::HostTick {
-                seq_num, player_id, players, enemies
+                seq_num, players, enemies
             } => {
-                res_id.0 = player_id;
                 //TODO this is a problem until we have variable length HostTick packets
                 for (id, tick) in players.iter().enumerate() {
                     player_writer.send(PlayerTickEvent {

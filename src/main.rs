@@ -19,6 +19,7 @@ pub enum AppState {
     Game,
     GameOver,
     Credits,
+    Connecting,
 }
 
 fn main() {

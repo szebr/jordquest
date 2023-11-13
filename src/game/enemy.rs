@@ -1,4 +1,3 @@
-use bevy::ecs::system::Command;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use crate::{AppState, game, net};
@@ -9,7 +8,7 @@ use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
-use crate::game::map::{Biome, get_pos_in_tile, get_tile_at_pos, TILESIZE, WorldMap};
+use crate::game::map::WorldMap;
 use crate::game::movement;
 use crate::game::player::PlayerShield;
 use super::player::PLAYER_DEFAULT_DEF;
@@ -132,24 +131,22 @@ pub fn handle_attack(
     for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
+            let attack = commands.spawn((SpriteBundle {
+                texture: asset_server.load("EnemyAttack01.png").into(),
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, 5.0),
+                    ..Default::default()
+                },
+                ..Default::default() },
+                EnemyWeapon,
+                Fade {current: 1.0, max: 1.0})).id();
             let enemy_entity = commands.get_entity(enemy_entity);
             if enemy_entity.is_none() {continue}
             let mut enemy_entity = enemy_entity.unwrap();
-            enemy_entity.with_children(|parent| {
-                parent.spawn((SpriteBundle {
-                    texture: asset_server.load("EnemyAttack01.png").into(),
-                    transform: Transform {
-                        translation: Vec3::new(0.0, 0.0, 5.0),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                },
-                EnemyWeapon,
-                Fade {current: 1.0, max: 1.0}));
-            });
+            enemy_entity.add_child(attack);
             for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
                 if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
-                    // must check if damage reduction is greater than damage dealt, otherwise ubtraction overflow or player will gain health
+                    // must check if damage reduction is greater than damage dealt, otherwise subtraction overflow or player will gain health
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
                     let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
