@@ -4,6 +4,7 @@ use crate::menus::components::*;
 use crate::AppState;
 use crate::game::PlayerId;
 use crate::menus::NetworkAddresses;
+use crate::game::MapConfig;
 
 pub fn interact_with_button<B: ButtonTypeTrait>(
     mut button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<B::Marker>)>,
@@ -62,8 +63,49 @@ pub fn update_input<T: InputType>(
 pub fn update_host_input(
     char_events: EventReader<ReceivedCharacter>,
     query: Query<(&mut Text, &mut HostPortInput)>,
+    switch_query: Query<&Switch>,
 ) {
-    update_input::<HostPortInput>(char_events, query, None);
+    update_input::<HostPortInput>(char_events, query, Some(switch_query));
+}
+
+pub fn update_num_camps_input(
+    char_events: EventReader<ReceivedCharacter>,
+    query: Query<(&mut Text, &mut NumCampsInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<NumCampsInput>(char_events, query, Some(switch_query));
+}
+
+pub fn update_num_chests_input(
+    char_events: EventReader<ReceivedCharacter>,
+    query: Query<(&mut Text, &mut NumChestsInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<NumChestsInput>(char_events, query, Some(switch_query));
+}
+
+pub fn update_enemy_per_camp_input(
+    char_events: EventReader<ReceivedCharacter>,
+    query: Query<(&mut Text, &mut EnemyPerCampInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<EnemyPerCampInput>(char_events, query, Some(switch_query));
+}
+
+pub fn update_map_seed_input(
+    char_events: EventReader<ReceivedCharacter>,
+    query: Query<(&mut Text, &mut MapSeedInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<MapSeedInput>(char_events, query, Some(switch_query));
+}
+
+pub fn update_eid_percentage_input(
+    char_events: EventReader<ReceivedCharacter>,
+    query: Query<(&mut Text, &mut EIDPercentageInput)>,
+    switch_query: Query<&Switch>,
+) {
+    update_input::<EIDPercentageInput>(char_events, query, Some(switch_query));
 }
 
 pub fn update_join_port_input(
@@ -89,12 +131,17 @@ pub fn update_join_ip_input(
 ) {
     update_input::<JoinIPInput>(char_events, query, Some(switch_query));
 }
-
 pub fn save_host_input(
     mut is_host: ResMut<crate::net::IsHost>,
     mut res_id: ResMut<PlayerId>,
     mut net_address: ResMut<NetworkAddresses>,
+    mut map_conifg: ResMut<MapConfig>,
     host_port_query: Query<&HostPortInput>,
+    num_camps_query: Query<&NumCampsInput>,
+    num_chests_query: Query<&NumChestsInput>,
+    enemy_per_camp_query: Query<&EnemyPerCampInput>,
+    map_seed_query: Query<&MapSeedInput>,
+    eid_percentage_query: Query<&EIDPercentageInput>,
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<HostPortSaveButton>),
@@ -109,6 +156,22 @@ pub fn save_host_input(
                     res_id.0 = 0;
                     is_host.0 = true;
                 }
+                for num_camps_input in  num_camps_query.iter() {
+                    map_conifg.num_camps = num_camps_input.value.clone();
+                }
+                for input in  num_chests_query.iter() {
+                    map_conifg.num_chests = input.value.clone();
+                }
+                for input in  enemy_per_camp_query.iter() {
+                    map_conifg.enemy_per_camp = input.value.clone();
+                }
+                for input in  map_seed_query.iter() {
+                    map_conifg.map_seed = input.value.clone();
+                }
+                for input in  eid_percentage_query.iter() {
+                    map_conifg.eid_percentage = input.value.clone();
+                    //println!("eid percentage to {:?}", map_conifg.eid_percentage);
+                }
                 app_state_next_state.set(AppState::Game);
             }
             Interaction::Hovered => {
@@ -120,6 +183,179 @@ pub fn save_host_input(
         }
     }
 }
+
+pub fn host_port_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<HostPortBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = true;
+                    switch.num_camps = false;
+                    switch.num_chests = false;
+                    switch.enemy_per_camp = false;
+                    switch.map_seed = false;
+                    switch.EID_percentage = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
+pub fn num_camps_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<NumCampsBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = false;
+                    switch.num_camps = true;
+                    switch.num_chests = false;
+                    switch.enemy_per_camp = false;
+                    switch.map_seed = false;
+                    switch.EID_percentage = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+pub fn num_chests_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<NumChestsBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = false;
+                    switch.num_camps = false;
+                    switch.num_chests = true;
+                    switch.enemy_per_camp = false;
+                    switch.map_seed = false;
+                    switch.EID_percentage = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
+pub fn enemy_per_camp_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<EnemyPerCampBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = false;
+                    switch.num_camps = false;
+                    switch.num_chests = false;
+                    switch.enemy_per_camp = true;
+                    switch.map_seed = false;
+                    switch.EID_percentage = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
+pub fn map_seed_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<MapSeedBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = false;
+                    switch.num_camps = false;
+                    switch.num_chests = false;
+                    switch.enemy_per_camp = false;
+                    switch.map_seed = true;
+                    switch.EID_percentage = false;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+pub fn eid_percentage_but(
+    mut button_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<EIDPercentageBut>),
+    >,
+    mut switch_query: Query<&mut Switch>,
+) {
+    if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                for mut switch in switch_query.iter_mut() {
+                    switch.host = false;
+                    switch.num_camps = false;
+                    switch.num_chests = false;
+                    switch.enemy_per_camp = false;
+                    switch.map_seed = false;
+                    switch.EID_percentage = true;
+                }
+            }
+            Interaction::Hovered => {
+                *background_color = Color::GRAY.into();
+            }
+            Interaction::None => {
+                *background_color = Color:: rgb(0.15, 0.15, 0.15).into();
+            }
+        }
+    }
+}
+
 pub fn join_port_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),
@@ -145,6 +381,7 @@ pub fn join_port_but(
         }
     }
 }
+
 pub fn join_ip_but(
     mut button_query: Query<
         (&Interaction, &mut BackgroundColor),

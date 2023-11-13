@@ -187,7 +187,7 @@ fn spawn_input<T: Bundle, U: Bundle>(
 }
 
 pub fn despawn_main_menu(
-    mut commands: Commands, 
+    mut commands: Commands,
     main_menu_query: Query<Entity, With<MainMenu>>
 ) {
     if let Ok(main_menu_entity) = main_menu_query.get_single() {
@@ -226,7 +226,7 @@ fn add_credits_slide(
 }
 
 pub fn spawn_credits_page(
-    mut commands: Commands, 
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut cameras: Query<&mut Transform, With<SpatialCameraBundle>>,
 ) {
@@ -245,7 +245,7 @@ pub fn spawn_credits_page(
 }
 
 pub fn despawn_credits_page(
-    mut commands: Commands, 
+    mut commands: Commands,
     credits_page_query: Query<Entity, With<Popup>>,
 ) {
     for entity in credits_page_query.iter() {
@@ -254,7 +254,7 @@ pub fn despawn_credits_page(
 }
 
 pub fn despawn_host_page(
-    mut commands: Commands, 
+    mut commands: Commands,
     host_page_entity: Query<Entity, With<HostPage>>
 ) {
     if let Ok(host_page_entity) = host_page_entity.get_single() {
@@ -271,12 +271,17 @@ pub fn spawn_host_page(
     let mut host_page = commands.entity(host_page_id);
     spawn_title(&mut host_page, &font, "Host Game");
     spawn_input(&mut host_page, &font, (), HostPortInput { port: String::new() }, "Port: ");
+    spawn_input(&mut host_page, &font, NumCampsButton, NumCampsInput, "Number of Camps: ");
+    spawn_input(&mut host_page, &font, NumChestsButton, NumChestsInput, "Number of Chests: ");
+    spawn_input(&mut host_page, &font, EnemiesPerCampButton, EnemiesPerCampInput, "Number of Enemies Per Camp: ");
+    spawn_input(&mut host_page, &font, MapSeedButton, MapSeedInput, "Map Seed: ");
+    spawn_input(&mut host_page, &font, EidPercentageButton, EidPercentageInput, "EID Percentage: ");
     spawn_button(&mut host_page, &font, HostPortSaveButton, "Host Now");
     spawn_button(&mut host_page, &font, BackToMainMenu, "Back");
 }
 
 pub fn despawn_join_page(
-    mut commands: Commands, 
+    mut commands: Commands,
     join_page_entity: Query<Entity, With<JoinPage>>
 ) {
     if let Ok(join_page_entity) = join_page_entity.get_single() {
