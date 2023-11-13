@@ -168,6 +168,12 @@ fn spawn_input<T: Bundle, U: Bundle>(
             host_port: false,
             port: false,
             ip: false,
+            host: false,
+            num_camps: false,
+            num_chests: false,
+            enemy_per_camp: false,
+            map_seed: false,
+            eid_percentage: false,
         },
         button,
     )).id();
@@ -271,11 +277,11 @@ pub fn spawn_host_page(
     let mut host_page = commands.entity(host_page_id);
     spawn_title(&mut host_page, &font, "Host Game");
     spawn_input(&mut host_page, &font, (), HostPortInput { port: String::new() }, "Port: ");
-    spawn_input(&mut host_page, &font, NumCampsButton, NumCampsInput, "Number of Camps: ");
-    spawn_input(&mut host_page, &font, NumChestsButton, NumChestsInput, "Number of Chests: ");
-    spawn_input(&mut host_page, &font, EnemiesPerCampButton, EnemiesPerCampInput, "Number of Enemies Per Camp: ");
-    spawn_input(&mut host_page, &font, MapSeedButton, MapSeedInput, "Map Seed: ");
-    spawn_input(&mut host_page, &font, EidPercentageButton, EidPercentageInput, "EID Percentage: ");
+    spawn_input(&mut host_page, &font, NumCampsButton, NumCampsInput { value: String::new() }, "Number of Camps: ");
+    spawn_input(&mut host_page, &font, NumChestsButton, NumChestsInput { value: String::new() }, "Number of Chests: ");
+    spawn_input(&mut host_page, &font, EnemiesPerCampButton, EnemiesPerCampInput { value: String::new() }, "Number of Enemies Per Camp: ");
+    spawn_input(&mut host_page, &font, MapSeedButton, MapSeedInput { value: String::new() }, "Map Seed: ");
+    spawn_input(&mut host_page, &font, EidPercentageButton, EidPercentageInput { value: String::new() }, "EID Percentage: ");
     spawn_button(&mut host_page, &font, HostPortSaveButton, "Host Now");
     spawn_button(&mut host_page, &font, BackToMainMenu, "Back");
 }

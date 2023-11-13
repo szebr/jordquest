@@ -33,7 +33,7 @@ pub struct Switch{
     pub num_chests: bool,
     pub enemy_per_camp: bool,
     pub map_seed: bool,
-    pub EID_percentage: bool,
+    pub eid_percentage: bool,
 }
 
 pub trait InputType: Component {
@@ -110,7 +110,7 @@ impl InputType for NumChestsInput {
     }
 }
 
-impl InputType for EnemyPerCampInput {
+impl InputType for EnemiesPerCampInput {
     fn push_char(&mut self, ch: char) {
         self.value.push(ch);
     }
@@ -154,7 +154,7 @@ impl InputType for MapSeedInput {
     }
 }
 
-impl InputType for EIDPercentageInput {
+impl InputType for EidPercentageInput {
     fn push_char(&mut self, ch: char) {
         self.value.push(ch);
     }
@@ -168,7 +168,7 @@ impl InputType for EIDPercentageInput {
     }
 
     fn is_active(switch: &Switch) -> bool {
-        switch.EID_percentage
+        switch.eid_percentage
     }
 
     fn is_valid(active: bool) -> bool {
@@ -314,22 +314,22 @@ pub struct HostPortInput {
 pub struct HostPortSaveButton;
 
 #[derive(Component)]
-pub struct HostPortBut {}
+pub struct HostPortButton;
 
 #[derive(Component)]
-pub struct NumCampsBut {}
+pub struct NumCampsButton;
 
 #[derive(Component)]
-pub struct NumChestsBut {}
+pub struct NumChestsButton;
 
 #[derive(Component)]
-pub struct EnemyPerCampBut {}
+pub struct EnemiesPerCampButton;
 
 #[derive(Component)]
-pub struct MapSeedBut {}
+pub struct MapSeedButton;
 
 #[derive(Component)]
-pub struct EIDPercentageBut {}
+pub struct EidPercentageButton;
 
 #[derive(Component)]
 pub struct JoinHostPortButton;
@@ -345,17 +345,17 @@ pub struct NumChestsInput {
 }
 
 #[derive(Component)]
-pub struct EnemyPerCampInput {
+pub struct EnemiesPerCampInput {
     pub value: String,
 }
 
 #[derive(Component)]
-pub struct  MapSeedInput {
+pub struct MapSeedInput {
     pub value: String,
 }
 
 #[derive(Component)]
-pub struct  EIDPercentageInput {
+pub struct EidPercentageInput {
     pub value: String,
 }
 

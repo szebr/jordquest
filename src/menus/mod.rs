@@ -44,7 +44,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_num_camps_input)
         .add_systems(Update, update_num_chests_input)
-        .add_systems(Update, update_enemy_per_camp_input)
+        .add_systems(Update, update_enemies_per_camp_input)
         .add_systems(Update, update_map_seed_input)
         .add_systems(Update, update_eid_percentage_input)
         .add_systems(Update, update_time_remaining_system)
