@@ -17,6 +17,23 @@ pub const WIN_H: f32 = 720.;
 pub const ROUND_TIME: f32 = 5.0 * 60.0;
 
 pub const ENTITY_SHEET_DIMS: Vec2 = Vec2 {x: 6., y: 4.}; // (rows, columns)
+pub const DECORATION_SHEET_DIMS: Vec2 = Vec2{x: 6., y: 3.};
+
+#[derive(Resource)]
+pub struct Decorations{
+    pub handle: Handle<TextureAtlas>
+}
+
+impl Decorations {
+    // TODO this should take usize or isize instead of i32 I think
+    fn coord_to_index(&self, x: i32, y: i32) -> usize {
+        let mut index: i32 = ((y as f32 * DECORATION_SHEET_DIMS[1]) + x as f32) as i32;
+        if index < 0 || index > ((DECORATION_SHEET_DIMS[0] * DECORATION_SHEET_DIMS[1]) - 1.) as i32 {
+            index = ((DECORATION_SHEET_DIMS[0] * DECORATION_SHEET_DIMS[1]) - 1.) as i32;
+        }
+        return index as usize;
+    }
+}
 
 #[derive(Resource)]
 pub struct Atlas{
@@ -86,6 +103,19 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let entity_atlas_handle = texture_atlases.add(entity_tex_atlas);
     let entity_atlas = Atlas{handle: entity_atlas_handle};
     commands.insert_resource(entity_atlas);
+
+    let decoration_handle = asset_server.load("camp_sheet.png");
+    let decoration_tex_atlas = TextureAtlas::from_grid(
+        decoration_handle,
+        Vec2::splat(16.),
+        DECORATION_SHEET_DIMS[1] as usize,
+        DECORATION_SHEET_DIMS[0] as usize,
+        Some(Vec2::new(1., 1.)),
+        None
+    );
+    let decoration_atlas_handle = texture_atlases.add(decoration_tex_atlas);
+    let decoration_atlas = Decorations{handle: decoration_atlas_handle};
+    commands.insert_resource(decoration_atlas);
 
 
     commands.insert_resource(PlayerId(0xFF));

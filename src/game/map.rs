@@ -56,7 +56,9 @@ pub struct NumCamps(pub u8);
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
 pub const PATHWIDTH: usize = 5; // Width of the paths in tiles
-pub const CAMPSIZE: usize = 15; // Size of the camp in tiles
+pub const CAMPSIZE: usize = 17; // Size of the camp in tiles
+pub const MAXEGGS: usize = 5;
+pub const NUMCAMPS: usize = 10; // Number of camps to spawn
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 
@@ -308,7 +310,7 @@ fn read_map(
     }
 
     // Create a mst from only the camp nodes
-    let camp_nodes_mst = create_mst(camp_nodes.to_vec());
+    //let camp_nodes_mst = create_mst(camp_nodes.to_vec());
     // Make the camps bigger by expanding the area around the camp tiles, 
     // but using Perlin Noise to determine which tiles to expand to
 
@@ -320,6 +322,7 @@ fn read_map(
         let center_row = node.y as usize;
         let center_col = node.x as usize;
 
+        // create a guaranteed clear circle for each camp
         for row_offset in -(camp_radius as i32)..=camp_radius as i32 {
             for col_offset in -(camp_radius as i32)..=camp_radius as i32 {
                 let row = center_row as i32 + row_offset;
@@ -329,10 +332,54 @@ fn read_map(
                 let distance_squared = (row - center_row as i32).pow(2) + (col - center_col as i32).pow(2);
                 let camp_radius_squared = (camp_radius as i32).pow(2);
 
-                if row >= 0 && row < MAPSIZE as i32 && col >= 0 && col < MAPSIZE as i32 {
-                    let v = perlin.noise(row as usize, col as usize);
-                    if distance_squared <= camp_radius_squared && v < 0.99 {
+                if row >= 0 && row < MAPSIZE as i32 && col >= 0 && col < MAPSIZE as i32 && distance_squared <= camp_radius_squared {
+
+                    //let v = perlin.noise(row as usize, col as usize);
+                    // if distance_squared <= camp_radius_squared 
+                    //&& v < 0.99 
+                    {
                         map.biome_map[row as usize][col as usize] = Biome::Camp;
+                    }
+                }
+            }
+        }
+
+        // create an egg to surround the camp and look more natural
+        
+        let mut rng = rand::thread_rng();
+        // create a few eggs to make it look a lil crazy
+        for _n in 1..rng.gen_range(2..MAXEGGS){
+            // randomly choose the position of the egg in the camp
+            let egg_center_row = center_row as i32 + rng.gen_range(-(camp_radius as i32)..camp_radius as i32);
+            let egg_center_col = center_col as i32 + rng.gen_range(-(camp_radius as i32)..camp_radius as i32);
+
+            // Randomize the egg width and height for less uniformity
+
+            // CHANGE THESE VARIABLES TO ADJUST THE SIZE OF THE EGGS
+            let egg_min_w: f32 = camp_radius as f32 * 2.0;
+            let egg_max_w: f32 = camp_radius as f32 * 6.0;
+            let egg_min_h: f32 = camp_radius as f32 * 1.0;
+            let egg_max_h: f32 = camp_radius as f32 * 4.0;
+
+            // determine the width and height of the egg using the above variables
+            let egg_width = rng.gen_range(egg_min_w..egg_max_w);
+            let egg_height = rng.gen_range(egg_min_h..egg_max_h);
+
+            // Draw the egg around the randomly selected center
+            for row_offset in -(egg_height as i32 / 2)..=(egg_height as i32 / 2) {
+                for col_offset in -(egg_width as i32 / 2)..=(egg_width as i32 / 2) {
+                    let row = egg_center_row + row_offset;
+                    let col = egg_center_col + col_offset;
+
+                    let distance_squared = ((row - egg_center_row) as f32 / (egg_height / 2.0)).powi(2)
+                        + ((col - egg_center_col) as f32 / (egg_width / 2.0)).powi(2);
+
+                    // Check if the current position is within the egg
+                    if row >= 0 && row < MAPSIZE as i32 && col >= 0 && col < MAPSIZE as i32 && distance_squared <= 1.0{
+                        //skip over walls
+                        if map.biome_map[row as usize][col as usize] != Biome::Wall {
+                            map.biome_map[row as usize][col as usize] = Biome::Camp;
+                        }
                     }
                 }
             }
