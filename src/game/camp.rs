@@ -11,6 +11,7 @@ use crate::components::*;
 use crate::Decorations;
 use crate::buffers::*;
 use crate::game::map::setup_map;
+use crate::map::MapSeed;
 
 
 const CAMP_ENEMIES: u8 = 5;
@@ -34,13 +35,14 @@ pub fn setup_camps(
     mut commands: Commands,
     entity_atlas:Res<Atlas>,
     camp_nodes: Res<CampNodes>,
-    decoration_atlas: Res<Decorations>
+    decoration_atlas: Res<Decorations>,
+    map_seed: Res<MapSeed>,
 
     //TODO: USE THIS FOR SEED UPDATES
     //rng: SeedableRng
 ) {
     //TODO: make this based off the generated seed when that gets implemented
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);
 
     // spawn a camp at a specified position
 

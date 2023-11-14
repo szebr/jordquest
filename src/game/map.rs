@@ -1,18 +1,13 @@
-use bevy::ecs::world;
-use bevy::prelude::*; // utils::{HashMap, petgraph::adj}, ecs::world, render::texture
+use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::transform::commands;
 use bevy::utils::petgraph::{algo::min_spanning_tree, visit::EdgeRef, graph::UnGraph, data::FromElements};
-use std::error::Error; //thread::spawn;
+use std::error::Error;
 use rand::{Rng,seq::SliceRandom};
 use rand_chacha::rand_core::SeedableRng;
 use crate::noise::Perlin;
-use crate::menus::components::{NumCampsInput, NumChestsInput, EnemiesPerCampInput, MapSeedInput, EidPercentageInput};
 use crate::AppState;
-use crate::game::camera::spawn_minimap;
-use crate::game::camp::setup_camps;
-
-use super::camp;
+use crate::menus::components::{NumCampsInput, MapSeedInput};
+use crate::game::{camera::spawn_minimap,camp::setup_camps};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -188,7 +183,7 @@ fn read_map(
     num_camps: &Res<NumCamps>,
 ) -> Result<(), Box<dyn Error>> {
     // new perlin noise generator with map seed
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);    
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);
     let random_u64: u64 = rng.gen();
     // seed, amplitude, frequency, octaves
     let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
@@ -350,7 +345,6 @@ fn read_map(
 
         // create an egg to surround the camp and look more natural
         
-        let mut rng = rand::thread_rng();
         // create a few eggs to make it look a lil crazy
         for _n in 1..rng.gen_range(2..MAXEGGS){
             // randomly choose the position of the egg in the camp
