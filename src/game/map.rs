@@ -36,17 +36,20 @@ struct Wall;
 struct Path;
 
 #[derive(Resource)]
+pub struct WorldMap{
+    pub map_size: usize,
+    pub tile_size: usize,
+    pub biome_map: [[Biome; MAPSIZE]; MAPSIZE],
+}
+
+#[derive(Resource)]
 pub struct CampNodes(pub Vec<Vec2>);
 
 #[derive(Resource)]
 pub struct MapSeed(pub u64);
 
 #[derive(Resource)]
-pub struct WorldMap{
-    pub map_size: usize,
-    pub tile_size: usize,
-    pub biome_map: [[Biome; MAPSIZE]; MAPSIZE],
-}
+pub struct NumCamps(pub u8);
 
 // Set the size of the map in tiles (its a square)
 // CHANGE THIS TO CHANGE MAP SIZE
@@ -54,7 +57,6 @@ pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
 pub const PATHWIDTH: usize = 5; // Width of the paths in tiles
 pub const CAMPSIZE: usize = 15; // Size of the camp in tiles
-pub const NUMCAMPS: usize = 10; // Number of camps to spawn
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 
@@ -78,7 +80,9 @@ impl Plugin for MapPlugin {
         // app.add_systems(Startup, setup);
         app.add_systems(Startup, initialize_map_resources);
         app.add_systems(OnEnter(AppState::Hosting), set_seed);
+        app.add_systems(OnEnter(AppState::Hosting), set_num_camps);
         app.add_systems(OnExit(AppState::Hosting), set_seed);
+        app.add_systems(OnExit(AppState::Hosting), set_num_camps);
         app.add_systems(OnEnter(AppState::Game), setup_map
             .before(spawn_minimap)
             .before(setup_camps));
@@ -134,28 +138,40 @@ fn create_mst(points: Vec<Vec2>) -> UnGraph<Vec2, f32> {
 }
 
 fn initialize_map_resources(mut commands: Commands) {
-    let map_seed = MapSeed(0);
     let world_map = WorldMap{
         map_size: MAPSIZE,
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
     let camp_nodes = CampNodes(Vec::new());
-    commands.insert_resource(map_seed);
+    let map_seed = MapSeed(0);
+    let num_camps = NumCamps(10);
     commands.insert_resource(world_map);
     commands.insert_resource(camp_nodes);
+    commands.insert_resource(map_seed);
+    commands.insert_resource(num_camps);
 }
 
 fn set_seed(
-    input_query: Query<&MapSeedInput>,
+    map_seed_input_query: Query<&MapSeedInput>,
     mut map_seed: ResMut<MapSeed>,
 ) {
     let mut seed: u64 = 0;
-    for input in input_query.iter() {
+    for input in map_seed_input_query.iter() {
         seed = input.value.parse::<u64>().unwrap();
     }
     map_seed.0 = seed;
-    println!("Map Seed: {}", map_seed.0);
+}
+
+fn set_num_camps(
+    num_camps_input_query: Query<&NumCampsInput>,
+    mut num_camps: ResMut<NumCamps>,
+) {
+    let mut num: u8 = 10;
+    for input in num_camps_input_query.iter() {
+        num = input.value.parse::<u8>().unwrap();
+    }
+    num_camps.0 = num;
 }
 
 // Perlin Noise Generated Map (for post midterm)
@@ -163,6 +179,7 @@ fn read_map(
     map: &mut WorldMap,
     camp_nodes: &mut Vec<Vec2>,
     map_seed: &Res<MapSeed>,
+    num_camps: &Res<NumCamps>,
 ) -> Result<(), Box<dyn Error>> {
     // new perlin noise generator with map seed
     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);    
@@ -199,8 +216,8 @@ fn read_map(
     camp_nodes.shuffle(&mut rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0));
 
     // Slice the coordinates to only have the number of elements equal to NUMCAMPS variable
-    if camp_nodes.len() > NUMCAMPS {
-        camp_nodes.truncate(NUMCAMPS);
+    if camp_nodes.len() > num_camps.0 as usize {
+        camp_nodes.truncate(num_camps.0 as usize);
     }
 
     // Create a vector of coordinates for extra nodes for the graph equal to EXTRANODES variable
@@ -342,6 +359,7 @@ pub fn setup_map(
     mut assets: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     map_seed: Res<MapSeed>,
+    num_camps: Res<NumCamps>,
     mut camp_nodes: ResMut<CampNodes>,
     mut world_map: ResMut<WorldMap>,
 ) {
@@ -356,7 +374,7 @@ pub fn setup_map(
 
     // Generate the map and read it into the WorldMap Component
     // Also mark the camp tiles into raw_camp_nodes
-    let _ = read_map(&mut new_world_map, &mut new_camp_nodes.0, &map_seed);
+    let _ = read_map(&mut new_world_map, &mut new_camp_nodes.0, &map_seed, &num_camps);
 
     // Get a handle for a pure white TILESIZE x TILESIZE image to be colored based on tile type later
     let tile_handle = assets.add(create_tile_image());
@@ -412,9 +430,9 @@ pub fn setup_map(
         x_coord+=1.0;
     }
 
-    // Spawn the map
-    world_map.biome_map = world_map.biome_map.clone();
-    camp_nodes.0 = camp_nodes.0.clone();
+    // Update the map and camp nodes resources
+    world_map.biome_map = new_world_map.biome_map.clone();
+    camp_nodes.0 = new_camp_nodes.0.clone();
 }
 
 fn spawn_tile<T>(
