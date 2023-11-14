@@ -98,7 +98,7 @@ fn simplify_coordinates(coordinates: &mut Vec<Vec2>) {
 
     for &coordinate in coordinates.iter() {
         let is_far_enough = simplified_coordinates.iter().all(|&simplified| {
-            euclidean_distance(coordinate, simplified) > 10.0
+            euclidean_distance(coordinate, simplified) > 20.0
         });
 
         if is_far_enough {
