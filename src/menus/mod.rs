@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 mod layout;
 mod interactions;
-mod components;
+pub(crate) mod components;
 
 use crate::AppState;
 use layout::*;

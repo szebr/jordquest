@@ -1,23 +1,11 @@
-use bevy::{
-    prelude::*, 
-    // utils::{HashMap, petgraph::adj}, 
-    // ecs::world, 
-    // render::texture
-};
+use bevy::prelude::*; // utils::{HashMap, petgraph::adj}, ecs::world, render::texture
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use std::{
-    error::Error, 
-    //thread::spawn,
-};
-use rand::Rng;
+use bevy::utils::petgraph::{algo::min_spanning_tree, visit::EdgeRef, graph::UnGraph, data::FromElements};
+use std::error::Error; //thread::spawn;
+use rand::{Rng,seq::SliceRandom};
+use rand_chacha::rand_core::SeedableRng;
 use crate::noise::Perlin;
-use bevy::utils::petgraph::{
-    algo::min_spanning_tree, 
-    visit::EdgeRef,
-    graph::UnGraph, 
-    data::FromElements,
-};
-use rand::seq::SliceRandom;
+use crate::menus::components::{NumCampsInput, NumChestsInput, EnemiesPerCampInput, MapSeedInput, EidPercentageInput};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -44,6 +32,9 @@ struct Path;
 pub struct CampNodes(pub Vec<Vec2>);
 
 #[derive(Resource)]
+pub struct MapSeed(pub u64);
+
+#[derive(Resource)]
 pub struct WorldMap{
     pub map_size: usize,
     pub tile_size: usize,
@@ -51,7 +42,7 @@ pub struct WorldMap{
 }
 
 // Set the size of the map in tiles (its a square)
-//CHANGE THIS TO CHANGE MAP SIZE
+// CHANGE THIS TO CHANGE MAP SIZE
 pub const MAPSIZE: usize = 256;
 pub const TILESIZE: usize = 16;
 pub const PATHWIDTH: usize = 5; // Width of the paths in tiles
@@ -77,6 +68,7 @@ impl Plugin for MapPlugin {
         //app.add_systems(Startup, startup);
         //new background
         app.add_systems(Startup, setup);
+        app.add_systems(Startup, set_seed);
     }
 }
 
@@ -127,13 +119,21 @@ fn create_mst(points: Vec<Vec2>) -> UnGraph<Vec2, f32> {
     mst
 }
 
+fn set_seed(input_query: Query<&MapSeedInput>) {
+    let mut seed: u64 = 0;
+    for input in input_query.iter() {
+        seed = input.value.parse::<u64>().unwrap();
+    }
+    MapSeed {0: seed}.0;
+}
+
 // Perlin Noise Generated Map (for post midterm)
 fn read_map(
     map: &mut WorldMap,
     camp_nodes: &mut Vec<Vec2>,
 ) -> Result<(), Box<dyn Error>> {
-    // new perlin noise generator with random u64 as seed
-    let mut rng = rand::thread_rng();
+    // new perlin noise generator with map seed
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0);    
     let random_u64: u64 = rng.gen();
     // seed, amplitude, frequency, octaves
     let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
@@ -164,7 +164,7 @@ fn read_map(
     simplify_coordinates(camp_nodes);
 
     // Shuffle the nodes so that the camps are in random order for truncation
-    camp_nodes.shuffle(&mut rand::thread_rng());
+    camp_nodes.shuffle(&mut rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0));
 
     // Slice the coordinates to only have the number of elements equal to NUMCAMPS variable
     if camp_nodes.len() > NUMCAMPS {
@@ -177,8 +177,8 @@ fn read_map(
     let mut extra_nodes: Vec<Vec2> = Vec::new();
     for _ in 0..EXTRANODES {
         extra_nodes.push(Vec2::new(
-            rand::thread_rng().gen_range(0..MAPSIZE) as f32,
-            rand::thread_rng().gen_range(0..MAPSIZE) as f32,
+            rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0).gen_range(0..MAPSIZE) as f32,
+            rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0).gen_range(0..MAPSIZE) as f32,
         ));
     }
 
@@ -198,8 +198,10 @@ fn read_map(
     let num_nodes = all_nodes_graph.node_count();
     for _ in 0..EXTRAPATHS 
     {
-        let source_node = all_nodes_graph.node_indices().nth(rand::thread_rng().gen_range(0..num_nodes)).unwrap();
-        let target_node = all_nodes_graph.node_indices().nth(rand::thread_rng().gen_range(0..num_nodes)).unwrap();
+        let source_node = all_nodes_graph.node_indices().nth(
+            rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0).gen_range(0..num_nodes)).unwrap();
+        let target_node = all_nodes_graph.node_indices().nth(
+            rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0).gen_range(0..num_nodes)).unwrap();
         // Check if the edge already exists
         if !(all_nodes_graph.edges(source_node).any(|edge| edge.target() == target_node))
         {
@@ -260,7 +262,6 @@ fn read_map(
     let camp_nodes_mst = create_mst(camp_nodes.to_vec());
     // Make the camps bigger by expanding the area around the camp tiles, 
     // but using Perlin Noise to determine which tiles to expand to
-    let camp_nodes_mst = create_mst(camp_nodes.to_vec());
 
     // Define the radius of the camp circle
     let camp_radius = CAMPSIZE / 2;
@@ -288,23 +289,6 @@ fn read_map(
             }
         }
     }
-    // for node in camp_nodes_mst.node_indices() {
-    //     let node = &camp_nodes_mst[node];
-    //     let row = node.y as usize;
-    //     let col = node.x as usize;
-    //     // Expand the camp tiles to the right and down
-    //     // TODO: Expand the camp tiles to all directions
-    //     for row_offset in 0..CAMPSIZE {
-    //         for col_offset in 0..CAMPSIZE {
-    //             if row + row_offset <= MAPSIZE - 1 && col + col_offset <= MAPSIZE - 1 {
-    //                 let v =  perlin.noise(row + row_offset,col + col_offset);
-    //                 if v < 0.52 {
-    //                     map.biome_map[row + row_offset][col + col_offset] = Biome::Camp;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
 
     // Create the outer walls
     for row in 0..MAPSIZE {
@@ -356,7 +340,7 @@ pub fn setup(
     let goober_atlas_handle = texture_atlases.add(goober_atlas);
 
     //create an rng to randomly choose a goober in the near future
-    let mut rng = rand::thread_rng();
+    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(MapSeed {0: 0}.0);
     // Create this to center the x-positions of the map
     let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
     for row in 0..MAPSIZE {
@@ -370,7 +354,7 @@ pub fn setup(
                 // Spawn a wall sprite if the current tile is a wall
                 // If goober roll succeeds, make goober_index a random goober for that tile type, adding sheet width to wrap around and reach the correct row
                 // The same logic applies to each instance of this line, just with different values for each tile
-                goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[0] { rng.gen_range(0..2) + 3 * goober_dims[0] as i32 } else { -1 };
+                goober_index = if rng.gen_range(0.00..1.00) < goober_chance[0] { rng.gen_range(0..2) + 3 * goober_dims[0] as i32 } else { -1 };
                 spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
             }else if world_map.biome_map[col][row] == Biome::Ground {
                 // Spawn a ground sprite if the current tile is Ground
