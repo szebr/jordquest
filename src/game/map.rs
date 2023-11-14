@@ -1,3 +1,4 @@
+use bevy::ecs::world;
 use bevy::prelude::*; // utils::{HashMap, petgraph::adj}, ecs::world, render::texture
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::transform::commands;
@@ -10,6 +11,8 @@ use crate::menus::components::{NumCampsInput, NumChestsInput, EnemiesPerCampInpu
 use crate::AppState;
 use crate::game::camera::spawn_minimap;
 use crate::game::camp::setup_camps;
+
+use super::camp;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Biome{
@@ -73,6 +76,7 @@ impl Plugin for MapPlugin {
         //new background
         // app.add_systems(Startup, set_seed);
         // app.add_systems(Startup, setup);
+        app.add_systems(Startup, initialize_map_resources);
         app.add_systems(OnEnter(AppState::Hosting), set_seed);
         app.add_systems(OnExit(AppState::Hosting), set_seed);
         app.add_systems(OnEnter(AppState::Game), setup_map
@@ -129,17 +133,29 @@ fn create_mst(points: Vec<Vec2>) -> UnGraph<Vec2, f32> {
     mst
 }
 
+fn initialize_map_resources(mut commands: Commands) {
+    let map_seed = MapSeed(0);
+    let world_map = WorldMap{
+        map_size: MAPSIZE,
+        tile_size: TILESIZE,
+        biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
+    };
+    let camp_nodes = CampNodes(Vec::new());
+    commands.insert_resource(map_seed);
+    commands.insert_resource(world_map);
+    commands.insert_resource(camp_nodes);
+}
+
 fn set_seed(
-    mut commands: Commands,
-    input_query: Query<&MapSeedInput>
+    input_query: Query<&MapSeedInput>,
+    mut map_seed: ResMut<MapSeed>,
 ) {
     let mut seed: u64 = 0;
     for input in input_query.iter() {
         seed = input.value.parse::<u64>().unwrap();
     }
-    let map_seed = MapSeed(seed);
+    map_seed.0 = seed;
     println!("Map Seed: {}", map_seed.0);
-    commands.insert_resource(map_seed);
 }
 
 // Perlin Noise Generated Map (for post midterm)
@@ -326,19 +342,21 @@ pub fn setup_map(
     mut assets: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     map_seed: Res<MapSeed>,
+    mut camp_nodes: ResMut<CampNodes>,
+    mut world_map: ResMut<WorldMap>,
 ) {
     //Initialize the WorldMap Component and the camp_nodes vector
-    let mut world_map = WorldMap{
+    let mut new_world_map = WorldMap{
         map_size: MAPSIZE,
         tile_size: TILESIZE,
         biome_map: [[Biome::Free; MAPSIZE]; MAPSIZE]
     };
 
-    let mut camp_nodes = CampNodes(Vec::new());
+    let mut new_camp_nodes = CampNodes(Vec::new());
 
     // Generate the map and read it into the WorldMap Component
     // Also mark the camp tiles into raw_camp_nodes
-    let _ = read_map(&mut world_map, &mut camp_nodes.0, &map_seed);
+    let _ = read_map(&mut new_world_map, &mut new_camp_nodes.0, &map_seed);
 
     // Get a handle for a pure white TILESIZE x TILESIZE image to be colored based on tile type later
     let tile_handle = assets.add(create_tile_image());
@@ -368,23 +386,23 @@ pub fn setup_map(
             let goober_index; // -1 means NO GOOBER!!!!!!!
             let goober_chance = vec![0.5, 0.18, 0.18, 0.18]; // Wall, Ground, Camp, Path
 
-            if world_map.biome_map[col][row] == Biome::Wall {
+            if new_world_map.biome_map[col][row] == Biome::Wall {
                 // Spawn a wall sprite if the current tile is a wall
                 // If goober roll succeeds, make goober_index a random goober for that tile type, adding sheet width to wrap around and reach the correct row
                 // The same logic applies to each instance of this line, just with different values for each tile
                 goober_index = if rng.gen_range(0.00..1.00) < goober_chance[0] { rng.gen_range(0..2) + 3 * goober_dims[0] as i32 } else { -1 };
                 spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Wall, &x_coord, &y_coord, BASECOLOR_WALL);
-            }else if world_map.biome_map[col][row] == Biome::Ground {
+            }else if new_world_map.biome_map[col][row] == Biome::Ground {
                 // Spawn a ground sprite if the current tile is Ground
                 // Since we're blending grass tile color, hue must needs be calculated based on the identity of edge-sharing tiles
-                let hue = tile_blend_color(&col, &row, &world_map);
+                let hue = tile_blend_color(&col, &row, &new_world_map);
                 goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[1] { rng.gen_range(0..8) } else { -1 };
                 spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Ground, &x_coord, &y_coord, hue);
-            }else if world_map.biome_map[col][row] == Biome::Camp {
+            }else if new_world_map.biome_map[col][row] == Biome::Camp {
                 // Spawn a camp sprite if the current tile is a camp
                 goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[2] { rng.gen_range(0..8) + 2 * goober_dims[0] as i32 } else { -1 };
                 spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Camp, &x_coord, &y_coord, BASECOLOR_CAMP);
-            }else if world_map.biome_map[col][row] == Biome::Path {
+            }else if new_world_map.biome_map[col][row] == Biome::Path {
                 // Spawn a path sprite if the current tile is a path
                 goober_index = if rng.gen_range(0.00..=1.00) < goober_chance[3] { rng.gen_range(0..8) + 1 * goober_dims[0] as i32 } else { -1 };
                 spawn_tile(&mut commands, &tile_handle, &goober_atlas_handle, goober_index, Path, &x_coord, &y_coord, BASECOLOR_PATH);
@@ -395,8 +413,8 @@ pub fn setup_map(
     }
 
     // Spawn the map
-    commands.insert_resource(world_map);
-    commands.insert_resource(camp_nodes);
+    world_map.biome_map = world_map.biome_map.clone();
+    camp_nodes.0 = camp_nodes.0.clone();
 }
 
 fn spawn_tile<T>(
