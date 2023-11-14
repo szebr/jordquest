@@ -296,7 +296,7 @@ fn read_map(
         // create an egg to surround the camp and look more natural
         
         let mut rng = rand::thread_rng();
-        // create a
+        // create a few eggs to make it look a lil crazy
         for _n in 1..rng.gen_range(2..MAXEGGS){
             // randomly choose the position of the egg in the camp
             let egg_center_row = center_row as i32 + rng.gen_range(-(camp_radius as i32)..camp_radius as i32);
