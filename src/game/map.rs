@@ -160,7 +160,9 @@ fn set_seed(
 ) {
     let mut seed: u64 = 0;
     for input in map_seed_input_query.iter() {
-        seed = input.value.parse::<u64>().unwrap();
+        if let Ok(parsed_num) = input.value.parse::<u64>() {
+            seed = parsed_num;
+        }
     }
     map_seed.0 = seed;
 }
@@ -171,7 +173,9 @@ fn set_num_camps(
 ) {
     let mut num: u8 = 10;
     for input in num_camps_input_query.iter() {
-        num = input.value.parse::<u8>().unwrap();
+        if let Ok(parsed_num) = input.value.parse::<u8>() {
+            num = parsed_num;
+        }
     }
     num_camps.0 = num;
 }
@@ -310,7 +314,7 @@ fn read_map(
     }
 
     // Create a mst from only the camp nodes
-    //let camp_nodes_mst = create_mst(camp_nodes.to_vec());
+    let camp_nodes_mst = create_mst(camp_nodes.to_vec());
     // Make the camps bigger by expanding the area around the camp tiles, 
     // but using Perlin Noise to determine which tiles to expand to
 
