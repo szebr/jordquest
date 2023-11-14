@@ -63,7 +63,7 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, (
                 fixed_aggro,
                 fixed_move.after(fixed_aggro),
-                fixed_resolve.after(fixed_move).after(net::lerp::resolve_collisions),
+                fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move).after(net::lerp::resolve_collisions),
                 ).run_if(is_host)
             )
             .add_systems(Update, (

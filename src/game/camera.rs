@@ -7,6 +7,7 @@ use crate::movement;
 use crate::AppState;
 use crate::game::components::Health;
 use crate::game::player;
+use crate::game::map::setup_map;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -43,7 +44,8 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
-            .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
+            .add_systems(OnEnter(AppState::Game), spawn_minimap
+                .after(setup_map))
             .add_systems(Update, configure_map_on_event);
     }
 }
@@ -76,7 +78,7 @@ fn spawn_camera(
 }
 
 // Spawns the minimap, its border, and the player marker and parents the SpatialBundle to them
-fn spawn_minimap(
+pub fn spawn_minimap(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<Image>>,
