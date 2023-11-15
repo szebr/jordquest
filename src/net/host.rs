@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::player::LocalPlayer;
+use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
@@ -148,6 +148,7 @@ pub fn update(
     mut conns: ResMut<Connections>,
     tick_num: Res<net::TickNum>,
     mut usercmd_writer: EventWriter<UserCmdEvent>,
+    mut players: Query<(&mut Health, &Player)>,
     seed: Res<MapSeed>
 ) {
     if sock.0.is_none() { return }
@@ -170,8 +171,15 @@ pub fn update(
                 if maybe_id.is_none() {
                     send_empty_packet(PacketType::ServerFull, sock, &origin).expect("cant send server full");
                 }
+                let player_id = maybe_id.unwrap();
+                for (mut hp, pl) in &mut players {
+                    if pl.0 == player_id {
+                        hp.current = PLAYER_DEFAULT_HP;
+                        // TODO this is the crappy bandaid way of doing it, doesn't work after respawns
+                    }
+                }
                 ConnectionResponse {
-                    player_id: maybe_id.unwrap(),
+                    player_id,
                     seed: seed.0
                 }.write(sock, &origin).expect("Can't send connection response");
             },

@@ -318,8 +318,6 @@ fn respawn_update(
                     let (mut tf, mut hp, mut vis) = player.single_mut();
 
                     hp.current = PLAYER_DEFAULT_HP;
-                    hp.dead = false;
-                    *vis = Visibility::Visible;
                     spawn_writer.send(LocalPlayerSpawnEvent);
                     tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
