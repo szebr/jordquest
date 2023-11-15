@@ -211,7 +211,6 @@ fn read_map(
     let mut all_nodes: Vec<Vec2> = Vec::new();
     all_nodes.extend(camp_nodes.iter().cloned());
     all_nodes.extend(extra_nodes.iter().cloned());
-    refine_coordinates(&mut all_nodes);
     
     // create a mst from all nodes
     let mut all_nodes_graph = create_mst(all_nodes.to_vec());
