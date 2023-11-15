@@ -211,67 +211,41 @@ pub fn grab_powerup(
             if player_pos.distance(powerup_pos) < 16. {
                 // add powerup to player
                 // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
-                match power_up.0
-                {
-                    PowerUpType::DamageDealtUp => {
+                for (mut powerup, index) in &mut powerup_displays {
+                    if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
                         player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
-
-                        for (mut powerup, index) in &mut powerup_displays {
-                            if index.0 == 0 {
-                                powerup.sections[0].value = format!("{:.2}x", 
-                                (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
-                                / SWORD_DAMAGE as f32);
-                            }
-                        }
-                    },
-                    PowerUpType::DamageReductionUp => {
+                        powerup.sections[0].value = format!("{:.2}x", 
+                        (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
+                        / SWORD_DAMAGE as f32);
+                    }
+                    else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
                         player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
-
-                        for (mut powerup, index) in &mut powerup_displays {
-                            if index.0 == 1 {
-                                // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
-                                powerup.sections[0].value = format!("{:.2}x", 
-                                (PLAYER_DEFAULT_DEF as f32
-                                / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
-                            }
-                        }
-                    },
-                    PowerUpType::MaxHPUp => {
+                        // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
+                        powerup.sections[0].value = format!("{:.2}x", 
+                        (PLAYER_DEFAULT_DEF as f32
+                        / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
+                    }
+                    else if power_up.0 == PowerUpType::MaxHPUp && index.0 == 2 {
                         player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_health.current += MAX_HP_UP;
-
-                        for (mut powerup, index) in &mut powerup_displays {
-                            if index.0 == 2 {
-                                powerup.sections[0].value = format!("{:.2}x", 
-                                (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
-                                / PLAYER_DEFAULT_HP as f32);
-                            }
-                        }
-                    },
-                    PowerUpType::AttackSpeedUp => {
+                        powerup.sections[0].value = format!("{:.2}x", 
+                        (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
+                        / PLAYER_DEFAULT_HP as f32);
+                    }
+                    else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
-
-                        for (mut powerup, index) in &mut powerup_displays {
-                            if index.0 == 3 {
-                                powerup.sections[0].value = format!("{:.2}x",
-                                (DEFAULT_COOLDOWN
-                                / (cooldown.0.duration().as_millis() as f32 / 1000.)));
-                            }
-                        }
-                    },
-                    PowerUpType::MovementSpeedUp => {
+                        powerup.sections[0].value = format!("{:.2}x",
+                        (DEFAULT_COOLDOWN
+                        / (cooldown.0.duration().as_millis() as f32 / 1000.)));
+                    }
+                    else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
-
-                        for (mut powerup, index) in &mut powerup_displays {
-                            if index.0 == 4 {
-                                powerup.sections[0].value = format!("{:.2}x", 
-                                (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
-                                / PLAYER_SPEED as f32);
-                            }
-                        }
-                    },
+                        powerup.sections[0].value = format!("{:.2}x", 
+                        (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
+                        / PLAYER_SPEED as f32);
+                    }
                 }
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
