@@ -146,6 +146,7 @@ impl Packet for ClientTick {
     fn from_buf(buf: &[u8]) -> Result<Self> {
         let mut i: usize = 0;
         let seq_num = u16::from_be_bytes(buf[i..i+2].try_into().unwrap());
+        i += 2;
         let pos = Vec2{
             x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
             y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
