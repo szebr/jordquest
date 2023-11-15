@@ -1,12 +1,12 @@
-use bevy::ecs::system::EntityCommands;
+use crate::game::camera::SpatialCameraBundle;
+use crate::game::components::*;
+use crate::game::ROUND_TIME;
 use crate::menus::components::*;
+use bevy::ecs::system::EntityCommands;
 use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::prelude::Timer;
 use bevy::prelude::*;
-use crate::game::camera::SpatialCameraBundle;
-use crate::game::components::*;
-use crate::game::ROUND_TIME;
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -20,11 +20,7 @@ pub struct GameTimer {
     remaining_time: f32, // time in seconds
 }
 
-pub fn show_popup(
-    time: Res<Time>,
-    mut popup: Query<(&mut PopupTimer,
-                      &mut Transform)>
-) {
+pub fn show_popup(time: Res<Time>, mut popup: Query<(&mut PopupTimer, &mut Transform)>) {
     for (mut timer, mut transform) in popup.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
@@ -33,13 +29,10 @@ pub fn show_popup(
     }
 }
 
-fn spawn_title(
-    parent: &mut EntityCommands,
-    font: &Handle<Font>,
-    title: &str,
-) {
-    let title_node = parent.commands().spawn(
-        NodeBundle {
+fn spawn_title(parent: &mut EntityCommands, font: &Handle<Font>, title: &str) {
+    let title_node = parent
+        .commands()
+        .spawn(NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
@@ -56,24 +49,25 @@ fn spawn_title(
             },
             background_color: BackgroundColor::from(Color::WHITE),
             ..default()
-        }).id();
+        })
+        .id();
 
-    let text = parent.commands().spawn(TextBundle::from_section(
-        title,
-        TextStyle {
-            font: font.clone(),
-            font_size: 64.0,
-            color: Color::RED,
-        },
-    )).id();
+    let text = parent
+        .commands()
+        .spawn(TextBundle::from_section(
+            title,
+            TextStyle {
+                font: font.clone(),
+                font_size: 64.0,
+                color: Color::RED,
+            },
+        ))
+        .id();
     parent.commands().entity(title_node).add_child(text);
     parent.add_child(title_node);
 }
 
-fn spawn_flex_column<T: Bundle>(
-    commands: &mut Commands,
-    page: T
-) -> Entity {
+fn spawn_flex_column<T: Bundle>(commands: &mut Commands, page: T) -> Entity {
     return spawn_flex_column_colored(commands, page, Color::WHITE);
 }
 
@@ -104,37 +98,45 @@ fn spawn_button<T: Bundle>(
     parent: &mut EntityCommands,
     font: &Handle<Font>,
     button: T,
-    title: &str
+    title: &str,
 ) {
-    let button = parent.commands().spawn((
-        ButtonBundle {
-            style: Style {
-                width: Val::Px(500.0),
-                height: Val::Px(80.0),
-                margin: UiRect {
-                    left: Val::Px(8.),
-                    right: Val::Px(8.),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(8.0),
+    let button = parent
+        .commands()
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(500.0),
+                    height: Val::Px(80.0),
+                    margin: UiRect {
+                        left: Val::Px(8.),
+                        right: Val::Px(8.),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(8.0),
+                    },
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
                 },
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                 ..default()
             },
-            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
-            ..default()
-        },
-        button,
-    )).id();
-    let text = parent.commands().spawn(
-        TextBundle::from_section(
-            title,
-            TextStyle {
-                font: font.clone(),
-                font_size: 24.0,
-                color: Color::WHITE,
-            }
-        ).with_text_alignment(TextAlignment::Center)).id();
+            button,
+        ))
+        .id();
+    let text = parent
+        .commands()
+        .spawn(
+            TextBundle::from_section(
+                title,
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 24.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center),
+        )
+        .id();
     parent.commands().entity(button).add_child(text);
     parent.add_child(button);
 }
@@ -144,67 +146,129 @@ fn spawn_input<T: Bundle, U: Bundle>(
     font: &Handle<Font>,
     button: T,
     input: U,
-    title: &str
+    title: &str,
 ) {
-    let input_node = parent.commands().spawn((
-        ButtonBundle {
-            style: Style {
-                width: Val::Px(500.0),
-                height: Val::Px(80.0),
-                margin: UiRect {
-                    left: Val::Px(8.),
-                    right: Val::Px(8.),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(8.0),
+    let input_node = parent
+        .commands()
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(500.0),
+                    height: Val::Px(80.0),
+                    margin: UiRect {
+                        left: Val::Px(8.),
+                        right: Val::Px(8.),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(8.0),
+                    },
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
                 },
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                 ..default()
             },
-            background_color: Color::rgb(0.15, 0.15, 0.15).into(),
-            ..default()
-        },
-        Switch {
-            host_port: false,
-            port: false,
-            ip: false,
-            host: false,
-            num_camps: false,
-            num_chests: false,
-            enemy_per_camp: false,
-            map_seed: false,
-            eid_percentage: false,
-        },
-        button,
-    )).id();
+            Switch {
+                host_port: false,
+                port: false,
+                ip: false,
+                host: false,
+                num_camps: false,
+                num_chests: false,
+                enemy_per_camp: false,
+                map_seed: false,
+                eid_percentage: false,
+            },
+            button,
+        ))
+        .id();
 
-    let text = parent.commands().spawn((
-        TextBundle::from_section(
-            title,
-            TextStyle {
-                font: font.clone(),
-                font_size: 24.0,
-                color: Color::WHITE,
-            }).with_text_alignment(TextAlignment::Center),
-        input
-    )).id();
+    let text = parent
+        .commands()
+        .spawn((
+            TextBundle::from_section(
+                title,
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 24.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center),
+            input,
+        ))
+        .id();
     parent.commands().entity(input_node).add_child(text);
     parent.add_child(input_node);
 }
 
-pub fn despawn_main_menu(
-    mut commands: Commands,
-    main_menu_query: Query<Entity, With<MainMenu>>
+fn spawn_text<T: Bundle, U: Bundle>(
+    parent: &mut EntityCommands,
+    font: &Handle<Font>,
+    button: T,
+    input: U,
+    title: &str,
 ) {
+    let input_node = parent
+        .commands()
+        .spawn((
+            ButtonBundle {
+                style: Style {
+                    width: Val::Px(500.0),
+                    height: Val::Px(80.0),
+                    margin: UiRect {
+                        left: Val::Px(8.),
+                        right: Val::Px(8.),
+                        top: Val::Px(0.0),
+                        bottom: Val::Px(8.0),
+                    },
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                background_color: Color::rgb(0.15, 0.15, 0.15).into(),
+                ..default()
+            },
+            Switch {
+                host_port: false,
+                port: false,
+                ip: false,
+                host: false,
+                num_camps: false,
+                num_chests: false,
+                enemy_per_camp: false,
+                map_seed: false,
+                eid_percentage: false,
+            },
+            button,
+        ))
+        .id();
+
+    let text = parent
+        .commands()
+        .spawn((
+            TextBundle::from_section(
+                title,
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 24.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center),
+            input,
+        ))
+        .id();
+    parent.commands().entity(input_node).add_child(text);
+    parent.add_child(input_node);
+}
+pub fn despawn_main_menu(mut commands: Commands, main_menu_query: Query<Entity, With<MainMenu>>) {
     if let Ok(main_menu_entity) = main_menu_query.get_single() {
         commands.entity(main_menu_entity).despawn_recursive();
     }
 }
 
-pub fn spawn_main_menu(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let main_menu_id = spawn_flex_column(&mut commands, MainMenu);
     let mut main_menu = commands.entity(main_menu_id);
@@ -218,17 +282,23 @@ pub fn spawn_main_menu(
 fn add_credits_slide(
     commands: &mut Commands,
     asset_server: &AssetServer,
-    filename: &str, index: usize) {
-    commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load(filename),
-            transform: Transform::from_xyz(0., 0., -1.0 + (0.1 * index as f32))
-                .with_scale(Vec3::new(0.5, 0.5, 1.0)),
-            ..default()
-        },
-        Popup,
-    ))
-    .insert(PopupTimer(Timer::from_seconds(2.0 * index as f32, TimerMode::Once)));
+    filename: &str,
+    index: usize,
+) {
+    commands
+        .spawn((
+            SpriteBundle {
+                texture: asset_server.load(filename),
+                transform: Transform::from_xyz(0., 0., -1.0 + (0.1 * index as f32))
+                    .with_scale(Vec3::new(0.5, 0.5, 1.0)),
+                ..default()
+            },
+            Popup,
+        ))
+        .insert(PopupTimer(Timer::from_seconds(
+            2.0 * index as f32,
+            TimerMode::Once,
+        )));
 }
 
 pub fn spawn_credits_page(
@@ -259,54 +329,111 @@ pub fn despawn_credits_page(
     }
 }
 
-pub fn despawn_host_page(
-    mut commands: Commands,
-    host_page_entity: Query<Entity, With<HostPage>>
-) {
+pub fn despawn_host_page(mut commands: Commands, host_page_entity: Query<Entity, With<HostPage>>) {
     if let Ok(host_page_entity) = host_page_entity.get_single() {
         commands.entity(host_page_entity).despawn_recursive();
     }
 }
 
-pub fn spawn_host_page(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_host_page(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let host_page_id = spawn_flex_column(&mut commands, HostPage);
     let mut host_page = commands.entity(host_page_id);
     spawn_title(&mut host_page, &font, "Host Game");
-    spawn_input(&mut host_page, &font, (), HostPortInput { port: String::new() }, "Port: ");
-    spawn_input(&mut host_page, &font, NumCampsButton, NumCampsInput { value: String::new() }, "Number of Camps: ");
-    spawn_input(&mut host_page, &font, NumChestsButton, NumChestsInput { value: String::new() }, "Number of Chests: ");
-    spawn_input(&mut host_page, &font, EnemiesPerCampButton, EnemiesPerCampInput { value: String::new() }, "Number of Enemies Per Camp: ");
-    spawn_input(&mut host_page, &font, MapSeedButton, MapSeedInput { value: String::new() }, "Map Seed: ");
-    spawn_input(&mut host_page, &font, EidPercentageButton, EidPercentageInput { value: String::new() }, "EID Percentage: ");
+    spawn_input(
+        &mut host_page,
+        &font,
+        (),
+        HostPortInput {
+            port: String::new(),
+        },
+        "Port: ",
+    );
+    spawn_input(
+        &mut host_page,
+        &font,
+        NumCampsButton,
+        NumCampsInput {
+            value: String::new(),
+        },
+        "Number of Camps: ",
+    );
+    spawn_input(
+        &mut host_page,
+        &font,
+        NumChestsButton,
+        NumChestsInput {
+            value: String::new(),
+        },
+        "Number of Chests: ",
+    );
+    spawn_input(
+        &mut host_page,
+        &font,
+        EnemiesPerCampButton,
+        EnemiesPerCampInput {
+            value: String::new(),
+        },
+        "Number of Enemies Per Camp: ",
+    );
+    spawn_input(
+        &mut host_page,
+        &font,
+        MapSeedButton,
+        MapSeedInput {
+            value: String::new(),
+        },
+        "Map Seed: ",
+    );
+    spawn_input(
+        &mut host_page,
+        &font,
+        EidPercentageButton,
+        EidPercentageInput {
+            value: String::new(),
+        },
+        "EID Percentage: ",
+    );
     spawn_button(&mut host_page, &font, HostPortSaveButton, "Host Now");
     spawn_button(&mut host_page, &font, BackToMainMenu, "Back");
 }
 
-pub fn despawn_join_page(
-    mut commands: Commands,
-    join_page_entity: Query<Entity, With<JoinPage>>
-) {
+pub fn despawn_join_page(mut commands: Commands, join_page_entity: Query<Entity, With<JoinPage>>) {
     if let Ok(join_page_entity) = join_page_entity.get_single() {
         commands.entity(join_page_entity).despawn_recursive();
     }
 }
 
-
-pub fn spawn_join_page(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_join_page(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let join_page_id = spawn_flex_column(&mut commands, JoinPage);
     let mut join_page = commands.entity(join_page_id);
     spawn_title(&mut join_page, &font, "Join a game");
-    spawn_input(&mut join_page, &font, JoinPortButton, JoinPortInput { port: String::new() }, "Your Port: ");
-    spawn_input(&mut join_page, &font, JoinHostPortButton, JoinHostPortInput { port: String::new() }, "Host Port: ");
-    spawn_input(&mut join_page, &font, JoinIpButton, JoinIPInput { ip: String::new() }, "Host IP: ");
+    spawn_input(
+        &mut join_page,
+        &font,
+        JoinPortButton,
+        JoinPortInput {
+            port: String::new(),
+        },
+        "Your Port: ",
+    );
+    spawn_input(
+        &mut join_page,
+        &font,
+        JoinHostPortButton,
+        JoinHostPortInput {
+            port: String::new(),
+        },
+        "Host Port: ",
+    );
+    spawn_input(
+        &mut join_page,
+        &font,
+        JoinIpButton,
+        JoinIPInput { ip: String::new() },
+        "Host IP: ",
+    );
     spawn_button(&mut join_page, &font, JoinSaveButton, "Join Now");
     spawn_button(&mut join_page, &font, BackToMainMenu, "Back");
 }
@@ -320,22 +447,24 @@ pub fn despawn_controls_page(
     }
 }
 
-pub fn spawn_controls_page(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_controls_page(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text = commands.spawn(TextBundle::from_section(
-        "Movement - WASD\n\
+    let text = commands
+        .spawn(
+            TextBundle::from_section(
+                "Movement - WASD\n\
         Attack - Left Click\n\
         Interact - E\n\
         Quit Game - Esc",
-        TextStyle {
-            font: font.clone(),
-            font_size: 24.0,
-            color: Color::BLACK,
-        }
-    ).with_text_alignment(TextAlignment::Center)).id();
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 24.0,
+                    color: Color::BLACK,
+                },
+            )
+            .with_text_alignment(TextAlignment::Center),
+        )
+        .id();
     let controls_page_id = spawn_flex_column(&mut commands, ControlsPage);
     let mut controls_page = commands.entity(controls_page_id);
     spawn_title(&mut controls_page, &font, "Controls");
@@ -343,102 +472,112 @@ pub fn spawn_controls_page(
     spawn_button(&mut controls_page, &font, BackToMainMenu, "Back");
 }
 
-pub fn despawn_in_game_ui(
-    mut commands: Commands, 
-    in_game_ui: Query<Entity, With<InGameUi>>
-) {
+pub fn despawn_in_game_ui(mut commands: Commands, in_game_ui: Query<Entity, With<InGameUi>>) {
     if let Ok(in_game_ui) = in_game_ui.get_single() {
         commands.entity(in_game_ui).despawn_recursive();
     }
 }
 
-
-pub fn spawn_in_game_ui(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_in_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn((TextBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            left: Val::Px(PADDING),
-            top: Val::Px(SCREEN_HEIGHT - PADDING - 64.0),
+    commands.spawn((
+        TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(PADDING),
+                top: Val::Px(SCREEN_HEIGHT - PADDING - 64.0),
+                ..Default::default()
+            },
+            text: Text::from_section(
+                "Score: 0",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 64.0,
+                    color: Color::RED,
+                },
+            )
+            .with_alignment(TextAlignment::Left),
             ..Default::default()
         },
-        text: Text::from_section(
-            "Score: 0",
-            TextStyle {
-                font: font.clone(),
-                font_size: 64.0,
-                color: Color::RED,
-            }
-        ).with_alignment(TextAlignment::Left),
-        ..Default::default()},
-        ScoreDisplay));
+        ScoreDisplay,
+        InGameUi,
+    ));
 
     // Timer Display
-    commands.spawn((TextBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            left: Val::Px(SCREEN_WIDTH / 2.0 - 100.0),
-            top: Val::Px(PADDING),
+    commands.spawn((
+        TextBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(SCREEN_WIDTH / 2.0 - 100.0),
+                top: Val::Px(PADDING),
+                ..Default::default()
+            },
+            text: Text::from_section(
+                "5:00",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 64.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_alignment(TextAlignment::Center),
             ..Default::default()
         },
-        text: Text::from_section(
-            "5:00",
-            TextStyle {
-                font: font.clone(),
-                font_size: 64.0,
-                color: Color::WHITE,
-            }
-        ).with_alignment(TextAlignment::Center),
-        ..Default::default()},
         GameTimer {
-            remaining_time: ROUND_TIME
-        }));
+            remaining_time: ROUND_TIME,
+        },
+    ));
 
     // Powerup Display
-     commands.spawn(ImageBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            left: Val::Px(PADDING),
-            top: Val::Px(SCREEN_HEIGHT / 2. - 176.),
+    commands.spawn((
+        ImageBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(PADDING),
+                top: Val::Px(SCREEN_HEIGHT / 2. - 176.),
+                ..default()
+            },
+            image: asset_server.load("powerup_icons.png").into(),
             ..default()
         },
-        image: asset_server.load("powerup_icons.png").into(),
-        ..default()
-    });
+        InGameUi,
+    ));
 
-    commands.spawn(NodeBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            left: Val::Px(PADDING + 72.),
-            top: Val::Px(SCREEN_HEIGHT / 2. - 137.),
-            row_gap: Val::Px(40.),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Start,
-            ..default()
-        },
-        ..default()
-    }).with_children(|parent| {
-        for i in 0..NUM_POWERUPS {
-            parent.spawn((
-                TextBundle::from_section(
-                    "1.00x",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 32.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                PowerupDisplayText(i as u8), // Dunno whether to attach this to NodeBundle or the individual TextBundles
-            ));
-        }
-    });
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(PADDING + 72.),
+                    top: Val::Px(SCREEN_HEIGHT / 2. - 137.),
+                    row_gap: Val::Px(40.),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Start,
+                    ..default()
+                },
+                ..default()
+            },
+            InGameUi,
+        ))
+        .with_children(|parent| {
+            for i in 0..NUM_POWERUPS {
+                parent.spawn((
+                    TextBundle::from_section(
+                        "1.00x",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 32.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    PowerupDisplayText(i as u8), // Dunno whether to attach this to NodeBundle or the individual TextBundles
+                ));
+            }
+        });
 }
 
 pub fn update_time_remaining_system(
-    time: Res<Time>, 
+    time: Res<Time>,
     mut game_timer_query: Query<(&mut GameTimer, &mut Text)>,
     mut join_page_query: Query<&mut Style, With<JoinPage>>,
     mut game_over_query: Query<&mut Style, (With<GameOver>, Without<JoinPage>)>,
@@ -459,26 +598,27 @@ pub fn update_time_remaining_system(
             for mut style in game_over_query.iter_mut() {
                 style.display = Display::Flex;
             }
-
         }
     }
 }
 
 pub fn despawn_game_over_screen(
-    mut commands: Commands, 
-    game_over_entity: Query<Entity, With<GameOver>>
+    mut commands: Commands,
+    game_over_entity: Query<Entity, With<GameOver>>,
 ) {
     if let Ok(game_over_entity) = game_over_entity.get_single() {
         commands.entity(game_over_entity).despawn_recursive();
     }
 }
 
-pub fn spawn_game_over_screen(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
+pub fn spawn_game_over_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let color = Color::Rgba { red: (1.0), green: (1.0), blue: (1.0), alpha: (0.5) };
+    let color = Color::Rgba {
+        red: (1.0),
+        green: (1.0),
+        blue: (1.0),
+        alpha: (0.5),
+    };
     let game_over_id = spawn_flex_column_colored(&mut commands, GameOver, color);
     let mut game_over = commands.entity(game_over_id);
     spawn_title(&mut game_over, &font, "Game Over");
@@ -503,4 +643,78 @@ pub fn spawn_connecting_page(
     let connecting_id = spawn_flex_column(&mut commands, ConnectingPage);
     let mut connecting = commands.entity(connecting_id);
     spawn_title(&mut connecting, &font, "Connecting...");
+}
+
+pub fn spawn_leaderboard_ui(
+    mut commands: Commands, 
+    asset_server: Res<AssetServer>,
+    stats_query: Query<(&Player, &Stats), With<Player>>,
+) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let field_name = ["Player", "Score", "Enemy Kills", "Player Kills", "Camps Captured", "Deaths", "KD"];
+    // Background
+    let leaderboard = commands
+        .spawn((NodeBundle {
+            style: Style {
+                display: Display::None,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                row_gap: Val::Px(40.),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgba(0.5, 0.5, 0.5, 0.5)),
+            ..default()
+        }, 
+        Leaderboard)).id();
+    // Title
+    let title = commands
+        .spawn(TextBundle::from_section(
+            "Leaderboard".to_string(),
+            TextStyle {
+                font: font.clone(),
+                font_size: 64.0,
+                color: Color::RED,
+            },
+        )).id();
+    // Fields
+    let fields = commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(70.0),
+                height: Val::Percent(70.0),
+                left: Val::Percent(15.0),
+                top: Val::Percent(15.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgba(0.5, 0.5, 0.5, 0.5)),
+            ..default()
+        })
+        .with_children(|parent| {
+            for i in 0..field_name.len() {
+                parent.spawn(TextBundle::from_section(
+                    field_name[i],
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 32.0,
+                        color: Color::WHITE,
+                    },
+                ));
+            }
+        
+        }).id();
+    commands.entity(leaderboard).push_children(&[title]);
+    commands.entity(leaderboard).push_children(&[fields]);
+}
+
+pub fn despawn_leaderboard_ui(
+    mut commands: Commands,
+    leaderboard_entity: Query<Entity, With<Leaderboard>>,
+) {
+    if let Ok(leaderboard_entity) = leaderboard_entity.get_single() {
+        commands.entity(leaderboard_entity).despawn_recursive();
+    }
 }

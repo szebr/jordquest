@@ -12,6 +12,8 @@ use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
+use crate::menus::components::{InGameUi,Leaderboard};
+use crate::camera::{Minimap, Marker};
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
@@ -71,6 +73,13 @@ impl Plugin for PlayerPlugin{
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
             .add_event::<SetIdEvent>()
+            .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
+            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game))
+                .after(spawn_shield_on_right_click))
+            .add_systems(Update, show_leaderboard.run_if(in_state(AppState::Game)))
+            .add_systems(Update, hide_leaderboard.run_if(in_state(AppState::Game)))
+            .add_event::<PlayerTickEvent>()
+            .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -96,6 +105,14 @@ pub fn spawn_players(
                 Player(i as u8),
                 PosBuffer(CircularBuffer::new()),
                 Score(0),
+                Stats {
+                    score: 0,
+                    enemies_killed: 0,
+                    players_killed: 0,
+                    camps_captured: 0,
+                    deaths: 0,
+                    kd_ratio: 0.
+                },
                 Health {
                     current: PLAYER_DEFAULT_HP,
                     max: PLAYER_DEFAULT_HP,
@@ -376,7 +393,6 @@ pub fn handle_attack(
     }
 }
 
-
 pub fn spawn_shield_on_right_click(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -419,6 +435,47 @@ pub fn despawn_shield_on_right_click_release(
             }
         }
     }
+}
+
+pub fn show_leaderboard(
+    commands: Commands,
+    input: Res<Input<KeyCode>>,
+    mut in_game_ui_query: Query<&mut Style, With<InGameUi>>,
+    mut minimap_query: Query<&mut Visibility, With<SpatialCameraBundle>>,
+    mut leaderboard_query: Query<&mut Style, (With<Leaderboard>, Without<InGameUi>)>,
+) {
+    if input.just_pressed(KeyCode::Tab) {
+        for mut style in &mut in_game_ui_query.iter_mut() {
+            style.display = Display::None;
+        }
+        for mut vis in &mut minimap_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+        for mut style in &mut leaderboard_query.iter_mut() {
+            style.display = Display::Flex;
+        }
+    }
+}
+
+pub fn hide_leaderboard(
+    commands: Commands,
+    input: Res<Input<KeyCode>>,
+    mut in_game_ui_query: Query<&mut Style, With<InGameUi>>,
+    mut minimap_query: Query<&mut Visibility, With<SpatialCameraBundle>>,
+    mut leaderboard_query: Query<&mut Style, (With<Leaderboard>, Without<InGameUi>)>,
+) {
+    if input.just_released(KeyCode::Tab) {
+        for mut style in &mut in_game_ui_query.iter_mut() {
+            style.display = Display::Flex;
+        }
+        for mut vis in &mut minimap_query.iter_mut() {
+            *vis = Visibility::Visible;
+        }
+        for mut style in &mut leaderboard_query.iter_mut() {
+            style.display = Display::None;
+        }
+    }
+    // TODO then show the current UI
 }
 
 // EVENT HANDLERS
