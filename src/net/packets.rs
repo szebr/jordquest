@@ -178,13 +178,15 @@ impl Packet for ClientTick {
 }
 
 pub struct ConnectionResponse {
-    pub player_id: u8
+    pub player_id: u8,
+    pub seed: u64
 }
 
 impl Packet for ConnectionResponse {
     fn from_buf(buf: &[u8]) -> Result<Self> {
         let player_id = u8::from_be_bytes([buf[0]].try_into().unwrap());
-        return Ok(ConnectionResponse { player_id });
+        let seed = u64::from_be_bytes(buf[1..9].try_into().unwrap());
+        return Ok(ConnectionResponse { player_id, seed });
     }
 
     fn write(&self, local: &UdpSocket, peer: &SocketAddr) -> Result<usize> {
@@ -192,6 +194,7 @@ impl Packet for ConnectionResponse {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::ConnectionResponse as u8).to_be_bytes());
         bytes.extend_from_slice(&self.player_id.to_be_bytes());
+        bytes.extend_from_slice(&self.seed.to_be_bytes());
         if local.peer_addr().is_ok() {
             return local.send(bytes.as_slice());
         }

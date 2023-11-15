@@ -3,6 +3,7 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
+use crate::game::map::MapSeed;
 use crate::game::player::{LocalPlayer, SetIdEvent};
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, packets};
 use crate::net::packets::{ConnectionResponse, EnemyTickEvent, HostTick, Packet, PacketType, PlayerTickEvent, UserCmd};
@@ -57,6 +58,7 @@ pub fn update(
     mut enemy_writer: EventWriter<EnemyTickEvent>,
     mut id_writer: EventWriter<SetIdEvent>,
     mut tick_num: ResMut<net::TickNum>,
+    mut seed: ResMut<MapSeed>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -77,6 +79,7 @@ pub fn update(
                 }
                 let packet = packet.unwrap();
                 println!("ConnectionResponse received");
+                seed.0 = packet.seed;
                 id_writer.send(SetIdEvent(packet.player_id));
             },
             pt if pt == PacketType::HostTick as u8 => {

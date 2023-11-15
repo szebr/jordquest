@@ -6,6 +6,7 @@ use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
 use crate::game::player::LocalPlayer;
 use crate::components::*;
+use crate::game::map::MapSeed;
 use crate::net::packets::*;
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, Socket};
 
@@ -147,6 +148,7 @@ pub fn update(
     mut conns: ResMut<Connections>,
     tick_num: Res<net::TickNum>,
     mut usercmd_writer: EventWriter<UserCmdEvent>,
+    seed: Res<MapSeed>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -171,7 +173,8 @@ pub fn update(
                     send_empty_packet(PacketType::ServerFull, sock, &origin).expect("cant send server full");
                 }
                 ConnectionResponse {
-                    player_id: maybe_id.unwrap()
+                    player_id: maybe_id.unwrap(),
+                    seed: seed.0
                 }.write(sock, &origin).expect("Can't send connection response");
             },
             pt if pt == PacketType::ClientTick as u8 => {
