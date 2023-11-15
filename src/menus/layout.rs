@@ -82,7 +82,7 @@ fn spawn_flex_column_colored<T: Bundle>(
     page: T,
     color: Color
 ) -> Entity {
-    let mut menu = commands.spawn((
+    let menu = commands.spawn((
         NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
@@ -216,7 +216,7 @@ pub fn spawn_main_menu(
 }
 
 fn add_credits_slide(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     asset_server: &AssetServer,
     filename: &str, index: usize) {
     commands.spawn((
@@ -484,4 +484,23 @@ pub fn spawn_game_over_screen(
     spawn_title(&mut game_over, &font, "Game Over");
     spawn_button(&mut game_over, &font, CreditsButton, "Credits");
     // no "back to main menu", just quit game and reopen it.
+}
+
+pub fn despawn_connecting_page(
+    mut commands: Commands,
+    connecting_page_entity: Query<Entity, With<ConnectingPage>>
+) {
+    if let Ok(connecting_page_entity) = connecting_page_entity.get_single() {
+        commands.entity(connecting_page_entity).despawn_recursive();
+    }
+}
+
+pub fn spawn_connecting_page(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>
+) {
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let connecting_id = spawn_flex_column(&mut commands, ConnectingPage);
+    let mut connecting = commands.entity(connecting_id);
+    spawn_title(&mut connecting, &font, "Connecting...");
 }

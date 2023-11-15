@@ -137,7 +137,7 @@ pub fn save_host_input(
     mut is_host: ResMut<crate::net::IsHost>,
     mut res_id: ResMut<PlayerId>,
     mut net_address: ResMut<NetworkAddresses>,
-    mut map_conifg: ResMut<MapConfig>,
+    mut map_config: ResMut<MapConfig>,
     host_port_query: Query<&HostPortInput>,
     num_camps_query: Query<&NumCampsInput>,
     num_chests_query: Query<&NumChestsInput>,
@@ -159,20 +159,20 @@ pub fn save_host_input(
                     is_host.0 = true;
                 }
                 for num_camps_input in  num_camps_query.iter() {
-                    map_conifg.num_camps = num_camps_input.value.clone();
+                    map_config.num_camps = num_camps_input.value.clone();
                 }
                 for input in  num_chests_query.iter() {
-                    map_conifg.num_chests = input.value.clone();
+                    map_config.num_chests = input.value.clone();
                 }
                 for input in  enemy_per_camp_query.iter() {
-                    map_conifg.enemy_per_camp = input.value.clone();
+                    map_config.enemy_per_camp = input.value.clone();
                 }
                 for input in  map_seed_query.iter() {
-                    map_conifg.map_seed = input.value.clone();
+                    map_config.map_seed = input.value.clone();
                 }
                 for input in  eid_percentage_query.iter() {
-                    map_conifg.eid_percentage = input.value.clone();
-                    //println!("eid percentage to {:?}", map_conifg.eid_percentage);
+                    map_config.eid_percentage = input.value.clone();
+                    //println!("eid percentage to {:?}", map_config.eid_percentage);
                 }
                 app_state_next_state.set(AppState::Game);
             }
@@ -459,7 +459,7 @@ pub fn save_join_input(
                     net_address.host_port =join_host_port_input.port.clone();
                 }
                 is_host.0 = false;
-                app_state_next_state.set(AppState::Game);
+                app_state_next_state.set(AppState::Connecting);
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();

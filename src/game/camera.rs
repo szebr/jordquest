@@ -45,7 +45,7 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
-            .add_systems(OnEnter(AppState::Game), spawn_minimap).after(setup_map))
+            .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_map))
             .add_systems(Update, configure_map_on_event);
     }
 }
@@ -318,8 +318,6 @@ fn respawn_update(
                     let (mut tf, mut hp, mut vis) = player.single_mut();
 
                     hp.current = PLAYER_DEFAULT_HP;
-                    hp.dead = false;
-                    *vis = Visibility::Visible;
                     spawn_writer.send(LocalPlayerSpawnEvent);
                     tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;

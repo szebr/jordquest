@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
@@ -6,13 +5,13 @@ use bevy::window::PrimaryWindow;
 use crate::enemy;
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
-use serde::{Deserialize, Serialize};
 use crate::buffers::*;
 use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
+use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
@@ -22,34 +21,8 @@ pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
 const DEFAULT_COOLDOWN: f32 = 0.2;
 
-/// sent by network module to disperse information from the host
-#[derive(Event, Debug)]
-pub struct PlayerTickEvent {
-    pub seq_num: u16,
-    pub id: u8,
-    pub tick: PlayerTick
-}
-
-/// the information that the host needs to produce on each tick
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct PlayerTick {
-    pub pos: Vec2,
-    pub hp: u8,
-}
-
-#[derive(Event, Debug)]
-pub struct UserCmdEvent {
-    pub seq_num: u16,
-    pub id: u8,
-    pub tick: UserCmd
-}
-
-/// the information that the client needs to produce on each tick
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct UserCmd {
-    pub pos: Vec2,
-    pub dir: f32,
-}
+#[derive(Event)]
+pub struct SetIdEvent(pub u8);
 
 #[derive(Event)]
 pub struct LocalPlayerDeathEvent;
@@ -89,15 +62,15 @@ impl Plugin for PlayerPlugin{
                 update_players,
                 handle_attack,
                 grab_powerup,
-                handle_move.run_if(in_state(AppState::Game)),
+                handle_move,
+                spawn_shield_on_right_click,
+                despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
+            .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
-            .add_systems(Update, spawn_shield_on_right_click.run_if(in_state(AppState::Game)))
-            .add_systems(Update, despawn_shield_on_right_click_release.run_if(in_state(AppState::Game)).after(spawn_shield_on_right_click))
-            .add_event::<PlayerTickEvent>()
-            .add_event::<UserCmdEvent>()
+            .add_event::<SetIdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -116,31 +89,62 @@ pub fn spawn_players(
     res_id: Res<PlayerId>
 ) {
     for i in 0..MAX_PLAYERS {
-        let pl = commands.spawn((
-            Player(i as u8),
-            PosBuffer(CircularBuffer::new()),
-            Score(0),
-            Health {
-                current: 0,
-                max: PLAYER_DEFAULT_HP,
-                dead: false
-            },
-            SpriteSheetBundle {
-                texture_atlas: entity_atlas.handle.clone(),
-                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                visibility: Visibility::Hidden,
-                transform: Transform::from_xyz(0., 0., 1.),
-                ..default()
-            },
-            Collider(PLAYER_SIZE),
-            Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
-            StoredPowerUps {
-                power_ups: [0; NUM_POWERUPS],
-            },
-            PlayerShield {
-                active: false,
-            },
-        )).id();
+        let mut pl;
+        // TODO part of the bandaid syncing test stuff
+        if i == 0 && res_id.0 == 1 {
+            pl = commands.spawn((
+                Player(i as u8),
+                PosBuffer(CircularBuffer::new()),
+                Score(0),
+                Health {
+                    current: PLAYER_DEFAULT_HP,
+                    max: PLAYER_DEFAULT_HP,
+                    dead: false
+                },
+                SpriteSheetBundle {
+                    texture_atlas: entity_atlas.handle.clone(),
+                    sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                    visibility: Visibility::Visible,
+                    transform: Transform::from_xyz(0., 0., 1.),
+                    ..default()
+                },
+                Collider(PLAYER_SIZE),
+                Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
+                StoredPowerUps {
+                    power_ups: [0; NUM_POWERUPS],
+                },
+                PlayerShield {
+                    active: false,
+                },
+            )).id();
+        }
+        else {
+            pl = commands.spawn((
+                Player(i as u8),
+                PosBuffer(CircularBuffer::new()),
+                Score(0),
+                Health {
+                    current: 0,
+                    max: PLAYER_DEFAULT_HP,
+                    dead: false
+                },
+                SpriteSheetBundle {
+                    texture_atlas: entity_atlas.handle.clone(),
+                    sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                    visibility: Visibility::Hidden,
+                    transform: Transform::from_xyz(0., 0., 1.),
+                    ..default()
+                },
+                Collider(PLAYER_SIZE),
+                Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
+                StoredPowerUps {
+                    power_ups: [0; NUM_POWERUPS],
+                },
+                PlayerShield {
+                    active: false,
+                },
+            )).id();
+        }
 
         if i as u8 == res_id.0 {
             commands.entity(pl).insert(LocalPlayer);
@@ -201,24 +205,21 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Health, &mut Visibility, &StoredPowerUps, Option<&LocalPlayer>), (With<Player>, Without<Enemy>)>,
-    mut scores: Query<&mut Score, (With<Player>, Without<Enemy>)>,
+    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Score, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut health, mut vis, spu, lp) in players.iter_mut() {
+    for (mut health, mut vis, lp, mut score, pl) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
             if lp.is_some() {
                 death_writer.send(LocalPlayerDeathEvent);
             }
-            for mut score in scores.iter_mut() {
-                if (score.0.checked_sub(1)).is_some() {
-                    score.0 -= 1;
-                } else {
-                    score.0 = 0;
-                }
-            }
+            let _ = score.0.checked_sub(1);
+        }
+        else if health.current > 0 && health.dead {
+            health.dead = false;
+            *vis = Visibility::Visible;
         }
     }
 }
@@ -407,7 +408,9 @@ pub fn despawn_shield_on_right_click_release(
     mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
     shield_query: Query<Entity, With<Shield>>,
 ) {
-    let (player_children, mut player_shield) = query.single_mut();
+    let player = query.get_single_mut();
+    if player.is_err() { return; }
+    let (player_children, mut player_shield) = player.unwrap();
     if !mouse_button_inputs.pressed(MouseButton::Right) {
         player_shield.active = false;
         for &child in player_children.iter() {
@@ -422,17 +425,29 @@ pub fn despawn_shield_on_right_click_release(
 
 pub fn handle_tick_events(
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &Health)>,
 ) {
     //TODO if you receive info that your predicted local position is wrong, it needs to be corrected
     for ev in player_reader.iter() {
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
-        for (pl, mut pb) in &mut player_query {
-            if pl.0 == ev.id {
+        for (pl, mut pb, hp) in &mut player_query {
+            if pl.0 == ev.tick.id {
+                //println!("player {:?} at {:?} during tick {:?}, dead={:?}", pl.0, ev.tick.pos, ev.seq_num, hp.dead);
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }
+    }
+}
+
+pub fn handle_id_events(
+    mut id_reader: EventReader<SetIdEvent>,
+    mut res_id: ResMut<PlayerId>,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
+) {
+    for ev in &mut id_reader {
+        res_id.0 = ev.0;
+        app_state_next_state.set(AppState::Game);
     }
 }
 

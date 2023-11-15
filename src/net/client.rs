@@ -1,12 +1,12 @@
 use std::net::*;
 use std::str::FromStr;
 use bevy::prelude::*;
-use bincode::{deserialize, serialize};
-use crate::{game, menus, net};
+use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::enemy::EnemyTickEvent;
-use crate::game::player::{LocalPlayer, PlayerTickEvent, UserCmd};
-
+use crate::game::map::MapSeed;
+use crate::game::player::{LocalPlayer, SetIdEvent};
+use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, packets};
+use crate::net::packets::{ConnectionResponse, EnemyTickEvent, HostTick, Packet, PacketType, PlayerTickEvent, UserCmd};
 
 pub fn connect(
     addresses: Res<menus::NetworkAddresses>,
@@ -21,7 +21,9 @@ pub fn connect(
     let host_ip = Ipv4Addr::from_str(&addresses.ip).expect("bad ip");
     let host_port = u16::from_str(&addresses.host_port).expect("bad host port");
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
-    sock.0.as_mut().unwrap().connect(host_addr).expect("can't connect to host");
+    let host = sock.0.as_mut().unwrap();
+    host.connect(host_addr).expect("can't connect to host");
+    packets::send_empty_packet(PacketType::ConnectionRequest, host, &host_addr).expect("failed to request connection");
     println!("connection successful");
 }
 
@@ -40,66 +42,73 @@ pub fn fixed(
     if pb.is_err() { return }
     let pb = pb.unwrap();
     let pos = pb.0.get(tick.0);
-    let packet = net::Packet {
-        protocol: net::MAGIC_NUMBER,
-        contents: net::PacketContents::ClientTick {
-            seq_num: tick.0,
-            tick: UserCmd {
-                pos: *pos,
-                dir: 0.0,
-            },
-        }
+    let packet = packets::ClientTick {
+        seq_num: tick.0,
+        tick: UserCmd {
+            pos: *pos,
+            dir: 0.0,
+        },
     };
-    sock.send(serialize(&packet).expect("couldn't serialize").as_slice()).expect("send failed");
+    packet.write(sock, &sock.peer_addr().expect("Sock not connected during fixed")).expect("ClientTick send failed");
 }
 
 pub fn update(
     mut sock: ResMut<net::Socket>,
     mut player_writer: EventWriter<PlayerTickEvent>,
     mut enemy_writer: EventWriter<EnemyTickEvent>,
+    mut id_writer: EventWriter<SetIdEvent>,
     mut tick_num: ResMut<net::TickNum>,
-    mut res_id: ResMut<game::PlayerId>
+    mut seed: ResMut<MapSeed>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     loop {
-        let mut buf = [0; net::MAX_PACKET_LEN];
-        // this error checking is really shitty
-        let recv = sock.recv_from(&mut buf);
-        if recv.is_err() { break; }
-        let (size, origin) = recv.unwrap();
-        // TODO if origin != host_addr { continue; }
-        if size <= 0 { break; }
-        let packet = deserialize::<net::Packet>(&buf);
-        if packet.is_err() { break; }
-        let packet = packet.unwrap();
-        if packet.protocol != net::MAGIC_NUMBER { continue; }
-        match packet.contents {
-            net::PacketContents::HostTick {
-                seq_num, player_id, players, enemies
-            } => {
-                res_id.0 = player_id;
-                //TODO this is a problem until we have variable length HostTick packets
-                for (id, tick) in players.iter().enumerate() {
+        let mut buf = [0; MAX_DATAGRAM_SIZE];
+        if sock.peek(&mut buf).is_err() { break }
+        sock.recv(&mut buf).unwrap();
+        let magic = u16::from_be_bytes(buf[0..2].try_into().unwrap());
+        if magic != MAGIC_NUMBER { break; }
+        let pt = u8::from_be_bytes(buf[2..3].try_into().unwrap());
+        match pt {
+            pt if pt == PacketType::ConnectionResponse as u8 => {
+                let packet = ConnectionResponse::from_buf(&buf[3..]);
+                if packet.is_err() {
+                    println!("Malformed ConnectionResponse Received!");
+                    continue;
+                }
+                let packet = packet.unwrap();
+                println!("ConnectionResponse received");
+                seed.0 = packet.seed;
+                id_writer.send(SetIdEvent(packet.player_id));
+            },
+            pt if pt == PacketType::HostTick as u8 => {
+                let packet = HostTick::from_buf(&buf[3..]);
+                if packet.is_err() {
+                    println!("Malformed HostTick Received!");
+                    continue;
+                }
+                let packet = packet.unwrap();
+                for tick in packet.players {
                     player_writer.send(PlayerTickEvent {
-                        seq_num,
-                        id: id as u8,
-                        tick: *tick
+                        seq_num: packet.seq_num,
+                        tick
                     })
                 }
-                for (id, tick) in enemies.iter().enumerate() {
+                for tick in packet.enemies {
                     enemy_writer.send(EnemyTickEvent {
-                        seq_num,
-                        id: id as u8,
-                        tick: *tick
-                    });
+                        seq_num: packet.seq_num,
+                        tick
+                    })
                 }
-                tick_num.0 = seq_num;
+                // TODO this is hilarious... client ticks are just slaves to host ticks
+                //   client doesn't even tick its own clock
+                tick_num.0 = packet.seq_num;
             },
-            net::PacketContents::ServerFull => {
-                // TODO close the socket and return to main menu
+            pt if pt == PacketType::ServerFull as u8 => {
+                println!("Server is full!");
+                // TODO stop trying to connect?
             },
-            p => panic!("client sent unexpected packet {:?}", p)
+            _ => panic!("Server sent some wacky packet that doesn't make sense")
         }
     }
 }
