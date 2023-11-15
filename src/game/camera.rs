@@ -43,6 +43,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
+            .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
             .add_systems(OnExit(AppState::MainMenu), spawn_minimap)
             .add_systems(Update, configure_map_on_event);
     }
@@ -128,6 +129,7 @@ fn spawn_minimap(
                 scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                 ..Default::default()
             },
+            visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
             ..Default::default()
         },
         Marker,
@@ -250,12 +252,31 @@ fn configure_map_on_event(
     }
 }
 
+// Make marker reflect player position while player is alive
+fn marker_follow(
+    player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
+    mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+) {
+    for player_tf in &player {
+        // Set marker position on minimap to reflect the player's current position in the game world
+        for mut marker_tf in &mut marker {
+            if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
+                marker_tf.translation.x = MINIMAP_TRANSLATION.x + player_tf.translation.x / 32.
+            }
+            if player_tf.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
+                marker_tf.translation.y = MINIMAP_TRANSLATION.y + player_tf.translation.y / 32.
+            }
+        }
+    }
+}
+
 // Runs in Respawn state, waits for mouse click to get player's desired (re)spawn position
 fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
+    mut marker_vis: Query<&mut Visibility, (With<Marker>, Without<LocalPlayer>)>,
     map: Res<WorldMap>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
@@ -301,29 +322,23 @@ fn respawn_update(
                     spawn_writer.send(LocalPlayerSpawnEvent);
                     tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
+
+                    // Show marker
+                    for mut vis in &mut marker_vis {
+                        *vis = Visibility::Visible;
+                    }
                 }
             }
         }
     }
 }
 
-// Runs in Game state, makes SpatialCameraBundle follow player and moves marker to reflect player position
+// Runs in Game state, makes SpatialCameraBundle follow player
 fn game_update(
     player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
-    mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Marker>, Without<LocalPlayer>)>
 ) {
     for player_tf in &player {
-        // Set marker position on minimap to reflect the player's current position in the game world
-        for mut marker_tf in &mut marker {
-            if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.x = MINIMAP_TRANSLATION.x + player_tf.translation.x / 32.
-            }
-            if player_tf.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.y = MINIMAP_TRANSLATION.y + player_tf.translation.y / 32.
-            }
-        }
-    
         // Make SpatialCameraBundle follow player
         for mut camera_tf in &mut camera {
             camera_tf.translation.x = player_tf.translation.x;
