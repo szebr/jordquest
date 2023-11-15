@@ -248,7 +248,6 @@ fn configure_map_on_event(
             marker_tf.translation.y = camera_tf.translation.y / 16.;
             marker_tf.scale.x = new_scale;
             marker_tf.scale.y = new_scale;
-            println!("marker x: {}, marker y: {}", marker_tf.translation.x, marker_tf.translation.y);
         }
     }
 }
