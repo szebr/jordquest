@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
-use rand::{Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rngs::StdRng};
 use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
@@ -42,7 +42,7 @@ pub fn setup_camps(
     //rng: SeedableRng
 ) {
     //TODO: make this based off the generated seed when that gets implemented
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);
+    let mut rng = StdRng::seed_from_u64(map_seed.0);
 
     // spawn a camp at a specified position
 

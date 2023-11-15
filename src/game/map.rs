@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::utils::petgraph::{algo::min_spanning_tree, visit::EdgeRef, graph::UnGraph, data::FromElements};
 use std::error::Error;
-use rand::{Rng,seq::SliceRandom};
+use rand::{Rng,seq::SliceRandom,RngCore,rngs::StdRng};
 use rand_chacha::rand_core::SeedableRng;
 use crate::noise::Perlin;
 use crate::AppState;
@@ -181,10 +181,10 @@ fn read_map(
     camp_nodes: &mut Vec<Vec2>,
     map_seed: &Res<MapSeed>,
     num_camps: &Res<NumCamps>,
+    mut rng: &mut StdRng,
 ) -> Result<(), Box<dyn Error>> {
     // new perlin noise generator with map seed
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);
-    let random_u64: u64 = rng.gen();
+    let random_u64: u64 = rng.next_u64();
     // seed, amplitude, frequency, octaves
     let perlin = Perlin::new(random_u64, 1.0, 0.08, 3);
 
@@ -214,7 +214,7 @@ fn read_map(
     simplify_coordinates(camp_nodes);
 
     // Shuffle the nodes so that the camps are in random order for truncation
-    camp_nodes.shuffle(&mut rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0));
+    camp_nodes.shuffle(&mut rng);
 
     // Slice the coordinates to only have the number of elements equal to NUMCAMPS variable
     if camp_nodes.len() > num_camps.0 as usize {
@@ -227,8 +227,8 @@ fn read_map(
     let mut extra_nodes: Vec<Vec2> = Vec::new();
     for _ in 0..EXTRANODES {
         extra_nodes.push(Vec2::new(
-            rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0).gen_range(0..MAPSIZE) as f32,
-            rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0).gen_range(0..MAPSIZE) as f32,
+            rng.gen_range(0..MAPSIZE) as f32,
+            rng.gen_range(0..MAPSIZE) as f32,
         ));
     }
 
@@ -249,9 +249,9 @@ fn read_map(
     for _ in 0..EXTRAPATHS 
     {
         let source_node = all_nodes_graph.node_indices().nth(
-            rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0).gen_range(0..num_nodes)).unwrap();
+            rng.gen_range(0..num_nodes)).unwrap();
         let target_node = all_nodes_graph.node_indices().nth(
-            rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0).gen_range(0..num_nodes)).unwrap();
+            rng.gen_range(0..num_nodes)).unwrap();
         // Check if the edge already exists
         if !(all_nodes_graph.edges(source_node).any(|edge| edge.target() == target_node))
         {
@@ -417,9 +417,12 @@ pub fn setup_map(
 
     let mut new_camp_nodes = CampNodes(Vec::new());
 
+    //create an rng to randomly choose a goober in the near future
+    let mut rng = StdRng::seed_from_u64(map_seed.0);
+
     // Generate the map and read it into the WorldMap Component
     // Also mark the camp tiles into raw_camp_nodes
-    let _ = read_map(&mut new_world_map, &mut new_camp_nodes.0, &map_seed, &num_camps);
+    let _ = read_map(&mut new_world_map, &mut new_camp_nodes.0, &map_seed, &num_camps, &mut rng);
 
     // Get a handle for a pure white TILESIZE x TILESIZE image to be colored based on tile type later
     let tile_handle = assets.add(create_tile_image());
@@ -437,9 +440,6 @@ pub fn setup_map(
     );
     let goober_atlas_handle = texture_atlases.add(goober_atlas);
 
-    //create an rng to randomly choose a goober in the near future
-    let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(map_seed.0);
-    println!("Map Seed: {}", map_seed.0);
     // Create this to center the x-positions of the map
     let mut x_coord: f32 = -((MAPSIZE as f32)/2.) + 0.5;
     for row in 0..MAPSIZE {
