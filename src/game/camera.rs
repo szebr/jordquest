@@ -45,7 +45,7 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
-            .add_systems(OnEnter(AppState::Game), spawn_minimap).after(setup_map))
+            .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_map))
             .add_systems(Update, configure_map_on_event);
     }
 }
