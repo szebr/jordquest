@@ -82,7 +82,7 @@ fn spawn_flex_column_colored<T: Bundle>(
     page: T,
     color: Color
 ) -> Entity {
-    let mut menu = commands.spawn((
+    let menu = commands.spawn((
         NodeBundle {
             style: Style {
                 flex_direction: FlexDirection::Column,
@@ -216,7 +216,7 @@ pub fn spawn_main_menu(
 }
 
 fn add_credits_slide(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     asset_server: &AssetServer,
     filename: &str, index: usize) {
     commands.spawn((

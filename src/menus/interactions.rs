@@ -5,6 +5,7 @@ use crate::AppState;
 use crate::game::PlayerId;
 use crate::menus::NetworkAddresses;
 use crate::game::MapConfig;
+use rand::Rng;
 
 pub fn interact_with_button<B: ButtonTypeTrait>(
     mut button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<B::Marker>)>,
@@ -514,6 +515,42 @@ pub fn init_join_ip_input_system(
     init_input_system_with_default::<JoinIPInput>("127.0.0.1", commands, join_ip_query);
 }
 
+pub fn init_num_camps_input_system(
+    commands: Commands,
+    num_camps_query: Query<(Entity, &mut Text, &mut NumCampsInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<NumCampsInput>("10", commands, num_camps_query);
+}
 
+pub fn init_num_chests_input_system(
+    commands: Commands,
+    num_chests_query: Query<(Entity, &mut Text, &mut NumChestsInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<NumChestsInput>("WIP", commands, num_chests_query);
+}
 
+pub fn init_enemies_per_camp_input_system(
+    commands: Commands,
+    enemies_per_camp_query: Query<(Entity, &mut Text, &mut EnemiesPerCampInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<EnemiesPerCampInput>("WIP", commands, enemies_per_camp_query);
+}
 
+pub fn init_map_seed_input_system(
+    commands: Commands,
+    map_seed_query: Query<(Entity, &mut Text, &mut MapSeedInput), Without<Initialized>>,
+) {
+    let mut rng = rand::thread_rng();
+    let mut seed = String::new();
+    for _ in 0..10 {
+        seed.push(rng.gen_range(0..=9).to_string().chars().next().unwrap());
+    }
+    init_input_system_with_default::<MapSeedInput>(&seed, commands, map_seed_query);
+}
+
+pub fn init_eid_percentage_input_system(
+    commands: Commands,
+    eid_percentage_query: Query<(Entity, &mut Text, &mut EidPercentageInput), Without<Initialized>>,
+) {
+    init_input_system_with_default::<EidPercentageInput>("WIP", commands, eid_percentage_query);
+}

@@ -1,8 +1,7 @@
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use crate::{AppState, game, net};
+use crate::{AppState, net};
 use crate::Atlas;
-use serde::{Deserialize, Serialize};
 use movement::correct_wall_collisions;
 use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
@@ -13,7 +12,6 @@ use crate::game::movement;
 use crate::game::player::PlayerShield;
 use super::player::PLAYER_DEFAULT_DEF;
 
-pub const MAX_ENEMIES: usize = 32;
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
@@ -25,20 +23,6 @@ const CIRCLE_DAMAGE: u8 = 15;
 //TODO public struct resource holding enemy count
 
 
-/// sent by network module to disperse information from the host
-#[derive(Event, Debug)]
-pub struct EnemyTickEvent {
-    pub seq_num: u16,
-    pub id: u8,
-    pub tick: EnemyTick
-}
-
-/// the information that the host needs to produce on each tick
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct EnemyTick {
-    pub pos: Vec2,
-    pub hp: u8
-}
 
 #[derive(Component)]
 pub struct EnemyWeapon;
@@ -62,7 +46,7 @@ impl Plugin for EnemyPlugin{
         app.add_systems(FixedUpdate, (
                 fixed_aggro,
                 fixed_move.after(fixed_aggro),
-                fixed_resolve.after(fixed_move).after(net::lerp::resolve_collisions),
+                fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move).after(net::lerp::resolve_collisions),
                 ).run_if(is_host)
             )
             .add_systems(Update, (
@@ -70,8 +54,7 @@ impl Plugin for EnemyPlugin{
                 update_enemies.after(handle_packet),
                 handle_attack.after(update_enemies),
             ))
-            .add_systems(OnExit(AppState::Game), remove_enemies)
-            .add_event::<EnemyTickEvent>();
+            .add_systems(OnExit(AppState::Game), remove_enemies);
     }
 }
 
@@ -225,34 +208,6 @@ pub fn update_enemies(
     }
 }
 
-/*
-FIX AFTER MIDTERM :)
-pub fn weapon_dealt_damage_system(
-    mut player_query: Query<(&Transform, &Collider, &mut Health), With<Player>>,
-    weapon_query: Query<&Transform, With<EnemyWeapon>>
-) {
-     for weapon_transform in weapon_query.iter() {
-        for (player_transform, player_collider, mut player_HP) in player_query.iter_mut() {
-            if let Some(_) = collide(
-                weapon_transform.translation,
-                weapon_transform.scale.xy(),
-                player_transform.translation,
-                player_collider.0,
-            ) {
-                match player_HP.current.checked_sub(CIRCLE_DAMAGE) {
-                    Some(v) => {
-                        player_HP.current = v;
-                    }
-                    None => {
-                        // player would die from hit
-                        player_HP.current = 0;
-                    }
-                }
-            }
-        }
-    }
-}*/
-
 pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
@@ -348,7 +303,7 @@ pub fn fixed_resolve(
 }
 
 pub fn handle_packet(
-    mut enemy_reader: EventReader<EnemyTickEvent>,
+    mut enemy_reader: EventReader<net::packets::EnemyTickEvent>,
     mut enemy_query: Query<(&Enemy, &mut PosBuffer)>
 ) {
     //TODO if you receive info that your predicted local position is wrong, it needs to be corrected
@@ -356,7 +311,7 @@ pub fn handle_packet(
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
         for (pl, mut pb) in &mut enemy_query {
-            if pl.0 == ev.id {
+            if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }
