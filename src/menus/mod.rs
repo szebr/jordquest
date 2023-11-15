@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 mod layout;
 mod interactions;
-mod components;
+pub(crate) mod components;
 
 use crate::AppState;
 use layout::*;
@@ -66,6 +66,11 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, init_join_host_port_input_system)
         .add_systems(Update, init_join_port_input_system)
         .add_systems(Update, init_join_ip_input_system)
+        .add_systems(Update, init_num_camps_input_system)
+        .add_systems(Update, init_num_chests_input_system)
+        .add_systems(Update, init_enemies_per_camp_input_system)
+        .add_systems(Update, init_map_seed_input_system)
+        .add_systems(Update, init_eid_percentage_input_system)
         .add_systems(Startup, startup);
 }}
 

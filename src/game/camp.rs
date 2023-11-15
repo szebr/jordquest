@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
+use rand_chacha::ChaChaRng;
 use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
@@ -10,6 +11,8 @@ use crate::components::PowerUpType;
 use crate::components::*;
 use crate::Decorations;
 use crate::buffers::*;
+use crate::game::map::setup_map;
+use crate::map::MapSeed;
 
 
 const CAMP_ENEMIES: u8 = 5;
@@ -20,7 +23,8 @@ pub struct CampPlugin;
 
 impl Plugin for CampPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(OnEnter(AppState::Game), setup);
+        app.add_systems(OnEnter(AppState::Game), setup_camps
+            .after(setup_map));
         //app.add_systems(OnEnter(AppState::Game), spawn_camp_enemy);
         app.add_systems(Update,(
             handle_camp_clear,
@@ -28,17 +32,18 @@ impl Plugin for CampPlugin{
     }
 }
 
-pub fn setup(
+pub fn setup_camps(
     mut commands: Commands,
     entity_atlas:Res<Atlas>,
     camp_nodes: Res<CampNodes>,
-    decoration_atlas: Res<Decorations>
+    decoration_atlas: Res<Decorations>,
+    map_seed: Res<MapSeed>,
 
     //TODO: USE THIS FOR SEED UPDATES
     //rng: SeedableRng
 ) {
     //TODO: make this based off the generated seed when that gets implemented
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
 
     // spawn a camp at a specified position
 
