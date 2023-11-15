@@ -31,7 +31,7 @@ and performance.
     
 ### Procedural Generation
 
-Each round starts with a randomly generated arena, placing enemy camps,
+Each round starts with a randomly generated arena, placing enemy camps, items
 decorations, obstacles, and terrain throughout the map. Enemies will use A*
 search to efficiently find paths to the player and back to their respective camp. 
 Focus on balance, complexity, and natural appearance.
