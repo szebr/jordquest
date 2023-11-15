@@ -1,21 +1,21 @@
 pub mod host;
 pub mod client;
 pub mod lerp;
+pub mod packets;
 
 use std::net::UdpSocket;
 use bevy::prelude::*;
-use serde::{Serialize, Deserialize};
 use crate::AppState;
-use crate::game::{enemy, player, movement};
-use crate::game::player::UserCmd;
+use crate::game::{enemy, movement};
+use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
 
 
 pub const TICKRATE: u8 = 10;
 const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
-pub const MAX_PACKET_LEN: usize = 4096;  // probably should check if this is the size of a HostTick
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
-pub const TIMEOUT: u16 = TICKRATE as u16 * 10;  // 10 seconds to timeout
+//pub const TIMEOUT: u16 = TICKRATE as u16 * 10;  // 10 seconds to timeout
+pub const MAX_DATAGRAM_SIZE: usize = 1024;
 
 #[derive(Resource)]
 pub struct TickNum(pub u16);  // this is the tick we're writing to, NOT playing back
@@ -25,32 +25,6 @@ pub struct Socket(pub Option<UdpSocket>);
 
 #[derive(Resource)]
 pub struct IsHost(pub bool);
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum PacketContents {
-    ServerFull,  // sent by host every time request is received and server is full
-    Disconnect,  // sent by client in disconnected state every time HostTick is received
-    ConnectionRequest,  // sent by client to request connection to a host
-    ConnectionResponse {  // sent by a host to a client who has requested connection
-        player_id: u8,  // tells the player which id they have
-        // TODO map seed
-    },
-    HostTick {  // sent by host to all connected clients individually
-        seq_num: u16,
-        players: [player::PlayerTick; player::MAX_PLAYERS],
-        enemies: [enemy::EnemyTick; enemy::MAX_ENEMIES],
-    },
-    ClientTick {  // sent by client to host every FixedUpdate unless ServerFull received
-        seq_num: u16,
-        tick: UserCmd
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Packet {
-    protocol: u16,
-    contents: PacketContents
-}
 
 pub struct NetPlugin;
 
@@ -71,7 +45,10 @@ impl Plugin for NetPlugin {
             .add_systems(OnExit(AppState::Game),
                      (client::disconnect.run_if(is_client),
                       host::disconnect.run_if(is_host)))
-            .add_systems(OnEnter(AppState::Connecting), client::connect.run_if(is_client));
+            .add_systems(OnEnter(AppState::Connecting), client::connect.run_if(is_client))
+            .add_event::<EnemyTickEvent>()
+            .add_event::<PlayerTickEvent>()
+            .add_event::<UserCmdEvent>();
     }
 }
 

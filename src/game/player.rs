@@ -1,4 +1,3 @@
-use std::cmp::min;
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
@@ -6,13 +5,13 @@ use bevy::window::PrimaryWindow;
 use crate::enemy;
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
-use serde::{Deserialize, Serialize};
 use crate::buffers::*;
 use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
+use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
@@ -24,35 +23,6 @@ const DEFAULT_COOLDOWN: f32 = 0.2;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
-
-/// sent by network module to disperse information from the host
-#[derive(Event, Debug)]
-pub struct PlayerTickEvent {
-    pub seq_num: u16,
-    pub id: u8,
-    pub tick: PlayerTick
-}
-
-/// the information that the host needs to produce on each tick
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct PlayerTick {
-    pub pos: Vec2,
-    pub hp: u8,
-}
-
-#[derive(Event, Debug)]
-pub struct UserCmdEvent {
-    pub seq_num: u16,
-    pub id: u8,
-    pub tick: UserCmd
-}
-
-/// the information that the client needs to produce on each tick
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct UserCmd {
-    pub pos: Vec2,
-    pub dir: f32,
-}
 
 #[derive(Event)]
 pub struct LocalPlayerDeathEvent;
@@ -100,9 +70,7 @@ impl Plugin for PlayerPlugin{
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
-            .add_event::<PlayerTickEvent>()
             .add_event::<SetIdEvent>()
-            .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -206,11 +174,11 @@ pub fn update_score(
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Health, &mut Visibility, &StoredPowerUps, Option<&LocalPlayer>), (With<Player>, Without<Enemy>)>,
+    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>), (With<Player>, Without<Enemy>)>,
     mut scores: Query<&mut Score, (With<Player>, Without<Enemy>)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut health, mut vis, spu, lp) in players.iter_mut() {
+    for (mut health, mut vis, lp) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
@@ -462,7 +430,7 @@ pub fn handle_tick_events(
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
         for (pl, mut pb) in &mut player_query {
-            if pl.0 == ev.id {
+            if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }
