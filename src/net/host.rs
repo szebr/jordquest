@@ -155,10 +155,8 @@ pub fn update(
     loop {
         let mut buf = [0; MAX_DATAGRAM_SIZE];
         if sock.peek(&mut buf).is_err() { break }
-        println!("packet received");
         let (_, origin) = sock.recv_from(&mut buf).unwrap();
         let magic = u16::from_be_bytes(buf[0..2].try_into().unwrap());
-        println!("magic: {:?}", magic);
         if magic != MAGIC_NUMBER { break; }
         let pt = u8::from_be_bytes(buf[2..3].try_into().unwrap());
         match pt {
@@ -183,7 +181,6 @@ pub fn update(
                     println!("Malformed ClientTick Received!");
                     continue;
                 }
-                println!("client tick received");
                 let packet = packet.unwrap();
                 let maybe_id = get_id_of_origin(&conns, &origin);
                 if maybe_id.is_none() {

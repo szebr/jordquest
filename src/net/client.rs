@@ -65,7 +65,6 @@ pub fn update(
     loop {
         let mut buf = [0; MAX_DATAGRAM_SIZE];
         if sock.peek(&mut buf).is_err() { break }
-        println!("got a packet");
         sock.recv(&mut buf).unwrap();
         let magic = u16::from_be_bytes(buf[0..2].try_into().unwrap());
         if magic != MAGIC_NUMBER { break; }
@@ -88,7 +87,6 @@ pub fn update(
                     println!("Malformed HostTick Received!");
                     continue;
                 }
-                println!("HostTick Received");
                 let packet = packet.unwrap();
                 for tick in packet.players {
                     player_writer.send(PlayerTickEvent {
