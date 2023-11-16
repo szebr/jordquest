@@ -309,7 +309,13 @@ pub struct BackToMainMenu;
 pub struct GameOver;
 
 #[derive(Component)]
-pub struct Leaderboard;
+pub struct LeaderboardUi;
+
+#[derive(Component)]
+pub struct PlayerStatDisplay{
+    pub player_id: u8,
+    pub stat_id: u8,
+}
 
 #[derive(Component)]
 pub struct HostPortInput {

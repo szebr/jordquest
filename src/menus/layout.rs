@@ -7,6 +7,7 @@ use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::prelude::Timer;
 use bevy::prelude::*;
+use crate::Atlas;
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -648,18 +649,23 @@ pub fn spawn_connecting_page(
 pub fn spawn_leaderboard_ui(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
-    stats_query: Query<(&Player, &Stats), With<Player>>,
+    stats_query: Query<&Player, With<Player>>
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let field_name = ["Player", "Score", "Enemy Kills", "Player Kills", "Camps Captured", "Deaths", "KD"];
-    // Background
-    let leaderboard = commands
+    let measure_names = ["Player", "Score", "Enemy Kills", "Player Kills", "Camps Captured", "Deaths", "KD"];
+    // background
+    let leaderboard_entity = commands
         .spawn((NodeBundle {
             style: Style {
                 display: Display::None,
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                row_gap: Val::Px(40.),
+                padding: UiRect {
+                    left: Val::Px(40.),
+                    right: Val::Px(40.),
+                    top: Val::Px(120.),
+                    bottom: Val::Px(40.),
+                },
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 ..default()
@@ -667,9 +673,9 @@ pub fn spawn_leaderboard_ui(
             background_color: BackgroundColor(Color::rgba(0.5, 0.5, 0.5, 0.5)),
             ..default()
         }, 
-        Leaderboard)).id();
-    // Title
-    let title = commands
+        LeaderboardUi)).id();
+    // title
+    let title_entity = commands
         .spawn(TextBundle::from_section(
             "Leaderboard".to_string(),
             TextStyle {
@@ -678,41 +684,118 @@ pub fn spawn_leaderboard_ui(
                 color: Color::RED,
             },
         )).id();
-    // Fields
-    let fields = commands
+    commands.entity(leaderboard_entity).push_children(&[title_entity]);
+    // field names
+    let measures_entity = commands
         .spawn(NodeBundle {
             style: Style {
                 width: Val::Percent(70.0),
-                height: Val::Percent(70.0),
-                left: Val::Percent(15.0),
-                top: Val::Percent(15.0),
+                height: Val::Percent(20.0),
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceEvenly,
+                padding: UiRect {
+                    left: Val::Px(20.),
+                    right: Val::Px(20.),
+                    top: Val::Px(20.),
+                    bottom: Val::Px(20.),
+                },
+                margin: UiRect {
+                    left: Val::Px(0.),
+                    right: Val::Px(0.),
+                    top: Val::Px(40.),
+                    bottom: Val::Px(0.),
+                },
                 ..default()
             },
             background_color: BackgroundColor(Color::rgba(0.5, 0.5, 0.5, 0.5)),
             ..default()
         })
         .with_children(|parent| {
-            for i in 0..field_name.len() {
+            for i in 0..measure_names.len() {
                 parent.spawn(TextBundle::from_section(
-                    field_name[i],
+                    measure_names[i],
                     TextStyle {
                         font: font.clone(),
                         font_size: 32.0,
                         color: Color::WHITE,
                     },
-                ));
+                )
+                .with_style(Style {
+                    width: Val::Percent(100.0 / measure_names.len() as f32),
+                    ..default()
+                }));
             }
-        
         }).id();
-    commands.entity(leaderboard).push_children(&[title]);
-    commands.entity(leaderboard).push_children(&[fields]);
+    commands.entity(leaderboard_entity).push_children(&[measures_entity]);
+    // player stats
+    let player_icons = vec!["jordan_icon.png", "ian_icon.png", "sam_icon.png", "kevin_icon.png"];
+    for i in 0..4 {
+        let player_stats_entity = commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(70.0),
+                height: Val::Percent(15.0),
+                flex_direction: FlexDirection::Row,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceEvenly,
+                padding: UiRect {
+                    left: Val::Px(20.),
+                    right: Val::Px(20.),
+                    top: Val::Px(20.),
+                    bottom: Val::Px(20.),
+                },
+                ..default()
+            },
+            background_color: BackgroundColor(Color::rgba(0.5, 0.5, 0.5, 0.5)),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn((ImageBundle {
+                image: asset_server.load(player_icons[i]).into(),
+                style: Style {
+                    width: Val::Percent(100.0 / 21.0),
+                    max_height: Val::Percent(100.0),
+                    margin: UiRect {
+                        left: Val::Percent(100.0 / 21.0),
+                        right: Val::Percent(100.0 / 21.0),
+                        top: Val::Px(0.),
+                        bottom: Val::Px(0.),
+                    },
+                    ..default()
+                },
+                ..default()
+            },
+            PlayerStatDisplay {
+                player_id: i as u8,
+                stat_id: 0,
+            }));
+            for j in 1..7 {
+                parent.spawn((TextBundle::from_section(
+                    j.to_string(),
+                    TextStyle {
+                        font: font.clone(),
+                        font_size: 32.0,
+                        color: Color::WHITE,
+                    },
+                )
+                .with_style(Style {
+                    width: Val::Percent(100.0 / 7.0),
+                    ..default()
+                }),
+                PlayerStatDisplay {
+                    player_id: i as u8,
+                    stat_id: j as u8,
+                }));
+            }
+        }).id();
+        commands.entity(leaderboard_entity).push_children(&[player_stats_entity]);
+    }
 }
 
 pub fn despawn_leaderboard_ui(
     mut commands: Commands,
-    leaderboard_entity: Query<Entity, With<Leaderboard>>,
+    leaderboard_entity: Query<Entity, With<LeaderboardUi>>,
 ) {
     if let Ok(leaderboard_entity) = leaderboard_entity.get_single() {
         commands.entity(leaderboard_entity).despawn_recursive();

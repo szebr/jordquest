@@ -7,6 +7,7 @@ use crate::AppState;
 use layout::*;
 use interactions::*;
 use crate::menus::components::*;
+use crate::game::player::spawn_players;
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
@@ -37,7 +38,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnExit(AppState::Game), despawn_in_game_ui)
         .add_systems(OnEnter(AppState::GameOver), spawn_game_over_screen)
         .add_systems(OnExit(AppState::GameOver), despawn_game_over_screen)
-        .add_systems(OnEnter(AppState::Game), spawn_leaderboard_ui)
+        .add_systems(OnEnter(AppState::Game), spawn_leaderboard_ui.after(spawn_players))
         .add_systems(OnExit(AppState::Game), despawn_leaderboard_ui)
         .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
