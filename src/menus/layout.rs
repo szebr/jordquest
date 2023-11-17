@@ -70,28 +70,6 @@ fn spawn_title(
     parent.add_child(title_node);
 }
 
-fn spawn_flex_row<T: Bundle>(
-    commands: &mut Commands,
-    page: T
-) -> Entity {
-    let menu = commands.spawn((
-        NodeBundle {
-            style: Style {
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-            background_color: BackgroundColor::from(Color::WHITE),
-            ..default()
-        },
-        page,
-    ));
-    return menu.id();
-}
-
 fn spawn_flex_column<T: Bundle>(
     commands: &mut Commands,
     page: T
@@ -296,24 +274,16 @@ pub fn spawn_host_page(
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let host_page_id = spawn_flex_column(&mut commands, HostPage);
-    spawn_title(&mut commands.entity(host_page_id), &font, "Host Game");
-    let host_page_row_id = spawn_flex_row(&mut commands, ());
-    commands.entity(host_page_id).add_child(host_page_row_id);
-    //let mut host_page = commands.entity(host_page_id);
-    let host_page_left_id = spawn_flex_column(&mut commands, ());
-    commands.entity(host_page_row_id).add_child(host_page_left_id);
-    let mut host_page_left = commands.entity(host_page_left_id);
-    spawn_input(&mut host_page_left, &font, (), HostPortInput { port: String::new() }, "Port: ");
-    spawn_input(&mut host_page_left, &font, NumCampsButton, NumCampsInput { value: String::new() }, "Number of Camps: ");
-    spawn_input(&mut host_page_left, &font, NumChestsButton, NumChestsInput { value: String::new() }, "Number of Chests: ");
-    spawn_input(&mut host_page_left, &font, EnemiesPerCampButton, EnemiesPerCampInput { value: String::new() }, "Number of Enemies Per Camp: ");
-    let host_page_right_id = spawn_flex_column(&mut commands, ());
-    commands.entity(host_page_row_id).add_child(host_page_right_id);
-    let mut host_page_right = commands.entity(host_page_right_id);
-    spawn_input(&mut host_page_right, &font, MapSeedButton, MapSeedInput { value: String::new() }, "Map Seed: ");
-    spawn_input(&mut host_page_right, &font, EidPercentageButton, EidPercentageInput { value: String::new() }, "EID Percentage: ");
-    spawn_button(&mut host_page_right, &font, HostPortSaveButton, "Host Now");
-    spawn_button(&mut host_page_right, &font, BackToMainMenu, "Back");
+    let mut host_page = commands.entity(host_page_id);
+    spawn_title(&mut host_page, &font, "Host Game");
+    spawn_input(&mut host_page, &font, (), HostPortInput { port: String::new() }, "Port: ");
+    spawn_input(&mut host_page, &font, NumCampsButton, NumCampsInput { value: String::new() }, "Number of Camps: ");
+    spawn_input(&mut host_page, &font, NumChestsButton, NumChestsInput { value: String::new() }, "Number of Chests: ");
+    spawn_input(&mut host_page, &font, EnemiesPerCampButton, EnemiesPerCampInput { value: String::new() }, "Number of Enemies Per Camp: ");
+    spawn_input(&mut host_page, &font, MapSeedButton, MapSeedInput { value: String::new() }, "Map Seed: ");
+    spawn_input(&mut host_page, &font, EidPercentageButton, EidPercentageInput { value: String::new() }, "EID Percentage: ");
+    spawn_button(&mut host_page, &font, HostPortSaveButton, "Host Now");
+    spawn_button(&mut host_page, &font, BackToMainMenu, "Back");
 }
 
 pub fn despawn_join_page(
