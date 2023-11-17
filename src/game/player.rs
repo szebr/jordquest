@@ -239,7 +239,7 @@ pub fn update_players(
             let _ = stats.score.checked_sub(1);
             // TODO this is a bandaid fix for the fact that on spawn the player dies once
             if stats.score != 0 {
-                stats.deaths += 1;
+                let _ = stats.deaths.checked_add(1);
             }
             if stats.deaths != 0 {
                 stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
@@ -272,27 +272,37 @@ pub fn grab_powerup(
                 // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
                 for (mut powerup, index) in &mut powerup_displays {
                     if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
-                        player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
                         / SWORD_DAMAGE as f32);
                     }
                     else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
-                        player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+                        }
                         // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_DEFAULT_DEF as f32
                         / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
                     }
                     else if power_up.0 == PowerUpType::MaxHPUp && index.0 == 2 {
-                        player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
-                        player_health.current += MAX_HP_UP;
+                        if Some(player_power_ups.power_ups[PowerUpType::MaxHPUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
+                        }
+                        if Some(player_health.current.checked_add(MAX_HP_UP)) != None {
+                            player_health.current += MAX_HP_UP;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
                         / PLAYER_DEFAULT_HP as f32);
                     }
                     else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
-                        player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
+                        }
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
                         powerup.sections[0].value = format!("{:.2}x",
@@ -300,7 +310,9 @@ pub fn grab_powerup(
                         / (cooldown.0.duration().as_millis() as f32 / 1000.)));
                     }
                     else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
-                        player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
                         / PLAYER_SPEED as f32);

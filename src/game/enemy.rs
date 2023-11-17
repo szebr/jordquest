@@ -187,8 +187,12 @@ pub fn update_enemies(
                 if enemies_in_camp.current_enemies == 0 && camp_status.status == true{
                     for (mut stats, pl) in player.iter_mut() {
                         if pl.0 == la.0.expect("camp has no attacker") {
-                            stats.score += 5;
-                            stats.camps_captured += 1;
+                            if Some(stats.score.checked_add(5)) != None {
+                                stats.score += 5;
+                            }
+                            if Some (stats.camps_captured.checked_add(1)) != None {
+                                stats.camps_captured += 1;
+                            }
                             println!("5 points awarded for clearing camp {}", camp_num.0)
                         }
                     }
@@ -199,8 +203,12 @@ pub fn update_enemies(
             commands.entity(e).despawn_recursive();
             for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
-                    stats.score += 1;
-                    stats.enemies_killed += 1;
+                    if Some(stats.score.checked_add(1)) != None {
+                        stats.score += 1;
+                    }
+                    if Some (stats.enemies_killed.checked_add(1)) != None {
+                        stats.enemies_killed += 1
+                    }
                 }
             }
             continue;
