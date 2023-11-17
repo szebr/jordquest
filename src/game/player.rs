@@ -69,13 +69,13 @@ impl Plugin for PlayerPlugin{
                 spawn_shield_on_right_click,
                 despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
                 toggle_leaderboard.run_if(in_state(AppState::Game)),
-                update_leaderboard,
+                update_leaderboard.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players)
-                .add_event::<SetIdEvent>()
+            .add_event::<SetIdEvent>()
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
