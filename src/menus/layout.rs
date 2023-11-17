@@ -717,12 +717,18 @@ pub fn spawn_leaderboard_ui(
                     measure_names[i],
                     TextStyle {
                         font: font.clone(),
-                        font_size: 32.0,
+                        font_size: 28.0,
                         color: Color::WHITE,
                     },
                 )
                 .with_style(Style {
-                    width: Val::Percent(100.0 / measure_names.len() as f32),
+                    width: Val::Percent(100.0 / 21.0),
+                    margin: UiRect {
+                        left: Val::Percent(100.0 / 21.0),
+                        right: Val::Percent(100.0 / 21.0),
+                        top: Val::Px(0.),
+                        bottom: Val::Px(0.),
+                    },
                     ..default()
                 }));
             }
@@ -780,7 +786,13 @@ pub fn spawn_leaderboard_ui(
                     },
                 )
                 .with_style(Style {
-                    width: Val::Percent(100.0 / 7.0),
+                    width: Val::Percent(100.0 / 21.0),
+                    margin: UiRect {
+                        left: Val::Percent(100.0 / 21.0),
+                        right: Val::Percent(100.0 / 21.0),
+                        top: Val::Px(0.),
+                        bottom: Val::Px(0.),
+                    },
                     ..default()
                 }),
                 PlayerStatDisplay {

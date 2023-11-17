@@ -102,7 +102,6 @@ pub fn spawn_players(
             pl = commands.spawn((
                 Player(i as u8),
                 PosBuffer(CircularBuffer::new()),
-                Score(0),
                 Stats {
                     score: 0,
                     enemies_killed: 0,
@@ -137,7 +136,6 @@ pub fn spawn_players(
             pl = commands.spawn((
                 Player(i as u8),
                 PosBuffer(CircularBuffer::new()),
-                Score(0),
                 Stats {
                     score: 0,
                     enemies_killed: 0,
@@ -215,30 +213,40 @@ pub fn update_health_bars(
 
 // Update the score displayed during the game
 pub fn update_score(
-    scores: Query<&Score, With<LocalPlayer>>,
+    stats_query: Query<&Stats, With<LocalPlayer>>,
     mut score_displays: Query<&mut Text, With<ScoreDisplay>>,
 ) {
     for mut text in score_displays.iter_mut() {
-        let score = scores.get_single();
-        if score.is_err() { return; }
-        let score = score.unwrap();
-        text.sections[0].value = format!("Score: {}", score.0);
+        for stat in stats_query.iter() {
+            let score = stat.score;
+            text.sections[0].value = format!("Score: {}", score);
+        }
     }
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Score, &Player)>,
+    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut health, mut vis, lp, mut score, pl) in players.iter_mut() {
+    for (mut health, mut vis, lp, mut stats, pl) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
             if lp.is_some() {
                 death_writer.send(LocalPlayerDeathEvent);
             }
-            let _ = score.0.checked_sub(1);
+            let _ = stats.score.checked_sub(1);
+            // TODO this is a bandaid fix for the fact that on spawn the player dies once
+            if stats.score != 0 {
+                stats.deaths += 1;
+            }
+            if stats.deaths != 0 {
+                stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
+            } 
+            else {
+                stats.kd_ratio = stats.players_killed as f32;
+            }
         }
         else if health.current > 0 && health.dead {
             health.dead = false;

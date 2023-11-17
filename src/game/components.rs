@@ -48,9 +48,6 @@ pub struct PowerUp(pub PowerUpType);
 pub struct Collider(pub Vec2);
 
 #[derive(Component)]
-pub struct Score(pub u8);
-
-#[derive(Component)]
 pub struct ScoreDisplay;
 
 #[derive(Component)]
