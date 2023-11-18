@@ -41,6 +41,9 @@ pub struct StoredPowerUps{
 }
 
 #[derive(Component)]
+pub struct ChanceDropPWU(pub bool);
+
+#[derive(Component)]
 pub struct PowerUp(pub PowerUpType);
 
 /// Just a vec2 that describes the size of a bounding box around the entity

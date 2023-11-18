@@ -59,19 +59,23 @@ impl Plugin for EnemyPlugin{
 }
 
 pub fn spawn_enemy(
-    commands: &mut Commands, 
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
     entity_atlas: &Res<Atlas>, 
     id: u8, 
     campid: u8, 
     pos: Vec2, 
     sprite: i32, 
-    power_up_type: PowerUpType
+    power_up_type: PowerUpType,
+    chance_drop_powerup: bool,
+    is_special: bool,
 ) {
     let pb = PosBuffer(CircularBuffer::new_from(pos));
     let mut pu: [u8; NUM_POWERUPS];
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
-    commands.spawn((
+
+    let enemy_entity = commands.spawn((
         Enemy(id),
         pb,
         Health {
@@ -93,9 +97,18 @@ pub fn spawn_enemy(
         {
             power_ups: pu,
         },
+        ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
-    ));
+    )).id();
+    if is_special {
+        let special_entity = commands.spawn(SpriteBundle {
+            texture: asset_server.load("Special_Enemy.png"),
+            transform: Transform::from_xyz(0.0, 0.0, -0.5),
+            ..default()
+        }).id();
+        commands.entity(enemy_entity).add_child(special_entity);
+    }
 }
 
 pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>>) {
@@ -153,28 +166,30 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp), With<Enemy>>,
+    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
     mut scores: Query<(&mut Score, &Player)>,
     asset_server: Res<AssetServer>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf, ec_num) in enemies.iter_mut() {
+    for (e, hp, la, spu, mut sp, tf, ec_num,cdpu) in enemies.iter_mut() {
         if hp.current <= 0 {
-            // drop powerups by cycling through the stored powerups of the enemy
-            // and spawning the appropriate one
-            let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
-            for (index, &element) in spu.power_ups.iter().enumerate() {
-                if element == 1
-                {
-                    commands.spawn((SpriteBundle {
-                        texture: asset_server.load(power_up_icons[index]).into(),
-                        transform: Transform {
-                            translation: Vec3::new(tf.translation.x, tf.translation.y, 1.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()},
-                                    PowerUp(unsafe { std::mem::transmute(index as u8) } ),
-                    ));
+            if cdpu.0{
+                // drop powerups by cycling through the stored powerups of the enemy
+                // and spawning the appropriate one
+                let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
+                for (index, &element) in spu.power_ups.iter().enumerate() {
+                    if element == 1
+                    {
+                        commands.spawn((SpriteBundle {
+                            texture: asset_server.load(power_up_icons[index]).into(),
+                            transform: Transform {
+                                translation: Vec3::new(tf.translation.x, tf.translation.y, 1.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()},
+                                        PowerUp(unsafe { std::mem::transmute(index as u8) } ),
+                        ));
+                    }
                 }
             }
             // decrement the enemy counter of the camp that this enemy is apart of

@@ -38,13 +38,13 @@ pub fn setup_camps(
     camp_nodes: Res<CampNodes>,
     decoration_atlas: Res<Decorations>,
     map_seed: Res<MapSeed>,
-
+    asset_server: Res<AssetServer>,
     //TODO: USE THIS FOR SEED UPDATES
     //rng: SeedableRng
 ) {
     //TODO: make this based off the generated seed when that gets implemented
     let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
-
+    const POWERUP_DROP_CHANCE: u32 = 50;
     // spawn a camp at a specified position
 
     //TODO: respawn enemies in a camp after a certain amount of time
@@ -59,6 +59,8 @@ pub fn setup_camps(
         let camp_grade: u8 = rng.gen_range(1..=NUM_GRADES);
         //get the prefab data for the given grade
         let mut prefab_data = get_prefab_data(camp_grade);
+
+        let special_enemy_index = rng.gen_range(0..CAMP_ENEMIES);
 
         let pb = PosBuffer(CircularBuffer::new_from(camp_pos));
         commands.spawn((
@@ -99,13 +101,20 @@ pub fn setup_camps(
 
         //spawn enemies for this camp
         for n in 0..CAMP_ENEMIES{
+            let is_special = n == special_enemy_index;
             //generate a random powerup to drop from each enemy
             let powerups: [PowerUpType; 5] = [PowerUpType::DamageDealtUp, PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp, PowerUpType::MaxHPUp];
             //TODO: make this a random percentage based on the mapconfig resource
-            let rpu = rng.gen_range(0..powerups.len());
+            let power_up_to_drop = powerups[camp_grade as usize % powerups.len()];
+            let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE as u32;
+
+            if is_special{
+                chance_drop_powerup = true;
+            }
 
             enemy::spawn_enemy(
                 &mut commands, 
+                &asset_server,
                 &entity_atlas, 
                 n, 
                 campid, 
@@ -113,7 +122,9 @@ pub fn setup_camps(
                     camp_pos.x + (prefab_data.pop_front().unwrap() * 16) as f32, 
                     camp_pos.y + (prefab_data.pop_front().unwrap() * 16) as f32), 
                 camp_grade as i32, 
-                powerups[rpu],
+                power_up_to_drop,
+                chance_drop_powerup,
+                is_special,
             );
         }
         campid+=1;
