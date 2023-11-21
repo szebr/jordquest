@@ -1,3 +1,5 @@
+use std::thread::spawn;
+
 use bevy::ecs::system::EntityCommands;
 use crate::menus::components::*;
 use bevy::prelude::Deref;
@@ -270,6 +272,19 @@ pub fn spawn_credits_page(
     add_credits_slide(&mut commands, &asset_server, "CreditJordanBrudenell.png", 4);
     add_credits_slide(&mut commands, &asset_server, "CreditRuohengXu.png", 5);
     add_credits_slide(&mut commands, &asset_server, "CreditSamDurigon.png", 6);
+    let credits_page_id = spawn_flex_column_colored(&mut commands, CreditsPage, Color::Rgba { red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0 });
+    let mut credits_page = commands.entity(credits_page_id);
+    credits_page.insert(Style {
+        margin: UiRect {
+            left: Val::Auto,
+            right: Val::Auto,
+            top: Val::Px(0.),
+            bottom: Val::Px(0.),
+        },
+        align_items: AlignItems::FlexEnd,
+        ..Default::default()
+    });
+    spawn_button(&mut credits_page, &asset_server.load("fonts/FiraSans-Bold.ttf"), QuitButton, "Quit");
     // after this, you just have to quit to restart
 }
 

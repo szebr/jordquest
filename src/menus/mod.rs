@@ -40,6 +40,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnEnter(AppState::GameOver), update_leaderboard.before(remove_players))
         .add_systems(OnEnter(AppState::GameOver), toggle_leaderboard.before(remove_players))
         .add_systems(OnExit(AppState::GameOver), despawn_leaderboard_ui)
+        .add_systems(OnEnter(AppState::Quitting), exit_system)
         .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<ControlsButtonType>.run_if(in_state(AppState::MainMenu)))
@@ -48,6 +49,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, update_leaderboard.run_if(in_state(AppState::Game)))
         .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::GameOver)))
         .add_systems(Update, interact_with_button::<BackButtonType>)
+        .add_systems(Update, interact_with_button::<QuitButtonType>.run_if(in_state(AppState::Credits)))
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_num_camps_input)
         .add_systems(Update, update_num_chests_input)
@@ -78,6 +80,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, init_enemies_per_camp_input_system)
         .add_systems(Update, init_map_seed_input_system)
         .add_systems(Update, init_eid_percentage_input_system)
+        .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, startup);
 }}
 

@@ -290,6 +290,14 @@ impl ButtonTypeTrait for CreditsButtonType {
     }
 }
 
+pub struct QuitButtonType;
+impl ButtonTypeTrait for QuitButtonType {
+    type Marker = QuitButton;
+    fn app_state() -> AppState {
+        AppState::Quitting
+    }
+}
+
 #[derive(Component)]
 pub struct HostButton;
 
@@ -303,10 +311,10 @@ pub struct ControlsButton;
 pub struct CreditsButton;
 
 #[derive(Component)]
-pub struct BackToMainMenu;
+pub struct QuitButton;
 
 #[derive(Component)]
-pub struct GameOver;
+pub struct BackToMainMenu;
 
 #[derive(Component)]
 pub struct LeaderboardUi;
