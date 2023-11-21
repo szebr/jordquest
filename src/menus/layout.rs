@@ -536,14 +536,14 @@ pub fn spawn_leaderboard_ui(
         LeaderboardUi)).id();
     // title
     let title_entity = commands
-        .spawn(TextBundle::from_section(
+        .spawn((TextBundle::from_section(
             "Leaderboard".to_string(),
             TextStyle {
                 font: font.clone(),
                 font_size: 64.0,
                 color: Color::RED,
             },
-        )).id();
+        ), LeaderboardUiTitle)).id();
     commands.entity(leaderboard_entity).push_children(&[title_entity]);
     // field names
     let measures_entity = commands
@@ -681,6 +681,7 @@ pub fn toggle_leaderboard(
     mut in_game_ui_query: Query<&mut Style, With<InGameUi>>,
     mut minimap_query: Query<&mut Visibility, With<SpatialCameraBundle>>,
     mut leaderboard_query: Query<(Entity, &mut Style), (With<LeaderboardUi>, Without<InGameUi>)>,
+    mut leaderboard_title_query: Query<&mut Text, With<LeaderboardUiTitle>>,
     app_state_current_state: ResMut<State<AppState>>,
 ) {
     if input.just_pressed(KeyCode::Tab) || *app_state_current_state.get() == AppState::GameOver {
@@ -692,6 +693,17 @@ pub fn toggle_leaderboard(
         }
         for (_, mut style) in &mut leaderboard_query.iter_mut() {
             style.display = Display::Flex;
+        }
+        if *app_state_current_state.get() == AppState::GameOver 
+        {
+            for mut text in &mut leaderboard_title_query.iter_mut() {
+                text.sections[0].value = "Game Over".to_string();
+            }
+            for (leaderboard_id, _) in &mut leaderboard_query.iter_mut() {
+                let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+                let mut leaderboard_entity = commands.entity(leaderboard_id);
+                spawn_button(&mut leaderboard_entity, &font, CreditsButton, "Credits");
+            }
         }
     } 
     else if input.just_released(KeyCode::Tab)
@@ -705,18 +717,6 @@ pub fn toggle_leaderboard(
         for (_, mut style) in &mut leaderboard_query.iter_mut() {
             style.display = Display::None;
         }
-    }
-    if *app_state_current_state.get() == AppState::GameOver 
-    {
-        for (leaderboard_id, _) in &mut leaderboard_query.iter_mut() {
-            // if text.sections[0].value == "Leaderboard" {
-            //     text.sections[0].value = "Game Over".to_string();
-            // }
-            let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-            let mut leaderboard_entity = commands.entity(leaderboard_id);
-            spawn_button(&mut leaderboard_entity, &font, CreditsButton, "Credits");
-        }
-
     }
 }
 

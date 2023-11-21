@@ -312,6 +312,9 @@ pub struct GameOver;
 pub struct LeaderboardUi;
 
 #[derive(Component)]
+pub struct LeaderboardUiTitle;
+
+#[derive(Component)]
 pub struct PlayerStatDisplay{
     pub player_id: u8,
     pub stat_id: u8,
