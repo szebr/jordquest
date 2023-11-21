@@ -12,8 +12,7 @@ use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
-use crate::menus::components::{InGameUi,LeaderboardUi,PlayerStatDisplay};
-use crate::camera::{Minimap, Marker};
+use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
 
 
 pub const PLAYER_SPEED: f32 = 250.;
@@ -68,13 +67,11 @@ impl Plugin for PlayerPlugin{
                 handle_move,
                 spawn_shield_on_right_click,
                 despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
-                toggle_leaderboard.run_if(in_state(AppState::Game)),
-                update_leaderboard.run_if(in_state(AppState::Game)),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
-            .add_systems(OnEnter(AppState::GameOver), remove_players)
+            .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
             .add_event::<SetIdEvent>()
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>()
@@ -458,58 +455,6 @@ pub fn despawn_shield_on_right_click_release(
         for &child in player_children.iter() {
             if shield_query.get(child).is_ok() {
                 commands.entity(child).despawn();
-            }
-        }
-    }
-}
-
-pub fn toggle_leaderboard(
-    input: Res<Input<KeyCode>>,
-    mut in_game_ui_query: Query<&mut Style, With<InGameUi>>,
-    mut minimap_query: Query<&mut Visibility, With<SpatialCameraBundle>>,
-    mut leaderboard_query: Query<&mut Style, (With<LeaderboardUi>, Without<InGameUi>)>,
-) {
-    if input.just_pressed(KeyCode::Tab) {
-        for mut style in &mut in_game_ui_query.iter_mut() {
-            style.display = Display::None;
-        }
-        for mut vis in &mut minimap_query.iter_mut() {
-            *vis = Visibility::Hidden;
-        }
-        for mut style in &mut leaderboard_query.iter_mut() {
-            style.display = Display::Flex;
-        }
-    } 
-    else if input.just_released(KeyCode::Tab) 
-    {
-        for mut style in &mut in_game_ui_query.iter_mut() {
-            style.display = Display::Flex;
-        }
-        for mut vis in &mut minimap_query.iter_mut() {
-            *vis = Visibility::Visible;
-        }
-        for mut style in &mut leaderboard_query.iter_mut() {
-            style.display = Display::None;
-        }
-    }
-}
-
-pub fn update_leaderboard(
-    stats_query: Query<(&Player, &Stats), Without<PlayerStatDisplay>>,
-    mut leaderboard_query: Query<(&mut Text, &PlayerStatDisplay), With<PlayerStatDisplay>>,
-) {
-    for (player, stats) in &stats_query {
-        for (mut text, identifier) in &mut leaderboard_query {
-            if identifier.player_id == player.0 {
-                match identifier.stat_id {
-                    1 => text.sections[0].value = stats.score.to_string(),
-                    2 => text.sections[0].value = stats.enemies_killed.to_string(),
-                    3 => text.sections[0].value = stats.players_killed.to_string(),
-                    4 => text.sections[0].value = stats.camps_captured.to_string(),
-                    5 => text.sections[0].value = stats.deaths.to_string(),
-                    6 => text.sections[0].value = stats.kd_ratio.to_string(),
-                    _ => {}
-                }
             }
         }
     }

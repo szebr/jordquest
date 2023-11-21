@@ -7,6 +7,7 @@ use bevy::prelude::*;
 use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::ROUND_TIME;
+use crate::AppState;
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -404,7 +405,8 @@ pub fn spawn_in_game_ui(
             }
         ).with_alignment(TextAlignment::Left),
         ..Default::default()},
-        ScoreDisplay));
+        ScoreDisplay,
+        InGameUi));
 
     // Timer Display
     commands.spawn((TextBundle {
@@ -425,10 +427,11 @@ pub fn spawn_in_game_ui(
         ..Default::default()},
         GameTimer {
             remaining_time: ROUND_TIME
-        }));
+        },
+        InGameUi));
 
     // Powerup Display
-     commands.spawn(ImageBundle {
+     commands.spawn((ImageBundle {
         style: Style {
             position_type: PositionType::Absolute,
             left: Val::Px(PADDING),
@@ -437,9 +440,9 @@ pub fn spawn_in_game_ui(
         },
         image: asset_server.load("powerup_icons.png").into(),
         ..default()
-    });
+    }, InGameUi));
 
-    commands.spawn(NodeBundle {
+    commands.spawn((NodeBundle {
         style: Style {
             position_type: PositionType::Absolute,
             left: Val::Px(PADDING + 72.),
@@ -450,7 +453,7 @@ pub fn spawn_in_game_ui(
             ..default()
         },
         ..default()
-    }).with_children(|parent| {
+    }, InGameUi)).with_children(|parent| {
         for i in 0..NUM_POWERUPS {
             parent.spawn((
                 TextBundle::from_section(
@@ -469,51 +472,21 @@ pub fn spawn_in_game_ui(
 
 pub fn update_time_remaining_system(
     time: Res<Time>, 
-    mut game_timer_query: Query<(&mut GameTimer, &mut Text)>,
-    mut join_page_query: Query<&mut Style, With<JoinPage>>,
-    mut game_over_query: Query<&mut Style, (With<GameOver>, Without<JoinPage>)>,
+    mut game_timer: Query<(&mut GameTimer, &mut Text)>,
+    mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {
-    for (mut timer, mut text) in &mut game_timer_query {
+    for (mut timer, mut text) in &mut game_timer {
         if timer.remaining_time > 0.0 {
             timer.remaining_time -= time.delta_seconds();
-
             let minutes = (timer.remaining_time / 60.0) as i32;
             let seconds = (timer.remaining_time % 60.0) as i32;
 
             text.sections[0].value = format!("{:02}:{:02}", minutes, seconds);
         } else {
             // TODO Handle game over logic
-            for mut style in join_page_query.iter_mut() {
-                style.display = Display::None;
-            }
-            for mut style in game_over_query.iter_mut() {
-                style.display = Display::Flex;
-            }
-
+            app_state_next_state.set(AppState::GameOver);
         }
     }
-}
-
-pub fn despawn_game_over_screen(
-    mut commands: Commands, 
-    game_over_entity: Query<Entity, With<GameOver>>
-) {
-    if let Ok(game_over_entity) = game_over_entity.get_single() {
-        commands.entity(game_over_entity).despawn_recursive();
-    }
-}
-
-pub fn spawn_game_over_screen(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>
-) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let color = Color::Rgba { red: (1.0), green: (1.0), blue: (1.0), alpha: (0.5) };
-    let game_over_id = spawn_flex_column_colored(&mut commands, GameOver, color);
-    let mut game_over = commands.entity(game_over_id);
-    spawn_title(&mut game_over, &font, "Game Over");
-    spawn_button(&mut game_over, &font, CreditsButton, "Credits");
-    // no "back to main menu", just quit game and reopen it.
 }
 
 pub fn despawn_connecting_page(
@@ -541,7 +514,6 @@ pub fn spawn_leaderboard_ui(
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let measure_names = ["Player", "Score", "Enemy Kills", "Player Kills", "Camps Captured", "Deaths", "KD"];
-    // background
     let leaderboard_entity = commands
         .spawn((NodeBundle {
             style: Style {
@@ -551,7 +523,7 @@ pub fn spawn_leaderboard_ui(
                 padding: UiRect {
                     left: Val::Px(40.),
                     right: Val::Px(40.),
-                    top: Val::Px(120.),
+                    top: Val::Px(80.),
                     bottom: Val::Px(40.),
                 },
                 flex_direction: FlexDirection::Column,
@@ -699,5 +671,72 @@ pub fn despawn_leaderboard_ui(
 ) {
     if let Ok(leaderboard_entity) = leaderboard_entity.get_single() {
         commands.entity(leaderboard_entity).despawn_recursive();
+    }
+}
+
+pub fn toggle_leaderboard(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    input: Res<Input<KeyCode>>,
+    mut in_game_ui_query: Query<&mut Style, With<InGameUi>>,
+    mut minimap_query: Query<&mut Visibility, With<SpatialCameraBundle>>,
+    mut leaderboard_query: Query<(Entity, &mut Style), (With<LeaderboardUi>, Without<InGameUi>)>,
+    app_state_current_state: ResMut<State<AppState>>,
+) {
+    if input.just_pressed(KeyCode::Tab) || *app_state_current_state.get() == AppState::GameOver {
+        for mut style in &mut in_game_ui_query.iter_mut() {
+            style.display = Display::None;
+        }
+        for mut vis in &mut minimap_query.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+        for (_, mut style) in &mut leaderboard_query.iter_mut() {
+            style.display = Display::Flex;
+        }
+    } 
+    else if input.just_released(KeyCode::Tab)
+    {
+        for mut style in &mut in_game_ui_query.iter_mut() {
+            style.display = Display::Flex;
+        }
+        for mut vis in &mut minimap_query.iter_mut() {
+            *vis = Visibility::Visible;
+        }
+        for (_, mut style) in &mut leaderboard_query.iter_mut() {
+            style.display = Display::None;
+        }
+    }
+    if *app_state_current_state.get() == AppState::GameOver 
+    {
+        for (leaderboard_id, _) in &mut leaderboard_query.iter_mut() {
+            // if text.sections[0].value == "Leaderboard" {
+            //     text.sections[0].value = "Game Over".to_string();
+            // }
+            let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+            let mut leaderboard_entity = commands.entity(leaderboard_id);
+            spawn_button(&mut leaderboard_entity, &font, CreditsButton, "Credits");
+        }
+
+    }
+}
+
+pub fn update_leaderboard(
+    stats_query: Query<(&Player, &Stats), (Without<PlayerStatDisplay>, Changed<Stats>)>,
+    mut leaderboard_query: Query<(&mut Text, &PlayerStatDisplay), With<PlayerStatDisplay>>,
+) {
+    for (player, stats) in &stats_query {
+        for (mut text, identifier) in &mut leaderboard_query {
+            if identifier.player_id == player.0 {
+                match identifier.stat_id {
+                    1 => text.sections[0].value = stats.score.to_string(),
+                    2 => text.sections[0].value = stats.enemies_killed.to_string(),
+                    3 => text.sections[0].value = stats.players_killed.to_string(),
+                    4 => text.sections[0].value = stats.camps_captured.to_string(),
+                    5 => text.sections[0].value = stats.deaths.to_string(),
+                    6 => text.sections[0].value = stats.kd_ratio.to_string(),
+                    _ => {}
+                }
+            }
+        }
     }
 }
