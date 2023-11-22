@@ -184,8 +184,6 @@ fn spawn_camp_markers(
                 CampMarker(camp_num.0),
             )).id();
 
-            println!("putting camp marker {} at ({}, {})", camp_num.0, camp_pos.0.get(0).x / TILESIZE as f32, camp_pos.0.get(0).y / TILESIZE as f32);
-
             commands.entity(parent).add_child(camp_marker_ent);
         }
     }
