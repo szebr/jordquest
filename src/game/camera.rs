@@ -9,6 +9,7 @@ use crate::game::components::Health;
 use crate::game::player;
 use crate::game::camp::setup_camps;
 use crate::game::components::Camp;
+use super::buffers::PosBuffer;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -50,7 +51,8 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
             .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
-            .add_systems(Update, configure_map_on_event);
+            .add_systems(Update, configure_map_on_event)
+            .add_systems(Update, spawn_camp_markers.run_if(any_with_component::<Camp>()));
     }
 }
 
@@ -88,7 +90,6 @@ pub fn spawn_minimap(
     mut assets: ResMut<Assets<Image>>,
     map: Res<WorldMap>,
     mut cam_bundle: Query<Entity, With<SpatialCameraBundle>>,
-    camps: Query<(&Camp), With<Camp>>
 ) {
     let border_ent = commands.spawn((
         SpriteBundle {
@@ -151,18 +152,30 @@ pub fn spawn_minimap(
         commands.entity(parent).add_child(border_ent);
         commands.entity(parent).add_child(minimap_ent);
         commands.entity(parent).add_child(marker_ent);
+    }
+}
 
-        for (camp_num) in camps.iter() {
+fn spawn_camp_markers(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut minimap: Query<Entity, With<Minimap>>,
+    camp_markers: Query<Entity, With<CampMarker>>,
+    camps: Query<(&Camp, &PosBuffer), With<Camp>>
+) {
+    for _marker in &camp_markers {
+        return;
+    }
+
+    for parent in &mut minimap {
+        for (camp_num, camp_pos) in camps.iter() {
             let camp_marker_ent = commands.spawn((
                 SpriteBundle {
-                    texture: asset_server.load("player_marker.png"),
+                    texture: asset_server.load("camp_marker.png"),
                     transform: Transform {
                         translation: Vec3 {
-                            x: 0.,
-                            //x: camp_pos.0.get(0).x - (MINIMAP_DIMENSIONS.x as f32 * GAME_PROJ_SCALE),
-                            y: 0.,
-                            //y: -(camp_pos.0.get(0).y - (MINIMAP_DIMENSIONS.y as f32 * GAME_PROJ_SCALE)),
-                            z: MINIMAP_TRANSLATION.z + 1.99
+                            x: (camp_pos.0.get(0).x / TILESIZE as f32),
+                            y: (camp_pos.0.get(0).y / TILESIZE as f32),
+                            z: 0.
                         },
                         ..Default::default()
                     },
@@ -171,7 +184,7 @@ pub fn spawn_minimap(
                 CampMarker(camp_num.0),
             )).id();
 
-            println!("putting camp marker");
+            println!("putting camp marker {} at ({}, {})", camp_num.0, camp_pos.0.get(0).x / TILESIZE as f32, camp_pos.0.get(0).y / TILESIZE as f32);
 
             commands.entity(parent).add_child(camp_marker_ent);
         }
@@ -236,7 +249,6 @@ fn configure_map_on_event(
     mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     mut local_marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<Minimap>, Without<MinimapBorder>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    mut camp_markers: Query<&mut Transform, (With<CampMarker>, Without<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
     camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>,
     mut death_reader: EventReader<LocalPlayerDeathEvent>,
     mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
@@ -283,19 +295,6 @@ fn configure_map_on_event(
             local_marker_tf.translation.y = camera_tf.translation.y / 16.;
             local_marker_tf.scale.x = new_scale;
             local_marker_tf.scale.y = new_scale;
-        }
-    }
-
-    for mut camp_marker_tf in &mut camp_markers {
-        camp_marker_tf.scale.x = new_scale;
-        camp_marker_tf.scale.y = new_scale;
-
-        if spawn_mode.unwrap() {
-            //camp_marker_tf.translation.x = (camp_marker_tf.translation.x * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.x;
-            //camp_marker_tf.translation.y = (camp_marker_tf.translation.y * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.y;
-        } else {
-            //camp_marker_tf.translation.x = (camp_marker_tf.translation.x / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.x;
-            //camp_marker_tf.translation.y = (camp_marker_tf.translation.y / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.y;
         }
     }
 }
