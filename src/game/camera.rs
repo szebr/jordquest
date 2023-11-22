@@ -162,6 +162,8 @@ fn spawn_camp_markers(
     camp_markers: Query<Entity, With<CampMarker>>,
     camps: Query<(&Camp, &PosBuffer), With<Camp>>
 ) {
+    // Return immediately if the camp markers already exist
+    // TODO: Call this function once on a CampSpawnEvent to make this loop redundant
     for _marker in &camp_markers {
         return;
     }
