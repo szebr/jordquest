@@ -51,7 +51,7 @@ impl Plugin for CameraPlugin {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
-            .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
+            .add_systems(Update, marker_follow_local_player.run_if(not(player::local_player_dead)))
             .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
             .add_systems(Update, configure_map_on_event)
             .add_systems(Update, spawn_camp_markers.run_if(any_with_component::<Camp>()));
@@ -91,9 +91,9 @@ pub fn spawn_minimap(
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<Image>>,
     map: Res<WorldMap>,
-    mut cam_bundle: Query<Entity, With<SpatialCameraBundle>>,
+    mut game_camera: Query<Entity, With<SpatialCameraBundle>>,
 ) {
-    let border_ent = commands.spawn((
+    let minimap_border_entity = commands.spawn((
         SpriteBundle {
             texture: asset_server.load("minimap_border.png"),
             transform: Transform {
@@ -110,14 +110,14 @@ pub fn spawn_minimap(
         MinimapBorder,
     )).id();
 
-    for parent in &mut cam_bundle {
-        commands.entity(parent).add_child(border_ent);
+    for parent in &mut game_camera {
+        commands.entity(parent).add_child(minimap_border_entity);
     }
 
     let minimap: Image = draw_minimap(map);
     let minimap_handle = assets.add(minimap);
 
-    let minimap_ent = commands.spawn((
+    let minimap_entity = commands.spawn((
         SpriteBundle {
             texture: minimap_handle,
             transform: Transform {
@@ -133,9 +133,9 @@ pub fn spawn_minimap(
         Minimap,
     )).id();
 
-    commands.entity(border_ent).add_child(minimap_ent);
+    commands.entity(minimap_border_entity).add_child(minimap_entity);
 
-    let marker_ent = commands.spawn((
+    let local_player_marker_entity = commands.spawn((
         SpriteBundle {
             texture: asset_server.load("player_marker.png"),
             transform: Transform {
@@ -152,7 +152,7 @@ pub fn spawn_minimap(
         LocalPlayerMarker,
     )).id();
 
-    commands.entity(minimap_ent).add_child(marker_ent);
+    commands.entity(minimap_entity).add_child(local_player_marker_entity);
 }
 
 fn spawn_camp_markers(
@@ -244,7 +244,7 @@ fn draw_minimap(
 
 // Adjusts minimap/border/marker position and size based on being in Game or Respawn state
 fn configure_map_on_event(
-    mut border: Query<&mut Transform, With<MinimapBorder>>,
+    mut minimap_border: Query<&mut Transform, With<MinimapBorder>>,
     mut death_reader: EventReader<LocalPlayerDeathEvent>,
     mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
 ) {
@@ -270,27 +270,27 @@ fn configure_map_on_event(
     }
 
     // Set border translation/scale with aforementioned parameters
-    for mut border_tf in &mut border {
-        border_tf.translation.x = new_translation.x;
-        border_tf.translation.y = new_translation.y;
-        border_tf.scale.x = new_scale;
-        border_tf.scale.y = new_scale;
+    for mut border_transform in &mut minimap_border {
+        border_transform.translation.x = new_translation.x;
+        border_transform.translation.y = new_translation.y;
+        border_transform.scale.x = new_scale;
+        border_transform.scale.y = new_scale;
     }
 }
 
 // Make marker reflect player position while player is alive
-fn marker_follow(
-    player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
-    mut marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+fn marker_follow_local_player(
+    local_player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
+    mut local_player_marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
 ) {
-    for player_tf in &player {
+    for local_player_transform in &local_player {
         // Set marker position on minimap to reflect the player's current position in the game world
-        for mut marker_tf in &mut marker {
-            if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.x = player_tf.translation.x / TILESIZE as f32;
+        for mut marker_tf in &mut local_player_marker {
+            if local_player_transform.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
+                marker_tf.translation.x = local_player_transform.translation.x / TILESIZE as f32;
             }
-            if player_tf.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.y = player_tf.translation.y / TILESIZE as f32;
+            if local_player_transform.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
+                marker_tf.translation.y = local_player_transform.translation.y / TILESIZE as f32;
             }
         }
     }
@@ -301,8 +301,8 @@ fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
-    mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
-    mut marker_vis: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
+    mut local_player: Query<(&mut Transform, &mut Health), With<LocalPlayer>>,
+    mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
     map: Res<WorldMap>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
@@ -340,16 +340,16 @@ fn respawn_update(
                     // Valid spawn tile
                     app_state_next_state.set(AppState::Game);
 
-                    let (mut tf, mut hp, mut vis) = player.single_mut();
+                    let (mut local_player_transform, mut local_player_health) = local_player.single_mut();
 
-                    hp.current = PLAYER_DEFAULT_HP;
+                    local_player_health.current = PLAYER_DEFAULT_HP;
                     spawn_writer.send(LocalPlayerSpawnEvent);
-                    tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
-                    tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
+                    local_player_transform.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                    local_player_transform.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 
                     // Show marker
-                    for mut vis in &mut marker_vis {
-                        *vis = Visibility::Visible;
+                    for mut visibility in &mut marker_visibility {
+                        *visibility = Visibility::Visible;
                     }
                 }
             }
@@ -359,14 +359,14 @@ fn respawn_update(
 
 // Runs in Game state, makes SpatialCameraBundle follow player
 fn game_update(
-    player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
-    mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>
+    local_player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
+    mut game_camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>
 ) {
-    for player_tf in &player {
+    for local_player_transform in &local_player {
         // Make SpatialCameraBundle follow player
-        for mut camera_tf in &mut camera {
-            camera_tf.translation.x = player_tf.translation.x;
-            camera_tf.translation.y = player_tf.translation.y;
+        for mut camera_transform in &mut game_camera {
+            camera_transform.translation.x = local_player_transform.translation.x;
+            camera_transform.translation.y = local_player_transform.translation.y;
 
             let clamp_pos_x: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_W * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
             let clamp_pos_y: f32 = ((((map::MAPSIZE * map::TILESIZE) as isize)/2) - (((super::WIN_H * GAME_PROJ_SCALE) / 2.) as isize)) as f32;
@@ -374,26 +374,26 @@ fn game_update(
             // Clamp camera view to map borders
             // Center camera in axis if map dimensions < window size
             if map::MAPSIZE * map::TILESIZE < super::WIN_W as usize {
-                camera_tf.translation.x = 0.
+                camera_transform.translation.x = 0.
             }
             else {
-                if camera_tf.translation.x > clamp_pos_x {
-                    camera_tf.translation.x = clamp_pos_x
+                if camera_transform.translation.x > clamp_pos_x {
+                    camera_transform.translation.x = clamp_pos_x
                 }
-                if camera_tf.translation.x < -clamp_pos_x {
-                    camera_tf.translation.x = -clamp_pos_x;
+                if camera_transform.translation.x < -clamp_pos_x {
+                    camera_transform.translation.x = -clamp_pos_x;
                 }
             }
 
             if map::MAPSIZE * map::TILESIZE < super::WIN_H as usize {
-                camera_tf.translation.y = 0.
+                camera_transform.translation.y = 0.
             }
             else {
-                if camera_tf.translation.y > clamp_pos_y {
-                    camera_tf.translation.y = clamp_pos_y
+                if camera_transform.translation.y > clamp_pos_y {
+                    camera_transform.translation.y = clamp_pos_y
                 }
-                if camera_tf.translation.y < -clamp_pos_y {
-                    camera_tf.translation.y = -clamp_pos_y;
+                if camera_transform.translation.y < -clamp_pos_y {
+                    camera_transform.translation.y = -clamp_pos_y;
                 }
             }
         }
