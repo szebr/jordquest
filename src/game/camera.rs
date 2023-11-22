@@ -1,3 +1,5 @@
+use std::marker;
+
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
@@ -108,6 +110,10 @@ pub fn spawn_minimap(
         MinimapBorder,
     )).id();
 
+    for parent in &mut cam_bundle {
+        commands.entity(parent).add_child(border_ent);
+    }
+
     let minimap: Image = draw_minimap(map);
     let minimap_handle = assets.add(minimap);
 
@@ -118,15 +124,16 @@ pub fn spawn_minimap(
                 translation: Vec3 {
                     x: 0.,
                     y: 0.,
-                    z: MINIMAP_TRANSLATION.z + 1.
+                    z: 1.
                 },
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                 ..Default::default()
             },
             ..Default::default()
         },
         Minimap,
     )).id();
+
+    commands.entity(border_ent).add_child(minimap_ent);
 
     let marker_ent = commands.spawn((
         SpriteBundle {
@@ -135,9 +142,8 @@ pub fn spawn_minimap(
                 translation: Vec3 {
                     x: 0.,
                     y: 0.,
-                    z: MINIMAP_TRANSLATION.z + 2.
+                    z: 3.
                 },
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                 ..Default::default()
             },
             visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
@@ -146,13 +152,7 @@ pub fn spawn_minimap(
         LocalPlayerMarker,
     )).id();
 
-    // The minimap-related bundles are made children of SpatialCameraBundle because
-    // they need to remain in the same screen position and Bevy UI stuff is icky
-    for parent in &mut cam_bundle {
-        commands.entity(parent).add_child(border_ent);
-        commands.entity(parent).add_child(minimap_ent);
-        commands.entity(parent).add_child(marker_ent);
-    }
+    commands.entity(minimap_ent).add_child(marker_ent);
 }
 
 fn spawn_camp_markers(
@@ -175,7 +175,7 @@ fn spawn_camp_markers(
                         translation: Vec3 {
                             x: (camp_pos.0.get(0).x / TILESIZE as f32),
                             y: (camp_pos.0.get(0).y / TILESIZE as f32),
-                            z: 0.
+                            z: 2.
                         },
                         ..Default::default()
                     },
@@ -244,10 +244,7 @@ fn draw_minimap(
 
 // Adjusts minimap/border/marker position and size based on being in Game or Respawn state
 fn configure_map_on_event(
-    mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    mut local_marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<Minimap>, Without<MinimapBorder>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>,
+    mut border: Query<&mut Transform, With<MinimapBorder>>,
     mut death_reader: EventReader<LocalPlayerDeathEvent>,
     mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
 ) {
@@ -272,28 +269,12 @@ fn configure_map_on_event(
         new_scale = 1.;
     }
 
-    // Set minimap/border/marker translation/scale with aforementioned parameters
-    for mut minimap_tf in &mut minimap {
-        minimap_tf.translation.x = new_translation.x;
-        minimap_tf.translation.y = new_translation.y;
-        minimap_tf.scale.x = new_scale;
-        minimap_tf.scale.y = new_scale;
-    }
-
+    // Set border translation/scale with aforementioned parameters
     for mut border_tf in &mut border {
         border_tf.translation.x = new_translation.x;
         border_tf.translation.y = new_translation.y;
         border_tf.scale.x = new_scale;
         border_tf.scale.y = new_scale;
-    }
-
-    for mut local_marker_tf in &mut local_marker {
-        for camera_tf in &camera {
-            local_marker_tf.translation.x = camera_tf.translation.x / 16.;
-            local_marker_tf.translation.y = camera_tf.translation.y / 16.;
-            local_marker_tf.scale.x = new_scale;
-            local_marker_tf.scale.y = new_scale;
-        }
     }
 }
 
@@ -306,10 +287,10 @@ fn marker_follow(
         // Set marker position on minimap to reflect the player's current position in the game world
         for mut marker_tf in &mut marker {
             if player_tf.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.x = MINIMAP_TRANSLATION.x + player_tf.translation.x / 32.
+                marker_tf.translation.x = player_tf.translation.x / TILESIZE as f32;
             }
             if player_tf.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && player_tf.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.y = MINIMAP_TRANSLATION.y + player_tf.translation.y / 32.
+                marker_tf.translation.y = player_tf.translation.y / TILESIZE as f32;
             }
         }
     }
