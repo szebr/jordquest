@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
 use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP};
-use crate::{map, map::WorldMap};
+use crate::{map, map::WorldMap, map::CampNodes, map::TILESIZE};
 use crate::movement;
 use crate::AppState;
 use crate::game::components::Health;
@@ -23,7 +23,10 @@ const MINIMAP_TRANSLATION: Vec3 = Vec3::new(
 pub struct GameCamera;
 
 #[derive(Component)]
-pub struct Marker;
+pub struct LocalPlayerMarker;
+
+#[derive(Component)]
+pub struct CampMarker;
 
 #[derive(Component)]
 pub struct Minimap;
@@ -83,13 +86,18 @@ pub fn spawn_minimap(
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<Image>>,
     map: Res<WorldMap>,
-    mut cam_bundle: Query<Entity, With<SpatialCameraBundle>>
+    mut cam_bundle: Query<Entity, With<SpatialCameraBundle>>,
+    camp_nodes: Res<CampNodes>
 ) {
     let border_ent = commands.spawn((
         SpriteBundle {
             texture: asset_server.load("minimap_border.png"),
             transform: Transform {
-                translation: MINIMAP_TRANSLATION,
+                translation: Vec3 {
+                    x: 0.,
+                    y: 0.,
+                    z: MINIMAP_TRANSLATION.z
+                },
                 scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                 ..Default::default()
             },
@@ -106,8 +114,8 @@ pub fn spawn_minimap(
             texture: minimap_handle,
             transform: Transform {
                 translation: Vec3 {
-                    x: MINIMAP_TRANSLATION.x,
-                    y: MINIMAP_TRANSLATION.y,
+                    x: 0.,
+                    y: 0.,
                     z: MINIMAP_TRANSLATION.z + 1.
                 },
                 scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
@@ -123,8 +131,8 @@ pub fn spawn_minimap(
             texture: asset_server.load("player_marker.png"),
             transform: Transform {
                 translation: Vec3 {
-                    x: MINIMAP_TRANSLATION.x,
-                    y: MINIMAP_TRANSLATION.y,
+                    x: 0.,
+                    y: 0.,
                     z: MINIMAP_TRANSLATION.z + 2.
                 },
                 scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
@@ -133,7 +141,7 @@ pub fn spawn_minimap(
             visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
             ..Default::default()
         },
-        Marker,
+        LocalPlayerMarker,
     )).id();
 
     // The minimap-related bundles are made children of SpatialCameraBundle because
@@ -142,6 +150,28 @@ pub fn spawn_minimap(
         commands.entity(parent).add_child(border_ent);
         commands.entity(parent).add_child(minimap_ent);
         commands.entity(parent).add_child(marker_ent);
+
+        for camp in &camp_nodes.0 {
+            let camp_marker_ent = commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("player_marker.png"),
+                    transform: Transform {
+                        translation: Vec3 {
+                            x: camp.x - MINIMAP_DIMENSIONS.x as f32 / 2.,
+                            y: -(camp.y - MINIMAP_DIMENSIONS.y as f32 / 2.),
+                            z: MINIMAP_TRANSLATION.z + 1.99
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                CampMarker,
+            )).id();
+
+            println!("putting camp marker at ({}, {})", camp.x, -camp.y);
+
+            commands.entity(parent).add_child(camp_marker_ent);
+        }
     }
 }
 
@@ -200,10 +230,11 @@ fn draw_minimap(
 
 // Adjusts minimap/border/marker position and size based on being in Game or Respawn state
 fn configure_map_on_event(
-    mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    mut marker: Query<&mut Transform, (With<Marker>, Without<Minimap>, Without<MinimapBorder>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
-    camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<Marker>, Without<LocalPlayer>)>,
+    mut minimap: Query<&mut Transform, (With<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    mut border: Query<&mut Transform, (With<MinimapBorder>, Without<Minimap>, Without<LocalPlayerMarker>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    mut local_marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<Minimap>, Without<MinimapBorder>, Without<CampMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    mut camp_markers: Query<&mut Transform, (With<CampMarker>, Without<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    camera: Query<&Transform, (With<SpatialCameraBundle>, Without<Minimap>, Without<MinimapBorder>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>,
     mut death_reader: EventReader<LocalPlayerDeathEvent>,
     mut spawn_reader: EventReader<LocalPlayerSpawnEvent>
 ) {
@@ -243,20 +274,33 @@ fn configure_map_on_event(
         border_tf.scale.y = new_scale;
     }
 
-    for mut marker_tf in &mut marker {
+    for mut local_marker_tf in &mut local_marker {
         for camera_tf in &camera {
-            marker_tf.translation.x = camera_tf.translation.x / 16.;
-            marker_tf.translation.y = camera_tf.translation.y / 16.;
-            marker_tf.scale.x = new_scale;
-            marker_tf.scale.y = new_scale;
+            local_marker_tf.translation.x = camera_tf.translation.x / 16.;
+            local_marker_tf.translation.y = camera_tf.translation.y / 16.;
+            local_marker_tf.scale.x = new_scale;
+            local_marker_tf.scale.y = new_scale;
+        }
+    }
+
+    for mut camp_marker_tf in &mut camp_markers {
+        camp_marker_tf.scale.x = new_scale;
+        camp_marker_tf.scale.y = new_scale;
+
+        if spawn_mode.unwrap() {
+            camp_marker_tf.translation.x = (camp_marker_tf.translation.x * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.x;
+            camp_marker_tf.translation.y = (camp_marker_tf.translation.y * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.y;
+        } else {
+            camp_marker_tf.translation.x = (camp_marker_tf.translation.x / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.x;
+            camp_marker_tf.translation.y = (camp_marker_tf.translation.y / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.y;
         }
     }
 }
 
 // Make marker reflect player position while player is alive
 fn marker_follow(
-    player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
-    mut marker: Query<&mut Transform, (With<Marker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
+    player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
+    mut marker: Query<&mut Transform, (With<LocalPlayerMarker>, Without<SpatialCameraBundle>, Without<LocalPlayer>)>,
 ) {
     for player_tf in &player {
         // Set marker position on minimap to reflect the player's current position in the game world
@@ -277,7 +321,7 @@ fn respawn_update(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut player: Query<(&mut Transform, &mut Health, &mut Visibility), With<LocalPlayer>>,
-    mut marker_vis: Query<&mut Visibility, (With<Marker>, Without<LocalPlayer>)>,
+    mut marker_vis: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
     map: Res<WorldMap>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
@@ -334,8 +378,8 @@ fn respawn_update(
 
 // Runs in Game state, makes SpatialCameraBundle follow player
 fn game_update(
-    player: Query<&Transform, (With<LocalPlayer>, Without<Marker>, Without<SpatialCameraBundle>)>,
-    mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<Marker>, Without<LocalPlayer>)>
+    player: Query<&Transform, (With<LocalPlayer>, Without<LocalPlayerMarker>, Without<SpatialCameraBundle>)>,
+    mut camera: Query<&mut Transform, (With<SpatialCameraBundle>, Without<LocalPlayerMarker>, Without<LocalPlayer>)>
 ) {
     for player_tf in &player {
         // Make SpatialCameraBundle follow player
