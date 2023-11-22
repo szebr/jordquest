@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
 use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP};
-use crate::{map, map::WorldMap, map::CampNodes, map::TILESIZE};
+use crate::{map, map::WorldMap, map::TILESIZE};
 use crate::movement;
 use crate::AppState;
 use crate::game::components::Health;
 use crate::game::player;
-use crate::game::map::setup_map;
+use crate::game::camp::setup_camps;
+use crate::game::components::Camp;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -26,7 +27,7 @@ pub struct GameCamera;
 pub struct LocalPlayerMarker;
 
 #[derive(Component)]
-pub struct CampMarker;
+pub struct CampMarker(pub u8);
 
 #[derive(Component)]
 pub struct Minimap;
@@ -48,7 +49,7 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
             .add_systems(Update, respawn_update.run_if(player::local_player_dead))
             .add_systems(Update, marker_follow.run_if(not(player::local_player_dead)))
-            .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_map))
+            .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
             .add_systems(Update, configure_map_on_event);
     }
 }
@@ -87,7 +88,7 @@ pub fn spawn_minimap(
     mut assets: ResMut<Assets<Image>>,
     map: Res<WorldMap>,
     mut cam_bundle: Query<Entity, With<SpatialCameraBundle>>,
-    camp_nodes: Res<CampNodes>
+    camps: Query<(&Camp), With<Camp>>
 ) {
     let border_ent = commands.spawn((
         SpriteBundle {
@@ -151,24 +152,26 @@ pub fn spawn_minimap(
         commands.entity(parent).add_child(minimap_ent);
         commands.entity(parent).add_child(marker_ent);
 
-        for camp in &camp_nodes.0 {
+        for (camp_num) in camps.iter() {
             let camp_marker_ent = commands.spawn((
                 SpriteBundle {
                     texture: asset_server.load("player_marker.png"),
                     transform: Transform {
                         translation: Vec3 {
-                            x: camp.x - MINIMAP_DIMENSIONS.x as f32 / 2.,
-                            y: -(camp.y - MINIMAP_DIMENSIONS.y as f32 / 2.),
+                            x: 0.,
+                            //x: camp_pos.0.get(0).x - (MINIMAP_DIMENSIONS.x as f32 * GAME_PROJ_SCALE),
+                            y: 0.,
+                            //y: -(camp_pos.0.get(0).y - (MINIMAP_DIMENSIONS.y as f32 * GAME_PROJ_SCALE)),
                             z: MINIMAP_TRANSLATION.z + 1.99
                         },
                         ..Default::default()
                     },
                     ..Default::default()
                 },
-                CampMarker,
+                CampMarker(camp_num.0),
             )).id();
 
-            println!("putting camp marker at ({}, {})", camp.x, -camp.y);
+            println!("putting camp marker");
 
             commands.entity(parent).add_child(camp_marker_ent);
         }
@@ -288,11 +291,11 @@ fn configure_map_on_event(
         camp_marker_tf.scale.y = new_scale;
 
         if spawn_mode.unwrap() {
-            camp_marker_tf.translation.x = (camp_marker_tf.translation.x * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.x;
-            camp_marker_tf.translation.y = (camp_marker_tf.translation.y * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.y;
+            //camp_marker_tf.translation.x = (camp_marker_tf.translation.x * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.x;
+            //camp_marker_tf.translation.y = (camp_marker_tf.translation.y * (TILESIZE as f32 / GAME_PROJ_SCALE)) - MINIMAP_TRANSLATION.y;
         } else {
-            camp_marker_tf.translation.x = (camp_marker_tf.translation.x / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.x;
-            camp_marker_tf.translation.y = (camp_marker_tf.translation.y / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.y;
+            //camp_marker_tf.translation.x = (camp_marker_tf.translation.x / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.x;
+            //camp_marker_tf.translation.y = (camp_marker_tf.translation.y / (TILESIZE as f32 / GAME_PROJ_SCALE)) + MINIMAP_TRANSLATION.y;
         }
     }
 }
