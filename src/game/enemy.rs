@@ -7,10 +7,12 @@ use crate::game::buffers::{CircularBuffer, PosBuffer};
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
-use crate::game::map::WorldMap;
+use crate::game::map::{Biome, TILESIZE, MAPSIZE, WorldMap};
 use crate::game::movement;
 use crate::game::player::PlayerShield;
 use super::player::PLAYER_DEFAULT_DEF;
+use std::collections::{BinaryHeap, HashMap};
+use std::cmp::Ordering;
 
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
@@ -259,7 +261,8 @@ pub fn fixed_aggro(
 pub fn fixed_move(
     tick: Res<net::TickNum>,
     mut enemies: Query<(&mut PosBuffer, &Aggro), (With<Enemy>, Without<Player>)>,
-    players: Query<(&Player, &PosBuffer), (With<Player>, Without<Enemy>)>
+    players: Query<(&Player, &PosBuffer), (With<Player>, Without<Enemy>)>,
+    map: Res<WorldMap>
 ) {
     for (mut epb, aggro) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
@@ -279,12 +282,178 @@ pub fn fixed_move(
 
             let displacement = *player_pos - *prev;
             if !(displacement.length() < CIRCLE_RADIUS) {
-                let movement = (*player_pos - *prev).normalize() * ENEMY_SPEED;
+                let posit = find_next(&map.biome_map, *prev, *player_pos);
+                let movement = (posit - *prev).normalize() * ENEMY_SPEED;
                 next += movement;
             }
         }
         epb.0.set(tick.0, next);
     }
+}
+
+pub fn find_next(
+    map: &[[Biome; MAPSIZE]; MAPSIZE],
+    s: Vec2,
+    t: Vec2,
+) -> Vec2 {
+    let start = convert_vec(s);
+    let target = convert_vec(t);
+
+    // generate copy of map that uses integers instead of Biomes
+    // declare:
+    let mut u_map = [[0; MAPSIZE]; MAPSIZE];
+
+    // edit:
+    for x in 0..MAPSIZE {
+        for y in 0..MAPSIZE {
+            u_map[x][y] = match map[x][y] {
+                Biome::Wall => 1,
+                _ => 0,
+            };
+        }
+    }
+
+    // get path
+    let path = a_star(&u_map, start, target);
+
+    // return next node if there's more than one tile to travel to get to player
+    let mut go_to = target.clone();
+    if path.len() > 1 {
+        go_to = path[1].clone();
+    }
+
+    convert_back(go_to)
+}
+
+// fitting the tile values to the code below
+pub fn convert_vec(vec: Vec2) -> V2 {
+    let col = (vec.x + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
+    let row = (-vec.y + (TILESIZE * MAPSIZE / 2) as f32) as usize / TILESIZE;
+    let v2 = V2 { x: col, y: row };
+    v2
+}
+
+// converting back to the overworld values
+pub fn convert_back(v2: V2) -> Vec2 {
+    let x = (v2.x * TILESIZE) as f32 - (TILESIZE * MAPSIZE / 2) as f32;
+    let y = -(v2.y as isize * TILESIZE as isize) as f32 + (TILESIZE * MAPSIZE / 2) as f32;
+    Vec2 { x, y }
+}
+
+// structs for a_star
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct V2 {
+    x: usize,
+    y: usize,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Node {
+    position: V2,
+    cost: usize,
+}
+
+// ordering for nodes in heap
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.cost.cmp(&self.cost)
+    }
+}
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// check if position in map is valid
+pub fn is_valid_position(map: &[[i32; MAPSIZE]]) -> Box<dyn Fn(V2) -> bool + '_> {
+    Box::new(move |pos| pos.x < MAPSIZE && pos.y < map.len() && map[pos.y][pos.x] != 1)
+}
+
+// get path from hash table
+pub fn reconstruct_path(from: HashMap<V2, V2>, mut current: V2) -> Vec<V2> {
+
+    let mut path = vec![current];
+
+    while from.contains_key(&current) {
+        current = from[&current];
+        path.push(current);
+    }
+
+    path.reverse();
+
+    path
+}
+
+pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
+    let is_valid_position = is_valid_position(map);
+
+    // pq for open list
+    let mut open_list = BinaryHeap::new();
+
+    // store the previous position for each position
+    let mut from = HashMap::new();
+
+    // store the cost of reaching each position from the start
+    let mut g_score = HashMap::new();
+
+    // start position in g_score
+    g_score.insert(start, 0);
+    // add start node to open list
+    open_list.push(Node {
+        position: start,
+        cost: 0,
+    });
+
+    // A* algorithm
+    while let Some(Node { position, cost }) = open_list.pop() {
+        // reached the target, return the path
+        if position == target {
+            return reconstruct_path(from, target);
+        }
+
+        // check neighbors
+        for dx in 0..3 {
+            for dy in 0..3 {
+                // skip current
+                if dx == 1 && dy == 1 {
+                    continue;
+                }
+
+                // find neighbor
+                let neighbor = V2 {
+                    x: (position.x as isize + dx as isize - 1) as usize,
+                    y: (position.y as isize + dy as isize - 1) as usize,
+                };
+
+                // skip invalid neighbors
+                if !is_valid_position(neighbor) {
+                    continue;
+                }
+
+                let tentative_g_score = g_score.get(&position).unwrap_or(&0) + 1;
+                // if new path is better/worse
+                if !g_score.contains_key(&neighbor) || tentative_g_score < *g_score.get(&neighbor).unwrap() {
+
+                    from.insert(neighbor, position);
+                    g_score.insert(neighbor, tentative_g_score);
+
+                    let priority = tentative_g_score + heuristic(neighbor, target);
+                    open_list.push(Node {
+                        position: neighbor,
+                        cost: priority,
+                    });
+                }
+            }
+        }
+    }
+
+    // none
+    Vec::new()
+}
+
+// Manhattan distance heuristic
+fn heuristic(a: V2, b: V2) -> usize {
+    ((a.x as isize - b.x as isize).abs() + (a.y as isize - b.y as isize).abs()) as usize
 }
 
 /// Resolve enemy wall collisions
