@@ -243,7 +243,7 @@ pub fn grab_powerup(
                     if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
                         player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
                         powerup.sections[0].value = format!("{:.2}x", 
-                        (SWORD_DAMAGE + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) as f32
+                        (SWORD_DAMAGE as f32 + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] as f32 * DAMAGE_DEALT_UP as f32) as f32
                         / SWORD_DAMAGE as f32);
                     }
                     else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
@@ -257,7 +257,7 @@ pub fn grab_powerup(
                         player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
                         player_health.current += MAX_HP_UP;
                         powerup.sections[0].value = format!("{:.2}x", 
-                        (PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP) as f32
+                        (PLAYER_DEFAULT_HP as f32 + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] as f32 * MAX_HP_UP as f32) as f32
                         / PLAYER_DEFAULT_HP as f32);
                     }
                     else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
@@ -271,7 +271,7 @@ pub fn grab_powerup(
                     else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
                         player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
                         powerup.sections[0].value = format!("{:.2}x", 
-                        (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] * MOVEMENT_SPEED_UP) as f32) as f32
+                        (PLAYER_SPEED as f32 + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32) as f32) as f32
                         / PLAYER_SPEED as f32);
                     }
                 }

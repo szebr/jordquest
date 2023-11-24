@@ -107,7 +107,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let decoration_handle = asset_server.load("camp_sheet.png");
     let decoration_tex_atlas = TextureAtlas::from_grid(
         decoration_handle,
-        Vec2::splat(16.),
+        Vec2::splat(32.),
         DECORATION_SHEET_DIMS[1] as usize,
         DECORATION_SHEET_DIMS[0] as usize,
         Some(Vec2::new(1., 1.)),
