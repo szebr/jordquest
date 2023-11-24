@@ -236,7 +236,9 @@ pub fn update_players(
             let _ = stats.score.checked_sub(1);
             // TODO this is a bandaid fix for the fact that on spawn the player dies once
             if stats.score != 0 {
-                let _ = stats.deaths.checked_add(1);
+                if stats.deaths.checked_add(1).is_some() {
+                    stats.deaths += 1;
+                }
             }
             if stats.deaths != 0 {
                 stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
