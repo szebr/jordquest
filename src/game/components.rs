@@ -25,9 +25,9 @@ pub const MOVEMENT_SPEED_UP: u8 = 15;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
-    DamageDealtUp = 0,
-    DamageReductionUp = 1,
-    MaxHPUp = 2,
+    MaxHPUp = 0,
+    DamageDealtUp = 1,
+    DamageReductionUp = 2,
     AttackSpeedUp = 3,
     MovementSpeedUp = 4,
 }
@@ -37,7 +37,7 @@ pub enum PowerUpType {
 #[derive(Component)]
 pub struct StoredPowerUps{
     pub power_ups: [u8; NUM_POWERUPS],
-    // 0: DamageDealtUp, 1: DamageReductionUp, 2: MaxHPUp, 3: AttackSpeedUp, 4: MovementSpeedUp
+    // 0: MaxHPUp, 1: DamageReductionUp, 2: DamageDealtUp, 3: AttackSpeedUp, 4: MovementSpeedUp
 }
 
 #[derive(Component)]
