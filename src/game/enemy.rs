@@ -169,12 +169,12 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp), With<Enemy>>,
+    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
     mut player: Query<(&mut Stats, &Player)>,
     powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf, ec_num,cdpu) in enemies.iter_mut() {
+    for (e, hp, la, spu, mut sp, tf, ec_num, cdpu) in enemies.iter_mut() {
         if hp.current <= 0 {
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
