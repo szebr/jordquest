@@ -13,6 +13,7 @@ use crate::game::player::PlayerShield;
 use super::player::PLAYER_DEFAULT_DEF;
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
+use crate::PowerupAtlas;
 
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
@@ -170,7 +171,7 @@ pub fn update_enemies(
     mut commands: Commands,
     mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
     mut scores: Query<(&mut Score, &Player)>,
-    asset_server: Res<AssetServer>,
+    powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
     for (e, hp, la, spu, mut sp, tf, ec_num,cdpu) in enemies.iter_mut() {
@@ -178,12 +179,12 @@ pub fn update_enemies(
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
                 // and spawning the appropriate one
-                let power_up_icons = vec!["flamestrike.png", "rune-of-protection.png", "meat.png", "lightning.png", "berserker-rage.png"];
                 for (index, &element) in spu.power_ups.iter().enumerate() {
                     if element == 1
                     {
-                        commands.spawn((SpriteBundle {
-                            texture: asset_server.load(power_up_icons[index]).into(),
+                        commands.spawn((SpriteSheetBundle {
+                            texture_atlas: powerup_atlas.handle.clone(),
+                            sprite: TextureAtlasSprite { index: powerup_atlas.coord_to_index(0, index as i32), ..Default::default() },
                             transform: Transform {
                                 translation: Vec3::new(tf.translation.x, tf.translation.y, 1.0),
                                 ..Default::default()
@@ -332,14 +333,14 @@ pub fn find_next(
     let path = a_star(&u_map, start, target);
     let pivots = find_pivot_points(path);
 
-    
+
     // return next node if there's more than one tile to travel to get to player
     let mut go_to = target.clone();
 
     if pivots.len() > 1 {
         go_to = pivots[1].clone();
     }
-    
+
 
     convert_back(go_to)
 }
