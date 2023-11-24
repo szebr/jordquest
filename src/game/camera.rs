@@ -1,14 +1,12 @@
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
-use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP};
+use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP}};
 use crate::{map, map::WorldMap, map::TILESIZE};
 use crate::movement;
 use crate::AppState;
-use crate::game::components::Health;
-use crate::game::player;
+use crate::game::components::{Camp, CampStatus, Health};
 use crate::game::camp::setup_camps;
-use crate::game::components::{Camp, CampStatus};
 use super::buffers::PosBuffer;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
