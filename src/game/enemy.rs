@@ -315,12 +315,16 @@ pub fn find_next(
 
     // get path
     let path = a_star(&u_map, start, target);
+    let pivots = find_pivot_points(path);
 
+    
     // return next node if there's more than one tile to travel to get to player
     let mut go_to = target.clone();
-    if path.len() > 1 {
-        go_to = path[1].clone();
+
+    if pivots.len() > 1 {
+        go_to = pivots[1].clone();
     }
+    
 
     convert_back(go_to)
 }
@@ -454,6 +458,29 @@ pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
 // Manhattan distance heuristic
 fn heuristic(a: V2, b: V2) -> usize {
     ((a.x as isize - b.x as isize).abs() + (a.y as isize - b.y as isize).abs()) as usize
+}
+
+fn find_pivot_points(path: Vec<V2>) -> Vec<V2> {
+    let mut pivots = Vec::new();
+
+    if path.len() < 3 {
+        return path; // not enough points to determine pivots
+    }
+
+    for i in 1..path.len() - 1 {
+        let prev_slope = (path[i].y as f32 - path[i - 1].y as f32) / (path[i].x as f32 - path[i - 1].x as f32);
+        let next_slope = (path[i + 1].y as f32 - path[i].y as f32) / (path[i + 1].x as f32 - path[i].x as f32);
+
+        // Compare slopes
+        if prev_slope != next_slope {
+            pivots.push(path[i]);
+        }
+    }
+
+    // Add the last point as a pivot
+    pivots.push(path[path.len() - 1]);
+
+    pivots
 }
 
 /// Resolve enemy wall collisions
