@@ -89,8 +89,7 @@ pub fn spawn_minimap(
         SpriteBundle {
             texture: asset_server.load("minimap_border.png"),
             transform: Transform {
-                translation: MINIMAP_TRANSLATION,
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
+                translation: Vec3::new(0., 0., MINIMAP_TRANSLATION.z),
                 ..Default::default()
             },
             ..Default::default()
@@ -105,12 +104,7 @@ pub fn spawn_minimap(
         SpriteBundle {
             texture: minimap_handle,
             transform: Transform {
-                translation: Vec3 {
-                    x: MINIMAP_TRANSLATION.x,
-                    y: MINIMAP_TRANSLATION.y,
-                    z: MINIMAP_TRANSLATION.z + 1.
-                },
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
+                translation: Vec3 { x: 0., y: 0., z: MINIMAP_TRANSLATION.z + 1. },
                 ..Default::default()
             },
             ..Default::default()
@@ -122,12 +116,7 @@ pub fn spawn_minimap(
         SpriteBundle {
             texture: asset_server.load("player_marker.png"),
             transform: Transform {
-                translation: Vec3 {
-                    x: MINIMAP_TRANSLATION.x,
-                    y: MINIMAP_TRANSLATION.y,
-                    z: MINIMAP_TRANSLATION.z + 2.
-                },
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
+                translation: Vec3 { x: 0., y: 0., z: MINIMAP_TRANSLATION.z + 2. },
                 ..Default::default()
             },
             visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
