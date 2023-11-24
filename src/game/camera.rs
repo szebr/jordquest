@@ -1,5 +1,3 @@
-use std::marker;
-
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::PrimaryWindow;
@@ -10,7 +8,7 @@ use crate::AppState;
 use crate::game::components::Health;
 use crate::game::player;
 use crate::game::camp::setup_camps;
-use crate::game::components::Camp;
+use crate::game::components::{Camp, CampStatus};
 use super::buffers::PosBuffer;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
@@ -54,7 +52,8 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, marker_follow_local_player.run_if(not(player::local_player_dead)))
             .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
             .add_systems(Update, configure_map_on_event)
-            .add_systems(Update, spawn_camp_markers.run_if(any_with_component::<Camp>()));
+            .add_systems(Update, spawn_camp_markers.run_if(any_with_component::<Camp>()))
+            .add_systems(Update, hide_cleared_camp_markers.run_if(any_with_component::<CampMarker>()));
     }
 }
 
@@ -187,6 +186,27 @@ fn spawn_camp_markers(
             )).id();
 
             commands.entity(parent).add_child(camp_marker_ent);
+        }
+    }
+}
+
+// TODO: Tie this function to a camp cleared/camp spawned event instead of running on Update
+fn hide_cleared_camp_markers(
+    mut camp_markers: Query<(&CampMarker, &mut Visibility), With<CampMarker>>,
+    camps: Query<(&Camp, &CampStatus), With<Camp>>
+) {
+    for (marker_num, mut marker_visibility) in &mut camp_markers {
+        for (camp_num, camp_status) in &camps {
+            if camp_num.0 == marker_num.0 {
+                match camp_status.status {
+                    true => {
+                        *marker_visibility = Visibility::Visible;
+                    }
+                    false => {
+                        *marker_visibility = Visibility::Hidden;
+                    }
+                }
+            }
         }
     }
 }
