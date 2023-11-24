@@ -51,13 +51,23 @@ pub struct PowerUp(pub PowerUpType);
 pub struct Collider(pub Vec2);
 
 #[derive(Component)]
-pub struct Score(pub u8);
-
-#[derive(Component)]
 pub struct ScoreDisplay;
 
 #[derive(Component)]
 pub struct PowerupDisplayText(pub u8);
+
+#[derive(Component)]
+pub struct Stats{
+    pub score: u8,
+    pub enemies_killed: u8,
+    pub players_killed: u8,
+    pub camps_captured: u8,
+    pub deaths: u8,
+    pub kd_ratio: f32,
+}
+
+#[derive(Component)]
+pub struct StatDisplayText(pub u8);
 
 #[derive(Component)]
 pub struct Enemy(pub u8);  // holds id

@@ -12,6 +12,8 @@ use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
 use crate::net::{is_client, is_host};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
+use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
+
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
@@ -69,8 +71,10 @@ impl Plugin for PlayerPlugin{
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
-            .add_systems(OnEnter(AppState::GameOver), remove_players)
+            .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
             .add_event::<SetIdEvent>()
+            .add_event::<PlayerTickEvent>()
+            .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -95,7 +99,14 @@ pub fn spawn_players(
             pl = commands.spawn((
                 Player(i as u8),
                 PosBuffer(CircularBuffer::new()),
-                Score(0),
+                Stats {
+                    score: 0,
+                    enemies_killed: 0,
+                    players_killed: 0,
+                    camps_captured: 0,
+                    deaths: 0,
+                    kd_ratio: 0.
+                },
                 Health {
                     current: PLAYER_DEFAULT_HP,
                     max: PLAYER_DEFAULT_HP,
@@ -104,7 +115,7 @@ pub fn spawn_players(
                 SpriteSheetBundle {
                     texture_atlas: entity_atlas.handle.clone(),
                     sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                    visibility: Visibility::Visible,
+                    visibility: Visibility::Hidden,
                     transform: Transform::from_xyz(0., 0., 1.),
                     ..default()
                 },
@@ -122,11 +133,18 @@ pub fn spawn_players(
             pl = commands.spawn((
                 Player(i as u8),
                 PosBuffer(CircularBuffer::new()),
-                Score(0),
+                Stats {
+                    score: 0,
+                    enemies_killed: 0,
+                    players_killed: 0,
+                    camps_captured: 0,
+                    deaths: 0,
+                    kd_ratio: 0.
+                },
                 Health {
                     current: 0,
                     max: PLAYER_DEFAULT_HP,
-                    dead: false
+                    dead: true
                 },
                 SpriteSheetBundle {
                     texture_atlas: entity_atlas.handle.clone(),
@@ -192,30 +210,38 @@ pub fn update_health_bars(
 
 // Update the score displayed during the game
 pub fn update_score(
-    scores: Query<&Score, With<LocalPlayer>>,
+    stats_query: Query<&Stats, With<LocalPlayer>>,
     mut score_displays: Query<&mut Text, With<ScoreDisplay>>,
 ) {
     for mut text in score_displays.iter_mut() {
-        let score = scores.get_single();
-        if score.is_err() { return; }
-        let score = score.unwrap();
-        text.sections[0].value = format!("Score: {}", score.0);
+        for stat in stats_query.iter() {
+            let score = stat.score;
+            text.sections[0].value = format!("Score: {}", score);
+        }
     }
 }
 
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
-    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Score, &Player)>,
+    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut health, mut vis, lp, mut score, pl) in players.iter_mut() {
+    for (mut health, mut vis, lp, mut stats, pl) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
             if lp.is_some() {
                 death_writer.send(LocalPlayerDeathEvent);
             }
-            let _ = score.0.checked_sub(1);
+            if stats.deaths.checked_add(1).is_some() {
+                stats.deaths += 1;
+            }
+            if stats.deaths != 0 {
+                stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
+            } 
+            else {
+                stats.kd_ratio = stats.players_killed as f32;
+            }
         }
         else if health.current > 0 && health.dead {
             health.dead = false;
@@ -241,27 +267,37 @@ pub fn grab_powerup(
                 // player_power_ups.power_ups[power_up.0 as usize] += 1; // THIS DOES NOT WORK! I have no idea why
                 for (mut powerup, index) in &mut powerup_displays {
                     if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
-                        player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] += 1;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (SWORD_DAMAGE as f32 + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] as f32 * DAMAGE_DEALT_UP as f32) as f32
                         / SWORD_DAMAGE as f32);
                     }
                     else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
-                        player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] += 1;
+                        }
                         // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_DEFAULT_DEF as f32
                         / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
                     }
                     else if power_up.0 == PowerUpType::MaxHPUp && index.0 == 2 {
-                        player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
-                        player_health.current += MAX_HP_UP;
+                        if Some(player_power_ups.power_ups[PowerUpType::MaxHPUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] += 1;
+                        }
+                        if Some(player_health.current.checked_add(MAX_HP_UP)) != None {
+                            player_health.current += MAX_HP_UP;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_DEFAULT_HP as f32 + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] as f32 * MAX_HP_UP as f32) as f32
                         / PLAYER_DEFAULT_HP as f32);
                     }
                     else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
-                        player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] += 1;
+                        }
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
                         powerup.sections[0].value = format!("{:.2}x",
@@ -269,7 +305,9 @@ pub fn grab_powerup(
                         / (cooldown.0.duration().as_millis() as f32 / 1000.)));
                     }
                     else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
-                        player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
+                        if Some(player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize].checked_add(1)) != None {
+                            player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] += 1;
+                        }
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_SPEED as f32 + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32) as f32) as f32
                         / PLAYER_SPEED as f32);
@@ -375,7 +413,6 @@ pub fn handle_attack(
         }
     }
 }
-
 
 pub fn spawn_shield_on_right_click(
     mut commands: Commands,

@@ -170,11 +170,11 @@ pub fn handle_attack(
 pub fn update_enemies(
     mut commands: Commands,
     mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
-    mut scores: Query<(&mut Score, &Player)>,
+    mut player: Query<(&mut Stats, &Player)>,
     powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf, ec_num,cdpu) in enemies.iter_mut() {
+    for (e, hp, la, spu, mut sp, tf, ec_num, cdpu) in enemies.iter_mut() {
         if hp.current <= 0 {
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
@@ -203,9 +203,14 @@ pub fn update_enemies(
 
                 // check if the camp is cleared and assign 5 points for clearing the camp
                 if enemies_in_camp.current_enemies == 0 && camp_status.status == true{
-                    for (mut score, pl) in scores.iter_mut() {
+                    for (mut stats, pl) in player.iter_mut() {
                         if pl.0 == la.0.expect("camp has no attacker") {
-                            score.0 += 5;
+                            if Some(stats.score.checked_add(5)) != None {
+                                stats.score += 5;
+                            }
+                            if Some (stats.camps_captured.checked_add(1)) != None {
+                                stats.camps_captured += 1;
+                            }
                             println!("5 points awarded for clearing camp {}", camp_num.0)
                         }
                     }
@@ -214,9 +219,14 @@ pub fn update_enemies(
 
             // despawn the enemy and increment the score of the player who killed it
             commands.entity(e).despawn_recursive();
-            for (mut score, pl) in scores.iter_mut() {
+            for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
-                    score.0 += 1;
+                    if Some(stats.score.checked_add(1)) != None {
+                        stats.score += 1;
+                    }
+                    if Some (stats.enemies_killed.checked_add(1)) != None {
+                        stats.enemies_killed += 1
+                    }
                 }
             }
             continue;

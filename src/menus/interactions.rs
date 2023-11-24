@@ -6,6 +6,7 @@ use crate::game::PlayerId;
 use crate::menus::NetworkAddresses;
 use crate::game::MapConfig;
 use rand::Rng;
+use bevy::app::AppExit;
 
 pub fn interact_with_button<B: ButtonTypeTrait>(
     mut button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<B::Marker>)>,
@@ -553,4 +554,8 @@ pub fn init_eid_percentage_input_system(
     eid_percentage_query: Query<(Entity, &mut Text, &mut EidPercentageInput), Without<Initialized>>,
 ) {
     init_input_system_with_default::<EidPercentageInput>("WIP", commands, eid_percentage_query);
+}
+
+pub fn exit_system(mut exit: EventWriter<AppExit>) {
+    exit.send(AppExit);
 }
