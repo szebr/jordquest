@@ -18,6 +18,23 @@ pub const ROUND_TIME: f32 = 5.0 * 60.0;
 
 pub const ENTITY_SHEET_DIMS: Vec2 = Vec2 {x: 6., y: 4.}; // (rows, columns)
 pub const DECORATION_SHEET_DIMS: Vec2 = Vec2{x: 6., y: 3.};
+pub const POWERUP_SHEET_DIMS: Vec2 = Vec2{x: 5., y: 1.};
+
+#[derive(Resource)]
+pub struct PowerupAtlas{
+    pub handle: Handle<TextureAtlas>
+}
+
+impl PowerupAtlas {
+    // TODO this should take usize or isize instead of i32 I think
+    fn coord_to_index(&self, x: i32, y: i32) -> usize {
+        let mut index: i32 = ((y as f32 * POWERUP_SHEET_DIMS[1]) + x as f32) as i32;
+        if index < 0 || index > ((POWERUP_SHEET_DIMS[0] * POWERUP_SHEET_DIMS[1]) - 1.) as i32 {
+            index = ((POWERUP_SHEET_DIMS[0] * POWERUP_SHEET_DIMS[1]) - 1.) as i32;
+        }
+        return index as usize;
+    }
+}
 
 #[derive(Resource)]
 pub struct Decorations{
@@ -107,7 +124,7 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let decoration_handle = asset_server.load("camp_sheet.png");
     let decoration_tex_atlas = TextureAtlas::from_grid(
         decoration_handle,
-        Vec2::splat(16.),
+        Vec2::splat(32.),
         DECORATION_SHEET_DIMS[1] as usize,
         DECORATION_SHEET_DIMS[0] as usize,
         Some(Vec2::new(1., 1.)),
@@ -116,6 +133,19 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let decoration_atlas_handle = texture_atlases.add(decoration_tex_atlas);
     let decoration_atlas = Decorations{handle: decoration_atlas_handle};
     commands.insert_resource(decoration_atlas);
+
+    let powerup_handle = asset_server.load("powerup_sheet.png");
+    let powerup_tex_atlas = TextureAtlas::from_grid(
+        powerup_handle,
+        Vec2::splat(16.),
+        POWERUP_SHEET_DIMS[1] as usize,
+        POWERUP_SHEET_DIMS[0] as usize,
+        Some(Vec2::new(1., 1.)),
+        None
+    );
+    let powerup_atlas_handle = texture_atlases.add(powerup_tex_atlas);
+    let powerup_atlas = PowerupAtlas{handle: powerup_atlas_handle};
+    commands.insert_resource(powerup_atlas);
 
 
     commands.insert_resource(PlayerId(0xFF));
