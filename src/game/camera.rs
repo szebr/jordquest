@@ -99,7 +99,6 @@ pub fn spawn_minimap(
                     y: 0.,
                     z: MINIMAP_TRANSLATION.z
                 },
-                scale: Vec3::new(GAME_PROJ_SCALE, GAME_PROJ_SCALE, 1.),
                 ..Default::default()
             },
             ..Default::default()
