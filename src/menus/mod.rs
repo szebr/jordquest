@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-mod layout;
+pub(crate) mod layout;
 mod interactions;
 pub(crate) mod components;
 
@@ -7,6 +7,7 @@ use crate::AppState;
 use layout::*;
 use interactions::*;
 use crate::menus::components::*;
+use crate::game::player::{spawn_players, remove_players};
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
@@ -35,21 +36,27 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnExit(AppState::Controls), despawn_controls_page)
         .add_systems(OnEnter(AppState::Game), spawn_in_game_ui)
         .add_systems(OnExit(AppState::Game), despawn_in_game_ui)
-        .add_systems(OnEnter(AppState::GameOver), spawn_game_over_screen)
-        .add_systems(OnExit(AppState::GameOver), despawn_game_over_screen)
+        .add_systems(OnEnter(AppState::Game), spawn_leaderboard_ui.after(spawn_players))
+        .add_systems(OnEnter(AppState::GameOver), update_leaderboard.before(remove_players))
+        .add_systems(OnEnter(AppState::GameOver), toggle_leaderboard.before(remove_players))
+        .add_systems(OnExit(AppState::GameOver), despawn_leaderboard_ui)
+        .add_systems(OnEnter(AppState::Quitting), exit_system)
         .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<ControlsButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::MainMenu)))
-        .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::Game)))
+        .add_systems(Update, toggle_leaderboard.run_if(in_state(AppState::Game)))
+        .add_systems(Update, update_leaderboard.run_if(in_state(AppState::Game)))
+        .add_systems(Update, interact_with_button::<CreditsButtonType>.run_if(in_state(AppState::GameOver)))
         .add_systems(Update, interact_with_button::<BackButtonType>)
+        .add_systems(Update, interact_with_button::<QuitButtonType>.run_if(in_state(AppState::Credits)))
         .add_systems(Update, update_host_input)
         .add_systems(Update, update_num_camps_input)
         .add_systems(Update, update_num_chests_input)
         .add_systems(Update, update_enemies_per_camp_input)
         .add_systems(Update, update_map_seed_input)
         .add_systems(Update, update_eid_percentage_input)
-        .add_systems(Update, update_time_remaining_system)
+        .add_systems(Update, update_time_remaining_system.run_if(in_state(AppState::Game)))
         .add_systems(Update, save_host_input)
         .add_systems(Update, update_join_port_input)
         .add_systems(Update, update_join_host_port_input)
@@ -73,6 +80,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, init_enemies_per_camp_input_system)
         .add_systems(Update, init_map_seed_input_system)
         .add_systems(Update, init_eid_percentage_input_system)
+        .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Startup, startup);
 }}
 

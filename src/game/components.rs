@@ -25,9 +25,9 @@ pub const MOVEMENT_SPEED_UP: u8 = 15;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
-    DamageDealtUp = 0,
-    DamageReductionUp = 1,
-    MaxHPUp = 2,
+    MaxHPUp = 0,
+    DamageDealtUp = 1,
+    DamageReductionUp = 2,
     AttackSpeedUp = 3,
     MovementSpeedUp = 4,
 }
@@ -37,8 +37,11 @@ pub enum PowerUpType {
 #[derive(Component)]
 pub struct StoredPowerUps{
     pub power_ups: [u8; NUM_POWERUPS],
-    // 0: DamageDealtUp, 1: DamageReductionUp, 2: MaxHPUp, 3: AttackSpeedUp, 4: MovementSpeedUp
+    // 0: MaxHPUp, 1: DamageReductionUp, 2: DamageDealtUp, 3: AttackSpeedUp, 4: MovementSpeedUp
 }
+
+#[derive(Component)]
+pub struct ChanceDropPWU(pub bool);
 
 #[derive(Component)]
 pub struct PowerUp(pub PowerUpType);
@@ -48,13 +51,23 @@ pub struct PowerUp(pub PowerUpType);
 pub struct Collider(pub Vec2);
 
 #[derive(Component)]
-pub struct Score(pub u8);
-
-#[derive(Component)]
 pub struct ScoreDisplay;
 
 #[derive(Component)]
 pub struct PowerupDisplayText(pub u8);
+
+#[derive(Component)]
+pub struct Stats{
+    pub score: u8,
+    pub enemies_killed: u8,
+    pub players_killed: u8,
+    pub camps_captured: u8,
+    pub deaths: u8,
+    pub kd_ratio: f32,
+}
+
+#[derive(Component)]
+pub struct StatDisplayText(pub u8);
 
 #[derive(Component)]
 pub struct Enemy(pub u8);  // holds id

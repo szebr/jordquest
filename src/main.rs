@@ -20,6 +20,7 @@ pub enum AppState {
     GameOver,
     Credits,
     Connecting,
+    Quitting,
 }
 
 fn main() {

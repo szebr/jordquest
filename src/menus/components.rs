@@ -290,6 +290,14 @@ impl ButtonTypeTrait for CreditsButtonType {
     }
 }
 
+pub struct QuitButtonType;
+impl ButtonTypeTrait for QuitButtonType {
+    type Marker = QuitButton;
+    fn app_state() -> AppState {
+        AppState::Quitting
+    }
+}
+
 #[derive(Component)]
 pub struct HostButton;
 
@@ -303,10 +311,22 @@ pub struct ControlsButton;
 pub struct CreditsButton;
 
 #[derive(Component)]
+pub struct QuitButton;
+
+#[derive(Component)]
 pub struct BackToMainMenu;
 
 #[derive(Component)]
-pub struct GameOver;
+pub struct LeaderboardUi;
+
+#[derive(Component)]
+pub struct LeaderboardUiTitle;
+
+#[derive(Component)]
+pub struct PlayerStatDisplay{
+    pub player_id: u8,
+    pub stat_id: u8,
+}
 
 #[derive(Component)]
 pub struct HostPortInput {
