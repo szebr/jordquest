@@ -436,7 +436,7 @@ pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
     });
 
     // A* algorithm
-    while let Some(Node { position, cost }) = open_list.pop() {
+    while let Some(Node { position, ..}) = open_list.pop() {
         // reached the target, return the path
         if position == target {
             return reconstruct_path(from, target);

@@ -1,5 +1,3 @@
-use std::thread::spawn;
-
 use bevy::ecs::system::EntityCommands;
 use crate::menus::components::*;
 use bevy::prelude::Deref;

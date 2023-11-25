@@ -541,7 +541,6 @@ pub fn get_surrounding_tiles(
 
 pub fn get_tile_midpoint_position(
     pos: &Vec3,
-    map: &[[Biome; MAPSIZE]; MAPSIZE],
 ) -> Vec3 {
     let offset = (TILESIZE * MAPSIZE) as f32;
     let x = (TILESIZE / 2) as f32 - (pos.x + offset) % TILESIZE as f32;
@@ -574,7 +573,7 @@ pub fn get_tile_at_pos(
 pub fn get_pos_in_tile(
     pos: &Vec3,
 ) -> Vec2 {
-    let mut x = ((pos.x % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
-    let mut y = ((pos.y % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
+    let x = ((pos.x % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
+    let y = ((pos.y % TILESIZE as f32) + TILESIZE as f32) % TILESIZE as f32;
     Vec2::new(x, y)
 }

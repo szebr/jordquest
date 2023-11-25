@@ -93,7 +93,7 @@ pub fn spawn_players(
     res_id: Res<PlayerId>
 ) {
     for i in 0..MAX_PLAYERS {
-        let mut pl;
+        let pl;
         // TODO part of the bandaid syncing test stuff
         if i == 0 && res_id.0 == 1 {
             pl = commands.spawn((
@@ -226,7 +226,7 @@ pub fn update_players(
     mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
 ) {
-    for (mut health, mut vis, lp, mut stats, pl) in players.iter_mut() {
+    for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             health.dead = true;
             *vis = Visibility::Hidden;
@@ -468,7 +468,7 @@ pub fn handle_tick_events(
     for ev in player_reader.iter() {
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
-        for (pl, mut pb, hp) in &mut player_query {
+        for (pl, mut pb, _) in &mut player_query {
             if pl.0 == ev.tick.id {
                 //println!("player {:?} at {:?} during tick {:?}, dead={:?}", pl.0, ev.tick.pos, ev.seq_num, hp.dead);
                 pb.0.set(ev.seq_num, ev.tick.pos);

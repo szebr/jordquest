@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
+use crate::game::player::PLAYER_DEFAULT_HP;
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
@@ -60,7 +60,7 @@ pub fn fixed(
     let sock = sock.0.as_ref().unwrap();
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
-        for (lp_pb, lp_hp, lp_pl) in &player_query {
+        for (lp_pb, _, lp_pl) in &player_query {
             if conn.unwrap().player_id == lp_pl.0 {
                 // for "this" player, add self, then calculate who is close and add them.
                 let lp_pos = *lp_pb.0.get(tick.0);
