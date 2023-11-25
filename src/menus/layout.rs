@@ -8,6 +8,7 @@ use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::ROUND_TIME;
 use crate::AppState;
+use crate::net::{TICKLEN_S, TickNum};
 
 pub const SCREEN_WIDTH: f32 = 1280.0;
 pub const SCREEN_HEIGHT: f32 = 720.0;
@@ -484,19 +485,18 @@ pub fn spawn_in_game_ui(
 }
 
 pub fn update_time_remaining_system(
-    time: Res<Time>, 
     mut game_timer: Query<(&mut GameTimer, &mut Text)>,
+    tick: Res<TickNum>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
 ) {
     for (mut timer, mut text) in &mut game_timer {
         if timer.remaining_time > 0.0 {
-            timer.remaining_time -= time.delta_seconds();
+            timer.remaining_time = ROUND_TIME - (tick.0 as f32 * TICKLEN_S);
             let minutes = (timer.remaining_time / 60.0) as i32;
             let seconds = (timer.remaining_time % 60.0) as i32;
 
             text.sections[0].value = format!("{:02}:{:02}", minutes, seconds);
         } else {
-            // TODO Handle game over logic
             app_state_next_state.set(AppState::GameOver);
         }
     }
