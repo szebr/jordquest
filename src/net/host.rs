@@ -53,50 +53,48 @@ pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
     sock: Res<Socket>,
-    local_player: Query<(&PosBuffer, &Health, &Player), With<LocalPlayer>>,
-    player_query: Query<(&PosBuffer, &Health, &Player), Without<LocalPlayer>>,
+    player_query: Query<(&PosBuffer, &Health, &Player)>,
     enemy_query: Query<(&PosBuffer, &Health, &Enemy)>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
-    let mut players: Vec<PlayerTick> = Vec::new();
-    let (lp_pos, lp_hp, lp_pl) = local_player.single();  // fuck it, panic if this fails
-    let lp_pos = *lp_pos.0.get(tick.0);
-    players.push(PlayerTick {
-        id: lp_pl.0,
-        pos: lp_pos,
-        hp: lp_hp.current
-    });
-    for (pb, hp, pl) in &player_query {
-        let pos = *pb.0.get(tick.0);
-        //if pos.distance(lp_pos) < RENDER_DISTANCE {
-            players.push(PlayerTick {
-                id: pl.0,
-                pos,
-                hp: hp.current
-            });
-        //}
-    }
-    let mut enemies: Vec<EnemyTick> = Vec::new();
-    for (pb, hp, en) in &enemy_query {
-        let pos = *pb.0.get(tick.0);
-        //if pos.distance(lp_pos) < RENDER_DISTANCE {
-            enemies.push(EnemyTick {
-                id: en.0,
-                pos,
-                hp: hp.current
-            });
-        //}
-    }
-    let packet = HostTick {
-        seq_num: tick.0,
-        enemies,
-        players,
-    };
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
-        let peer = conn.unwrap().addr;
-        packet.write(&sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
+        for (lp_pb, lp_hp, lp_pl) in &player_query {
+            if conn.unwrap().player_id == lp_pl.0 {
+                // for "this" player, add self, then calculate who is close and add them.
+                let lp_pos = *lp_pb.0.get(tick.0);
+                let mut players: Vec<PlayerTick> = Vec::new();
+                for (pb, hp, pl) in &player_query {
+                    let pos = *pb.0.get(tick.0);
+                    if pos.distance(lp_pos) < RENDER_DISTANCE {
+                        players.push(PlayerTick {
+                            id: pl.0,
+                            pos,
+                            hp: hp.current
+                        });
+                    }
+                }
+                let mut enemies: Vec<EnemyTick> = Vec::new();
+                for (pb, hp, en) in &enemy_query {
+                    let pos = *pb.0.get(tick.0);
+                    if pos.distance(lp_pos) < RENDER_DISTANCE {
+                        enemies.push(EnemyTick {
+                            id: en.0,
+                            pos,
+                            hp: hp.current
+                        });
+                    }
+                }
+                let packet = HostTick {
+                    seq_num: tick.0,
+                    enemies,
+                    players,
+                };
+                let peer = conn.unwrap().addr;
+                packet.write(&sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
+            }
+        }
     }
 }
 
