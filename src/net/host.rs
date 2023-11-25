@@ -69,24 +69,24 @@ pub fn fixed(
     });
     for (pb, hp, pl) in &player_query {
         let pos = *pb.0.get(tick.0);
-        if pos.distance(lp_pos) < RENDER_DISTANCE {
+        //if pos.distance(lp_pos) < RENDER_DISTANCE {
             players.push(PlayerTick {
                 id: pl.0,
                 pos,
                 hp: hp.current
             });
-        }
+        //}
     }
     let mut enemies: Vec<EnemyTick> = Vec::new();
     for (pb, hp, en) in &enemy_query {
         let pos = *pb.0.get(tick.0);
-        if pos.distance(lp_pos) < RENDER_DISTANCE {
+        //if pos.distance(lp_pos) < RENDER_DISTANCE {
             enemies.push(EnemyTick {
                 id: en.0,
                 pos,
                 hp: hp.current
             });
-        }
+        //}
     }
     let packet = HostTick {
         seq_num: tick.0,

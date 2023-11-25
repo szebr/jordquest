@@ -533,8 +533,8 @@ pub fn handle_packet(
     for ev in enemy_reader.iter() {
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
-        for (pl, mut pb) in &mut enemy_query {
-            if pl.0 == ev.tick.id {
+        for (en, mut pb) in &mut enemy_query {
+            if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }
