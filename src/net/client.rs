@@ -102,7 +102,10 @@ pub fn update(
                 }
                 // TODO this is hilarious... client ticks are just slaves to host ticks
                 //   client doesn't even tick its own clock
-                tick_num.0 = packet.seq_num;
+                if tick_num.0.abs_diff(packet.seq_num) > 1 {
+                    println!("resyncing");
+                    tick_num.0 = packet.seq_num;
+                }
             },
             pt if pt == PacketType::ServerFull as u8 => {
                 println!("Server is full!");
