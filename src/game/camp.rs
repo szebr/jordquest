@@ -134,16 +134,15 @@ pub fn setup_camps(
 }
 
 pub fn handle_camp_clear(
-    mut camp_query: Query<(&Camp, &CampEnemies, &mut CampStatus), With<Camp>>,
+    mut camp_query: Query<(&CampEnemies, &mut CampStatus), With<Camp>>,
 ){
-    for (camp_num, enemies_in_camp, mut camp_status) in camp_query.iter_mut(){
+    for (enemies_in_camp, mut camp_status) in camp_query.iter_mut(){
         
         // only let this happen for camps that are currently active
         if camp_status.status {
             //set the camp as cleared if all enemies are gone
             if enemies_in_camp.current_enemies == 0 {
                 camp_status.status = false;
-                println!("camp {} cleared", camp_num.0)
             }
             
         }

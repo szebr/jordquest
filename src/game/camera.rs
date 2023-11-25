@@ -329,7 +329,6 @@ fn respawn_update(
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
         let window = window_query.get_single().unwrap();
         let cursor_position = window.cursor_position().unwrap();
-        println!("{}", cursor_position);
 
         // Validate mouse position
         let mut cursor_to_map: UVec2 = UVec2::new(0, 0);
@@ -346,7 +345,6 @@ fn respawn_update(
             cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
             cursor_to_map.y = ((cursor_position.y as u32 - ((super::WIN_H / 2.) as u32 - MINIMAP_DIMENSIONS.y)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
 
-            println!("{}", cursor_to_map);
 
             // Check if coordinate is wall
             let tile = map.biome_map[cursor_to_map.y as usize][cursor_to_map.x as usize];
