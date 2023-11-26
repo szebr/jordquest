@@ -49,6 +49,9 @@ pub struct SpawnEnemyWeaponTimer(Timer);
 #[derive(Component)]
 pub struct IsSpecial(bool);
 
+#[derive(Component)]
+pub struct SpawnPosition(pub Vec2);
+
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin{
@@ -94,6 +97,7 @@ pub fn spawn_enemy(
     let enemy_entity = commands.spawn((
         Enemy(id),
         pb,
+        SpawnPosition(pos),
         Health {
             current: enemy_hp,
             max: enemy_hp,
@@ -322,31 +326,40 @@ pub fn fixed_aggro(
 
 pub fn fixed_move(
     tick: Res<net::TickNum>,
-    mut enemies: Query<(&mut PosBuffer, &Aggro), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(&mut PosBuffer, &Aggro, &SpawnPosition), (With<Enemy>, Without<Player>)>,
     players: Query<(&Player, &PosBuffer), (With<Player>, Without<Enemy>)>,
     map: Res<WorldMap>
 ) {
-    for (mut epb, aggro) in &mut enemies {
+    for (mut epb, aggro, spawn_pos) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
 
         'mov: {
-            if aggro.0.is_none() { break 'mov }
-            let aggro = aggro.0.unwrap();
-            let mut ppbo = None;
-            for (pl, ppb) in &players {
-                if pl.0 == aggro {
-                    ppbo = Some(ppb);
+            if aggro.0.is_none() {
+                // move the enemy to their spawn position
+                let displacement = spawn_pos.0 - *prev;
+                if !(displacement.length() < CIRCLE_RADIUS) {
+                    let posit = find_next(&map.biome_map, *prev, spawn_pos.0);
+                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    next += movement;
                 }
-            }
-            if ppbo.is_none() { break 'mov }
-            let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
+            } else {
+                let aggro = aggro.0.unwrap();
+                let mut ppbo = None;
+                for (pl, ppb) in &players {
+                    if pl.0 == aggro {
+                        ppbo = Some(ppb);
+                    }
+                }
+                if ppbo.is_none() { break 'mov }
+                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
 
-            let displacement = *player_pos - *prev;
-            if !(displacement.length() < CIRCLE_RADIUS) {
-                let posit = find_next(&map.biome_map, *prev, *player_pos);
-                let movement = (posit - *prev).normalize() * ENEMY_SPEED;
-                next += movement;
+                let displacement = *player_pos - *prev;
+                if !(displacement.length() < CIRCLE_RADIUS) {
+                    let posit = find_next(&map.biome_map, *prev, *player_pos);
+                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    next += movement;
+                }
             }
         }
         epb.0.set(tick.0, next);
