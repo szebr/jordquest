@@ -6,7 +6,7 @@ use crate::game::buffers::PosBuffer;
 use crate::game::map::MapSeed;
 use crate::game::player::{LocalPlayer, SetIdEvent};
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, packets};
-use crate::net::packets::{ConnectionResponse, EnemyTickEvent, HostTick, Packet, PacketType, PlayerTickEvent, UserCmd};
+use crate::net::packets::*;
 
 pub fn connect(
     addresses: Res<menus::NetworkAddresses>,
@@ -34,7 +34,8 @@ pub fn disconnect(mut sock: ResMut<net::Socket>) {
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
-    pb_query: Query<&PosBuffer, With<LocalPlayer>>
+    pb_query: Query<&PosBuffer, With<LocalPlayer>>,
+    ack: Res<net::Ack>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -44,12 +45,16 @@ pub fn fixed(
     let pos = pb.0.get(tick.0);
     let packet = packets::ClientTick {
         seq_num: tick.0,
+        rmt_num: ack.rmt_num,
+        ack: ack.bitfield,
         tick: UserCmd {
             pos: *pos,
             dir: 0.0,
         },
     };
-    packet.write(sock, &sock.peer_addr().expect("Sock not connected during fixed")).expect("ClientTick send failed");
+    let mut bytes: Vec<u8> = Vec::new();
+    packet.to_buf(&mut bytes);
+    send_buf(bytes.as_slice(), sock, &sock.peer_addr().expect("Sock not connected during fixed")).expect("ClientTick send failed");
 }
 
 pub fn update(

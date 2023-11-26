@@ -4,11 +4,10 @@ use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::player::PLAYER_DEFAULT_HP;
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
-use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, Socket};
+use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
 
 pub const RENDER_DISTANCE: f32 = 640.;
 
@@ -16,8 +15,8 @@ pub const RENDER_DISTANCE: f32 = 640.;
 pub struct Connection {
     pub addr: SocketAddr,
     pub player_id: u8,
-    pub ack: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
-    pub ack_bits: u32
+    pub rmt_num: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
+    pub ack: u32
 }
 
 #[derive(Resource)]
@@ -52,16 +51,17 @@ pub fn disconnect(
 pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
-    sock: Res<Socket>,
+    sock: Res<net::Socket>,
     player_query: Query<(&PosBuffer, &Health, &Player)>,
-    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>
+    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
+        let conn = conn.unwrap();
         for (lp_pb, _, lp_pl) in &player_query {
-            if conn.unwrap().player_id == lp_pl.0 {
+            if conn.player_id == lp_pl.0 {
                 // for "this" player, add self, then calculate who is close and add them.
                 let lp_pos = *lp_pb.0.get(tick.0);
                 let mut players: Vec<PlayerTick> = Vec::new();
@@ -88,11 +88,15 @@ pub fn fixed(
                 }
                 let packet = HostTick {
                     seq_num: tick.0,
+                    rmt_num: conn.rmt_num,
+                    ack: conn.ack,
                     enemies,
                     players,
                 };
-                let peer = conn.unwrap().addr;
-                packet.write(&sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
+                let peer = conn.addr;
+                let mut bytes: Vec<u8> = Vec::new();
+                packet.to_buf(&mut bytes);
+                send_buf(bytes.as_slice(), &sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
             }
         }
     }
@@ -132,8 +136,8 @@ fn add_connection(conns: &mut Connections, origin: &SocketAddr) -> Option<u8> {
             let _ = conn.insert(Connection {
                 addr: *origin,
                 player_id: fresh_id,
+                rmt_num: 0,
                 ack: 0,
-                ack_bits: 0,
             });
             return Some(fresh_id);
         }
@@ -146,7 +150,6 @@ pub fn update(
     mut conns: ResMut<Connections>,
     tick_num: Res<net::TickNum>,
     mut usercmd_writer: EventWriter<UserCmdEvent>,
-    mut players: Query<(&mut Health, &Player)>,
     seed: Res<MapSeed>
 ) {
     if sock.0.is_none() { return }
@@ -170,16 +173,13 @@ pub fn update(
                     send_empty_packet(PacketType::ServerFull, sock, &origin).expect("cant send server full");
                 }
                 let player_id = maybe_id.unwrap();
-                for (mut hp, pl) in &mut players {
-                    if pl.0 == player_id {
-                        hp.current = PLAYER_DEFAULT_HP;
-                        // TODO this is the crappy bandaid way of doing it, doesn't work after respawns
-                    }
-                }
-                ConnectionResponse {
+                let packet = ConnectionResponse {
                     player_id,
                     seed: seed.0
-                }.write(sock, &origin).expect("Can't send connection response");
+                };
+                let mut bytes: Vec<u8> = Vec::new();
+                packet.to_buf(&mut bytes);
+                send_buf(bytes.as_slice(), sock, &origin).expect("Can't send connection response");
             },
             pt if pt == PacketType::ClientTick as u8 => {
                 let packet = ClientTick::from_buf(&buf[3..]);

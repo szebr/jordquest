@@ -56,13 +56,22 @@ pub struct UserCmdEvent {
     pub tick: UserCmd
 }
 
+pub fn send_buf(buf: &[u8], local: &UdpSocket, peer: &SocketAddr) -> Result<usize> {
+    if local.peer_addr().is_ok() {
+        return local.send(buf);
+    }
+    return local.send_to(buf, peer);
+}
+
 pub trait Packet {
-    fn from_buf(buf: &[u8]) -> Result<Self> where Self: Sized;  // reads contents after byte that states packet type
-    fn write(&self, local: &UdpSocket, peer: &SocketAddr) -> Result<usize>;  // writes packet type byte, then contents
+    fn from_buf(buf: &[u8]) -> Result<Self> where Self: Sized;
+    fn to_buf(&self, bytes: &mut Vec<u8>);
 }
 
 pub struct HostTick {
     pub seq_num: u16,
+    pub rmt_num: u16,
+    pub ack: u32,
     pub enemies: Vec<EnemyTick>,
     pub players: Vec<PlayerTick>
 }
@@ -72,6 +81,10 @@ impl Packet for HostTick {
         let mut i: usize = 0;
         let seq_num = u16::from_be_bytes(buf[i..i+2].try_into().unwrap());
         i += 2;
+        let rmt_num = u16::from_be_bytes(buf[i..i+2].try_into().unwrap());
+        i += 2;
+        let ack = u32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+        i += 4;
         let enemy_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
         i += 1;
         let player_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
@@ -106,16 +119,19 @@ impl Packet for HostTick {
         }
         return Ok(HostTick {
             seq_num,
+            rmt_num,
+            ack,
             enemies,
             players,
         })
     }
 
-    fn write(&self, local: &UdpSocket, peer: &SocketAddr) -> Result<usize> {
-        let mut bytes: Vec<u8> = Vec::new();
+    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::HostTick as u8).to_be_bytes());
         bytes.extend_from_slice(&self.seq_num.to_be_bytes());
+        bytes.extend_from_slice(&self.rmt_num.to_be_bytes());
+        bytes.extend_from_slice(&self.ack.to_be_bytes());
         bytes.extend_from_slice(&(self.enemies.len() as u8).to_be_bytes());
         bytes.extend_from_slice(&(self.players.len() as u8).to_be_bytes());
         for enemy in &self.enemies {
@@ -130,15 +146,13 @@ impl Packet for HostTick {
             bytes.extend_from_slice(&player.pos.y.to_be_bytes());
             bytes.extend_from_slice(&player.hp.to_be_bytes());
         }
-        if local.peer_addr().is_ok() {
-            return local.send(bytes.as_slice());
-        }
-        return local.send_to(bytes.as_slice(), peer);
     }
 }
 
 pub struct ClientTick {
     pub seq_num: u16,
+    pub rmt_num: u16,
+    pub ack: u32,
     pub tick: UserCmd
 }
 
@@ -147,6 +161,10 @@ impl Packet for ClientTick {
         let mut i: usize = 0;
         let seq_num = u16::from_be_bytes(buf[i..i+2].try_into().unwrap());
         i += 2;
+        let rmt_num = u16::from_be_bytes(buf[i..i+2].try_into().unwrap());
+        i += 2;
+        let ack = u32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+        i += 4;
         let pos = Vec2{
             x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
             y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
@@ -156,6 +174,8 @@ impl Packet for ClientTick {
 
         return Ok(ClientTick {
             seq_num,
+            rmt_num,
+            ack,
             tick: UserCmd {
                 pos,
                 dir
@@ -163,18 +183,15 @@ impl Packet for ClientTick {
         })
     }
 
-    fn write(&self, local: &UdpSocket, peer: &SocketAddr) -> Result<usize> {
-        let mut bytes: Vec<u8> = Vec::new();
+    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::ClientTick as u8).to_be_bytes());
         bytes.extend_from_slice(&self.seq_num.to_be_bytes());
+        bytes.extend_from_slice(&self.rmt_num.to_be_bytes());
+        bytes.extend_from_slice(&self.ack.to_be_bytes());
         bytes.extend_from_slice(&self.tick.pos.x.to_be_bytes());
         bytes.extend_from_slice(&self.tick.pos.y.to_be_bytes());
         bytes.extend_from_slice(&self.tick.dir.to_be_bytes());
-        if local.peer_addr().is_ok() {
-            return local.send(bytes.as_slice());
-        }
-        return local.send_to(bytes.as_slice(), peer);
     }
 }
 
@@ -190,16 +207,11 @@ impl Packet for ConnectionResponse {
         return Ok(ConnectionResponse { player_id, seed });
     }
 
-    fn write(&self, local: &UdpSocket, peer: &SocketAddr) -> Result<usize> {
-        let mut bytes: Vec<u8> = Vec::new();
+    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::ConnectionResponse as u8).to_be_bytes());
         bytes.extend_from_slice(&self.player_id.to_be_bytes());
         bytes.extend_from_slice(&self.seed.to_be_bytes());
-        if local.peer_addr().is_ok() {
-            return local.send(bytes.as_slice());
-        }
-        return local.send_to(bytes.as_slice(), peer);
     }
 }
 

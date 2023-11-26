@@ -94,75 +94,38 @@ pub fn spawn_players(
 ) {
     for i in 0..MAX_PLAYERS {
         let pl;
-        // TODO part of the bandaid syncing test stuff
-        if i == 0 && res_id.0 == 1 {
-            pl = commands.spawn((
-                Player(i as u8),
-                PosBuffer(CircularBuffer::new()),
-                Stats {
-                    score: 0,
-                    enemies_killed: 0,
-                    players_killed: 0,
-                    camps_captured: 0,
-                    deaths: 0,
-                    kd_ratio: 0.
-                },
-                Health {
-                    current: PLAYER_DEFAULT_HP,
-                    max: PLAYER_DEFAULT_HP,
-                    dead: false
-                },
-                SpriteSheetBundle {
-                    texture_atlas: entity_atlas.handle.clone(),
-                    sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                    visibility: Visibility::Hidden,
-                    transform: Transform::from_xyz(0., 0., 1.),
-                    ..default()
-                },
-                Collider(PLAYER_SIZE),
-                Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
-                StoredPowerUps {
-                    power_ups: [0; NUM_POWERUPS],
-                },
-                PlayerShield {
-                    active: false,
-                },
-            )).id();
-        }
-        else {
-            pl = commands.spawn((
-                Player(i as u8),
-                PosBuffer(CircularBuffer::new()),
-                Stats {
-                    score: 0,
-                    enemies_killed: 0,
-                    players_killed: 0,
-                    camps_captured: 0,
-                    deaths: 0,
-                    kd_ratio: 0.
-                },
-                Health {
-                    current: 0,
-                    max: PLAYER_DEFAULT_HP,
-                    dead: true
-                },
-                SpriteSheetBundle {
-                    texture_atlas: entity_atlas.handle.clone(),
-                    sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
-                    visibility: Visibility::Hidden,
-                    transform: Transform::from_xyz(0., 0., 1.),
-                    ..default()
-                },
-                Collider(PLAYER_SIZE),
-                Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
-                StoredPowerUps {
-                    power_ups: [0; NUM_POWERUPS],
-                },
-                PlayerShield {
-                    active: false,
-                },
-            )).id();
-        }
+        pl = commands.spawn((
+            Player(i as u8),
+            PosBuffer(CircularBuffer::new()),
+            Stats {
+                score: 0,
+                enemies_killed: 0,
+                players_killed: 0,
+                camps_captured: 0,
+                deaths: 0,
+                kd_ratio: 0.
+            },
+            Health {
+                current: 0,
+                max: PLAYER_DEFAULT_HP,
+                dead: true
+            },
+            SpriteSheetBundle {
+                texture_atlas: entity_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: entity_atlas.coord_to_index(i as i32, 0), ..default()},
+                visibility: Visibility::Hidden,
+                transform: Transform::from_xyz(0., 0., 1.),
+                ..default()
+            },
+            Collider(PLAYER_SIZE),
+            Cooldown(Timer::from_seconds(DEFAULT_COOLDOWN, TimerMode::Once)),
+            StoredPowerUps {
+                power_ups: [0; NUM_POWERUPS],
+            },
+            PlayerShield {
+                active: false,
+            },
+        )).id();
 
         if i as u8 == res_id.0 {
             commands.entity(pl).insert(LocalPlayer);
@@ -462,16 +425,14 @@ pub fn despawn_shield_on_right_click_release(
 
 pub fn handle_tick_events(
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &Health)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
 ) {
-    //TODO if you receive info that your predicted local position is wrong, it needs to be corrected
     for ev in player_reader.iter() {
-        // TODO this is slow but i have no idea how to make the borrow checker okay
-        //   with the idea of an array of player PosBuffer references
-        for (pl, mut pb, _) in &mut player_query {
+        for (pl, mut pb, mut hp) in &mut player_query {
             if pl.0 == ev.tick.id {
                 //println!("player {:?} at {:?} during tick {:?}, dead={:?}", pl.0, ev.tick.pos, ev.seq_num, hp.dead);
                 pb.0.set(ev.seq_num, ev.tick.pos);
+                hp.current = ev.tick.hp;
             }
         }
     }

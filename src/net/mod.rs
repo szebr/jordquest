@@ -11,8 +11,8 @@ use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
 
 
 pub const TICKRATE: u8 = 10;
-const TICKLEN_S: f32 = 1. / TICKRATE as f32;
-pub const DELAY: u16 = 2;
+pub const TICKLEN_S: f32 = 1. / TICKRATE as f32;
+pub const DELAY: u16 = 0;
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
 //pub const TIMEOUT: u16 = TICKRATE as u16 * 10;  // 10 seconds to timeout
 pub const MAX_DATAGRAM_SIZE: usize = 1024;
@@ -25,6 +25,12 @@ pub struct Socket(pub Option<UdpSocket>);
 
 #[derive(Resource)]
 pub struct IsHost(pub bool);
+
+#[derive(Resource)]
+pub struct Ack {
+    pub rmt_num: u16,
+    pub bitfield: u32
+}
 
 pub struct NetPlugin;
 
@@ -57,6 +63,7 @@ pub fn startup(mut commands: Commands) {
     commands.insert_resource(TickNum { 0: 0 });
     commands.insert_resource(Socket(None));
     commands.insert_resource(IsHost(true));  // gets changed when you start the game
+    commands.insert_resource(Ack { rmt_num: 0, bitfield: 0 });
 }
 
 pub fn increment_tick(mut tick_num: ResMut<TickNum>) {
