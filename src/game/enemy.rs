@@ -120,14 +120,16 @@ pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>
     }
 }
 
+// try to attack the player if they are aggroed
 pub fn handle_attack(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro), With<Enemy>>,
     mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_transform, mut spawn_timer) in query_enemies.iter_mut() {
+    for (enemy_entity, enemy_transform, mut spawn_timer, aggro) in query_enemies.iter_mut() {
+        if aggro.0 == None { continue }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
             let attack = commands.spawn((SpriteBundle {
