@@ -582,6 +582,7 @@ pub fn enemy_regen_health(
         }
     }
 }
+
 /// Resolve enemy wall collisions
 pub fn fixed_resolve(
     mut enemies: Query<(&mut PosBuffer, &Collider), With<Enemy>>,
