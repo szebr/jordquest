@@ -1,6 +1,7 @@
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
+use bevy::render::view::visibility;
 use bevy::window::PrimaryWindow;
 use crate::enemy;
 use crate::game::movement::*;
@@ -384,6 +385,7 @@ pub fn handle_attack(
     commands.entity(e).with_children(|parent| {
         parent.spawn((SpriteBundle {
             texture: asset_server.load("sword01.png").into(),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         PlayerWeapon {
@@ -402,20 +404,20 @@ pub fn handle_attack(
 pub fn animate_sword(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Transform, &mut SwordAnimation), With<PlayerWeapon>>,
+    mut query: Query<(Entity, &mut Transform, &mut SwordAnimation, &mut Visibility), With<PlayerWeapon>>,
 ) {
-    for (e, mut tf, mut animation) in query.iter_mut() {
+    for (e, mut tf, mut animation, mut vis) in query.iter_mut() {
         // add in the direction vector to the translation
-        animation.current += time.delta_seconds();
+        
         let attack_radius = 50.0;
-        let time = animation.current / animation.max;
+        let current_step = animation.current / animation.max;
 
         let cursor_angle = animation.cursor_direction.y.atan2(animation.cursor_direction.x);
         let sword_translation_angle;
         if animation.cursor_direction.x > 0.0 {
-            sword_translation_angle = time * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 - cursor_angle;
+            sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 - cursor_angle;
         } else {
-            sword_translation_angle = time * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 + cursor_angle;
+            sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 + cursor_angle;
         } 
         let sword_rotation_vector = Vec3::new(sword_translation_angle.cos(), sword_translation_angle.sin(), 0.0);
         let sword_rotation_angle = sword_rotation_vector.y.atan2(sword_rotation_vector.x);
@@ -429,7 +431,11 @@ pub fn animate_sword(
             tf.translation.y = sword_translation_angle.sin() * attack_radius;
             tf.scale.y = -1.0;
         }
+        if animation.current == 0.0 {
+            *vis = Visibility::Visible;
+        }
 
+        animation.current += time.delta_seconds();
         if animation.current >= animation.max {
             commands.entity(e).despawn_recursive();
         }
