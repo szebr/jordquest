@@ -204,7 +204,7 @@ pub fn update_health_bars(
     mut player_health_query: Query<(&mut Health, &Children, &StoredPowerUps), With<Player>>,
 ) {
     for (mut health, children, player_power_ups) in player_health_query.iter_mut() {
-        health.max = PLAYER_DEFAULT_HP + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] * MAX_HP_UP;
+        health.max = (PLAYER_DEFAULT_HP as f32 + player_power_ups.power_ups[PowerUpType::MaxHPUp as usize] as f32 * MAX_HP_UP as f32) as u8;
         for child in children.iter() {
             let tf = health_bar_query.get_mut(*child);
             if let Ok(mut tf) = tf {
