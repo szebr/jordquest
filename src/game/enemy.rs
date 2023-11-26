@@ -48,6 +48,9 @@ struct DespawnEnemyWeaponTimer(Timer);
 pub struct SpawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
+pub struct EnemyRegenTimer(Timer);
+
+#[derive(Component)]
 pub struct IsSpecial(bool);
 
 #[derive(Component)]
@@ -67,6 +70,7 @@ impl Plugin for EnemyPlugin{
                 handle_packet.run_if(is_client),
                 update_enemies.after(handle_packet),
                 handle_attack.after(update_enemies),
+                enemy_regen_health.after(update_enemies),
             ))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
@@ -124,6 +128,7 @@ pub fn spawn_enemy(
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
         SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        EnemyRegenTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         IsSpecial(is_special),
     )).id();
     if is_special {
@@ -556,6 +561,30 @@ fn find_pivot_points(path: Vec<V2>) -> Vec<V2> {
     pivots
 }
 
+// Enemy regen health system
+pub fn enemy_regen_health(
+    tick: Res<net::TickNum>,
+    time: Res<Time>,
+    mut enemies: Query<(&mut PosBuffer, &mut Health, &mut TextureAtlasSprite, &Aggro, &SpawnPosition, &mut EnemyRegenTimer), With<Enemy>>,
+) {
+    for (epb, mut hp, mut sprite, aggro, sp, mut timer) in enemies.iter_mut() {
+        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        if aggro.0.is_none() {
+            // move the enemy to their spawn position
+            let displacement = sp.0 - *prev;
+            if displacement.length() < CIRCLE_RADIUS {
+                timer.0.tick(time.delta());
+                if timer.0.finished() {
+                    if hp.current < hp.max {
+                        hp.current += 10;
+                        let damage = hp.current as f32 / hp.max as f32;
+                        sprite.color = Color::Rgba {red: 1.0, green: damage, blue: damage, alpha: 1.0};
+                    }
+                }
+            }
+        }
+    }
+}
 /// Resolve enemy wall collisions
 pub fn fixed_resolve(
     mut enemies: Query<(&mut PosBuffer, &Collider), With<Enemy>>,
