@@ -19,6 +19,10 @@ pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
 pub const AGGRO_RANGE: f32 = 200.0;
+pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.50;
+pub const SPECIAL_AGGRO_RANGE_MOD: f32 = 100.0;
+pub const SPECIAL_MAX_HP_MOD: u8 = 50;
+
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
@@ -41,6 +45,9 @@ struct DespawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
 pub struct SpawnEnemyWeaponTimer(Timer);
+
+#[derive(Component)]
+pub struct IsSpecial(bool);
 
 pub struct EnemyPlugin;
 
@@ -77,13 +84,19 @@ pub fn spawn_enemy(
     let mut pu: [u8; NUM_POWERUPS];
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
+    let enemy_hp;
+    if is_special { 
+        enemy_hp = ENEMY_MAX_HP + SPECIAL_MAX_HP_MOD;
+    } else {
+        enemy_hp = ENEMY_MAX_HP;
+    }
 
     let enemy_entity = commands.spawn((
         Enemy(id),
         pb,
         Health {
-            current: ENEMY_MAX_HP,
-            max: ENEMY_MAX_HP,
+            current: enemy_hp,
+            max: enemy_hp,
             dead: false,
         },
         EnemyCamp(campid),
@@ -103,6 +116,7 @@ pub fn spawn_enemy(
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
         SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        IsSpecial(is_special),
     )).id();
     if is_special {
         let special_entity = commands.spawn(SpriteBundle {
@@ -125,17 +139,24 @@ pub fn handle_attack(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), With<Enemy>>,
     mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_transform, mut spawn_timer, aggro) in query_enemies.iter_mut() {
+    for (enemy_entity, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
         if aggro.0 == None { continue }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
+            let attack_radius;
+            if is_special.0 {
+                attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+            } else {
+                attack_radius = 1.0;
+            }
             let attack = commands.spawn((SpriteBundle {
                 texture: asset_server.load("EnemyAttack01.png").into(),
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 5.0),
+                    scale: Vec3::new(attack_radius, attack_radius, 1.0),
                     ..Default::default()
                 },
                 ..Default::default() },
@@ -150,7 +171,8 @@ pub fn handle_attack(
                     // must check if damage reduction is greater than damage dealt, otherwise subtraction overflow or player will gain health
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
-                    let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
+                    let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * 
+                        DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
                     if dmg > 0
                     {
                         match player_hp.current.checked_sub(dmg) {
@@ -242,10 +264,10 @@ pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer, &IsSpecial), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (enemy_entity, epb, mut aggro, mut wep_timer) in &mut enemies {
+    for (enemy_entity, epb, mut aggro, mut wep_timer, is_special) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -257,7 +279,13 @@ pub fn fixed_aggro(
                 closest_player = Some(pl);
             }
         }
-        if best_distance > AGGRO_RANGE || closest_player.is_none() {
+        let aggro_range;
+        if is_special.0 {
+            aggro_range = AGGRO_RANGE + SPECIAL_AGGRO_RANGE_MOD;
+        } else {
+            aggro_range = AGGRO_RANGE;
+        }
+        if best_distance > aggro_range || closest_player.is_none() {
             if aggro.0.is_some() {
                 //TODO show lost contact
             }
@@ -269,7 +297,7 @@ pub fn fixed_aggro(
                     SpriteBundle {
                         texture: asset_server.load("aggro.png").into(),
                         transform: Transform {
-                            translation: Vec3::new(0.0, 32., 5.0),
+                            translation: Vec3::new(0.0, 32., 2.5),
                             ..Default::default()
                         },
                         ..Default::default()
