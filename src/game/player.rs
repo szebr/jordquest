@@ -21,7 +21,7 @@ pub const PLAYER_DEFAULT_DEF: f32 = 1.;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
-const DEFAULT_COOLDOWN: f32 = 0.2;
+const DEFAULT_COOLDOWN: f32 = 0.8;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
@@ -37,7 +37,10 @@ pub struct LocalPlayerSpawnEvent;
 pub struct LocalPlayer;
 
 #[derive(Component)]
-pub struct PlayerWeapon;
+pub struct PlayerWeapon {
+    pub active: bool,
+    pub enemies_hit: Vec<u8>,
+}
 
 #[derive(Component)]
 pub struct Cooldown(pub Timer);
@@ -63,6 +66,8 @@ impl Plugin for PlayerPlugin{
                 update_score,
                 update_players,
                 handle_attack,
+                animate_sword.after(handle_attack),
+                check_sword_collision.after(handle_attack),
                 grab_powerup,
                 handle_move,
                 spawn_shield_on_right_click,
@@ -352,7 +357,6 @@ pub fn handle_attack(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut players: Query<(Entity, &Transform, &Player, &mut Cooldown, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
-    mut enemies: Query<(&Transform, &Collider, &mut Health, &mut LastAttacker), With<Enemy>>,
     cameras: Query<&Transform, With<SpatialCameraBundle>>
 ) {
     let player = players.get_single_mut();
@@ -375,39 +379,86 @@ pub fn handle_attack(
     cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
     cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
     cursor_position += camera.translation.xy();
-
     let direction_vector = (cursor_position - tf.translation.xy()).normalize();
-    let weapon_direction = direction_vector.y.atan2(direction_vector.x);
-
-    let circle_radius = 50.0;
-    let offset_x = circle_radius * weapon_direction.cos();
-    let offset_y = circle_radius * weapon_direction.sin();
-    let offset = Vec2::new(offset_x, offset_y);
 
     commands.entity(e).with_children(|parent| {
         parent.spawn((SpriteBundle {
             texture: asset_server.load("sword01.png").into(),
-            transform: Transform {
-                translation: Vec3::new(offset.x, offset.y, 5.0),
-                rotation: Quat::from_rotation_z(weapon_direction),
-                ..Default::default()
-            },
             ..Default::default()
         },
-        PlayerWeapon,
-        Fade {current: 1.0, max: 1.0}));
+        PlayerWeapon {
+            active: true,
+            enemies_hit: Vec::new(),
+        },
+        SwordAnimation {
+            current: 0.0, 
+            max: c.0.duration().as_secs_f32(),
+            cursor_direction: direction_vector,
+        },));
     });
+}
 
-    let (start, end) = trace_attack_line(tf, offset);
-    for (enemy_transform, collider, mut health, mut last_attacker) in enemies.iter_mut() {
-        if line_intersects_aabb(start, end, enemy_transform.translation.truncate(), collider.0) {
-            last_attacker.0 = Some(p.0);
-            match health.current.checked_sub(SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
-                Some(v) => {
-                    health.current = v;
-                }
-                None => {
-                    health.current = 0;
+// animate the sword swing when the player attacks
+pub fn animate_sword(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Transform, &mut SwordAnimation), With<PlayerWeapon>>,
+) {
+    for (e, mut tf, mut animation) in query.iter_mut() {
+        // add in the direction vector to the translation
+        animation.current += time.delta_seconds();
+        let attack_radius = 50.0;
+        let time = animation.current / animation.max;
+
+        let cursor_angle = animation.cursor_direction.y.atan2(animation.cursor_direction.x);
+        let sword_translation_angle;
+        if animation.cursor_direction.x > 0.0 {
+            sword_translation_angle = time * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 - cursor_angle;
+        } else {
+            sword_translation_angle = time * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 + cursor_angle;
+        } 
+        let sword_rotation_vector = Vec3::new(sword_translation_angle.cos(), sword_translation_angle.sin(), 0.0);
+        let sword_rotation_angle = sword_rotation_vector.y.atan2(sword_rotation_vector.x);
+
+        tf.translation.x = sword_translation_angle.cos() * attack_radius;
+        if animation.cursor_direction.x > 0.0 {
+            tf.rotation = Quat::from_rotation_z(-1.0 * sword_rotation_angle);
+            tf.translation.y = -1.0 * sword_translation_angle.sin() * attack_radius;
+        } else {
+            tf.rotation = Quat::from_rotation_z(sword_rotation_angle);
+            tf.translation.y = sword_translation_angle.sin() * attack_radius;
+            tf.scale.y = -1.0;
+        }
+
+        if animation.current >= animation.max {
+            commands.entity(e).despawn_recursive();
+        }
+    }
+}
+
+// TODO use aabb collision instead of distance
+pub fn check_sword_collision(
+    mut enemies: Query<(&Enemy, &Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
+    mut players: Query<(&Player, &StoredPowerUps), With<LocalPlayer>>,
+    mut sword: Query<(&GlobalTransform, &mut PlayerWeapon), With<PlayerWeapon>>,
+) {
+    for (sword_transform, mut player_wep) in sword.iter_mut() {
+        if player_wep.active == false { continue; }
+        for (enemy_id, enemy_transform, mut enemy_health, mut last_attacker) in enemies.iter_mut() {
+            for (player_id, spu) in players.iter_mut() {
+                let sword_position = sword_transform.translation().truncate();
+                let enemy_position = enemy_transform.translation.truncate();
+                if sword_position.distance(enemy_position) < 30.0 && !player_wep.enemies_hit.contains(&enemy_id.0){
+                    player_wep.enemies_hit.push(enemy_id.0);
+                    last_attacker.0 = Some(player_id.0);
+                    match enemy_health.current.checked_sub(SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
+                        Some(v) => {
+                            enemy_health.current = v;
+                        }
+                        None => {
+                            enemy_health.current = 0;
+                        }
+                    }
                 }
             }
         }
