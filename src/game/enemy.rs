@@ -130,9 +130,6 @@ pub fn handle_attack(
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer, aggro) in query_enemies.iter_mut() {
         if aggro.0 == None { continue }
-        if aggro.0 != None && spawn_timer.0.finished() {
-            spawn_timer.0.reset();
-        }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
             let attack = commands.spawn((SpriteBundle {
@@ -245,10 +242,10 @@ pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (enemy_entity, epb, mut aggro) in &mut enemies {
+    for (enemy_entity, epb, mut aggro, mut wep_timer) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -283,8 +280,9 @@ pub fn fixed_aggro(
                     }
                 )).id();
                 commands.entity(enemy_entity).push_children(&[exlaim]);
+                let _ = aggro.0.insert(closest_player.unwrap().0);
+                wep_timer.0.reset();
             }
-            let _ = aggro.0.insert(closest_player.unwrap().0);
         }
     }
 }
