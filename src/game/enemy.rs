@@ -130,6 +130,9 @@ pub fn handle_attack(
 ) {
     for (enemy_entity, enemy_transform, mut spawn_timer, aggro) in query_enemies.iter_mut() {
         if aggro.0 == None { continue }
+        if aggro.0 != None && spawn_timer.0.finished() {
+            spawn_timer.0.reset();
+        }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
             let attack = commands.spawn((SpriteBundle {
