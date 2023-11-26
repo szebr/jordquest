@@ -19,16 +19,17 @@ pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
 pub const AGGRO_RANGE: f32 = 200.0;
-pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.50;
-pub const SPECIAL_AGGRO_RANGE_MOD: f32 = 100.0;
-pub const SPECIAL_MAX_HP_MOD: u8 = 50;
+pub const ATTACK_RATE: f32 = 4.0;
+// special enemy modifiers are all multiplicative
+pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.5;
+pub const SPECIAL_MAX_HP_MOD: f32 = 1.5; // cannot be more than 2.55 due to u8 max
+pub const SPECIAL_ATTACK_RATE_MOD: f32 = 0.5;
 
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
 
 //TODO public struct resource holding enemy count
-
 
 
 #[derive(Component)]
@@ -88,10 +89,13 @@ pub fn spawn_enemy(
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
     let enemy_hp;
+    let enemy_attack_rate;
     if is_special { 
-        enemy_hp = ENEMY_MAX_HP + SPECIAL_MAX_HP_MOD;
+        enemy_hp = (ENEMY_MAX_HP as f32 * SPECIAL_MAX_HP_MOD) as u8;
+        enemy_attack_rate = ATTACK_RATE * SPECIAL_ATTACK_RATE_MOD;
     } else {
         enemy_hp = ENEMY_MAX_HP;
+        enemy_attack_rate = ATTACK_RATE;
     }
 
     let enemy_entity = commands.spawn((
@@ -119,7 +123,7 @@ pub fn spawn_enemy(
         },
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
-        SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
         IsSpecial(is_special),
     )).id();
     if is_special {
@@ -288,13 +292,7 @@ pub fn fixed_aggro(
                 closest_player = Some(pl);
             }
         }
-        let aggro_range;
-        if is_special.0 {
-            aggro_range = AGGRO_RANGE + SPECIAL_AGGRO_RANGE_MOD;
-        } else {
-            aggro_range = AGGRO_RANGE;
-        }
-        if best_distance > aggro_range || closest_player.is_none() {
+        if best_distance > AGGRO_RANGE || closest_player.is_none() {
             if aggro.0.is_some() {
                 //TODO show lost contact
             }
