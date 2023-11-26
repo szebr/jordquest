@@ -167,7 +167,13 @@ pub fn handle_attack(
             let mut enemy_entity = enemy_entity.unwrap();
             enemy_entity.add_child(attack);
             for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
-                if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
+                let circle_radius;
+                if is_special.0 {
+                    circle_radius = CIRCLE_RADIUS * SPECIAL_ATTACK_RADIUS_MOD;
+                } else {
+                    circle_radius = CIRCLE_RADIUS;
+                }
+                if player_transform.translation.distance(enemy_transform.translation) < circle_radius {
                     // must check if damage reduction is greater than damage dealt, otherwise subtraction overflow or player will gain health
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
