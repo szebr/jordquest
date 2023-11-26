@@ -19,12 +19,17 @@ pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const ENEMY_SPEED: f32 = 150. / net::TICKRATE as f32;
 pub const ENEMY_MAX_HP: u8 = 100;
 pub const AGGRO_RANGE: f32 = 200.0;
+pub const ATTACK_RATE: f32 = 4.0;
+// special enemy modifiers are all multiplicative
+pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.5;
+pub const SPECIAL_MAX_HP_MOD: f32 = 1.5; // cannot be more than 2.55 due to u8 max
+pub const SPECIAL_ATTACK_RATE_MOD: f32 = 0.5;
+
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
 
 //TODO public struct resource holding enemy count
-
 
 
 #[derive(Component)]
@@ -41,6 +46,12 @@ struct DespawnEnemyWeaponTimer(Timer);
 
 #[derive(Component)]
 pub struct SpawnEnemyWeaponTimer(Timer);
+
+#[derive(Component)]
+pub struct IsSpecial(bool);
+
+#[derive(Component)]
+pub struct SpawnPosition(pub Vec2);
 
 pub struct EnemyPlugin;
 
@@ -77,13 +88,23 @@ pub fn spawn_enemy(
     let mut pu: [u8; NUM_POWERUPS];
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
+    let enemy_hp;
+    let enemy_attack_rate;
+    if is_special { 
+        enemy_hp = (ENEMY_MAX_HP as f32 * SPECIAL_MAX_HP_MOD) as u8;
+        enemy_attack_rate = ATTACK_RATE * SPECIAL_ATTACK_RATE_MOD;
+    } else {
+        enemy_hp = ENEMY_MAX_HP;
+        enemy_attack_rate = ATTACK_RATE;
+    }
 
     let enemy_entity = commands.spawn((
         Enemy(id),
         pb,
+        SpawnPosition(pos),
         Health {
-            current: ENEMY_MAX_HP,
-            max: ENEMY_MAX_HP,
+            current: enemy_hp,
+            max: enemy_hp,
             dead: false,
         },
         EnemyCamp(campid),
@@ -102,7 +123,8 @@ pub fn spawn_enemy(
         },
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
-        SpawnEnemyWeaponTimer(Timer::from_seconds(4.0, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        IsSpecial(is_special),
     )).id();
     if is_special {
         let special_entity = commands.spawn(SpriteBundle {
@@ -125,17 +147,24 @@ pub fn handle_attack(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), With<Enemy>>,
     mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_transform, mut spawn_timer, aggro) in query_enemies.iter_mut() {
+    for (enemy_entity, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
         if aggro.0 == None { continue }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
+            let attack_radius;
+            if is_special.0 {
+                attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+            } else {
+                attack_radius = 1.0;
+            }
             let attack = commands.spawn((SpriteBundle {
                 texture: asset_server.load("EnemyAttack01.png").into(),
                 transform: Transform {
                     translation: Vec3::new(0.0, 0.0, 5.0),
+                    scale: Vec3::new(attack_radius, attack_radius, 1.0),
                     ..Default::default()
                 },
                 ..Default::default() },
@@ -146,7 +175,13 @@ pub fn handle_attack(
             let mut enemy_entity = enemy_entity.unwrap();
             enemy_entity.add_child(attack);
             for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
-                if player_transform.translation.distance(enemy_transform.translation) < CIRCLE_RADIUS {
+                let circle_radius;
+                if is_special.0 {
+                    circle_radius = CIRCLE_RADIUS * SPECIAL_ATTACK_RADIUS_MOD;
+                } else {
+                    circle_radius = CIRCLE_RADIUS;
+                }
+                if player_transform.translation.distance(enemy_transform.translation) < circle_radius {
                     // must check if damage reduction is greater than damage dealt, otherwise subtraction overflow or player will gain health
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
@@ -242,10 +277,10 @@ pub fn fixed_aggro(
     tick: Res<net::TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer, &IsSpecial), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (enemy_entity, epb, mut aggro, mut wep_timer) in &mut enemies {
+    for (enemy_entity, epb, mut aggro, mut wep_timer, is_special) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -269,7 +304,7 @@ pub fn fixed_aggro(
                     SpriteBundle {
                         texture: asset_server.load("aggro.png").into(),
                         transform: Transform {
-                            translation: Vec3::new(0.0, 32., 5.0),
+                            translation: Vec3::new(0.0, 32., 2.5),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -289,31 +324,40 @@ pub fn fixed_aggro(
 
 pub fn fixed_move(
     tick: Res<net::TickNum>,
-    mut enemies: Query<(&mut PosBuffer, &Aggro), (With<Enemy>, Without<Player>)>,
+    mut enemies: Query<(&mut PosBuffer, &Aggro, &SpawnPosition), (With<Enemy>, Without<Player>)>,
     players: Query<(&Player, &PosBuffer), (With<Player>, Without<Enemy>)>,
     map: Res<WorldMap>
 ) {
-    for (mut epb, aggro) in &mut enemies {
+    for (mut epb, aggro, spawn_pos) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut next = prev.clone();
 
         'mov: {
-            if aggro.0.is_none() { break 'mov }
-            let aggro = aggro.0.unwrap();
-            let mut ppbo = None;
-            for (pl, ppb) in &players {
-                if pl.0 == aggro {
-                    ppbo = Some(ppb);
+            if aggro.0.is_none() {
+                // move the enemy to their spawn position
+                let displacement = spawn_pos.0 - *prev;
+                if !(displacement.length() < CIRCLE_RADIUS) {
+                    let posit = find_next(&map.biome_map, *prev, spawn_pos.0);
+                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    next += movement;
                 }
-            }
-            if ppbo.is_none() { break 'mov }
-            let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
+            } else {
+                let aggro = aggro.0.unwrap();
+                let mut ppbo = None;
+                for (pl, ppb) in &players {
+                    if pl.0 == aggro {
+                        ppbo = Some(ppb);
+                    }
+                }
+                if ppbo.is_none() { break 'mov }
+                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
 
-            let displacement = *player_pos - *prev;
-            if !(displacement.length() < CIRCLE_RADIUS) {
-                let posit = find_next(&map.biome_map, *prev, *player_pos);
-                let movement = (posit - *prev).normalize() * ENEMY_SPEED;
-                next += movement;
+                let displacement = *player_pos - *prev;
+                if !(displacement.length() < CIRCLE_RADIUS) {
+                    let posit = find_next(&map.biome_map, *prev, *player_pos);
+                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    next += movement;
+                }
             }
         }
         epb.0.set(tick.0, next);
