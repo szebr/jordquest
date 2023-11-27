@@ -46,6 +46,7 @@ pub struct PlayerTickEvent {
 pub struct UserCmd {
     pub pos: Vec2,
     pub dir: f32,
+    pub events: u8,
 }
 
 /// sent by network module to disperse networked inputs received on the host
@@ -94,8 +95,6 @@ impl Packet for HostTick {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
             let pos = Vec2{
-                // BOY i wonder if these hardcoded ranges have a certain length...
-                // better make that check at runtime by converting to an iter, casting it, and unwrapping it!
                 x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
                 y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
             };
@@ -126,7 +125,7 @@ impl Packet for HostTick {
         })
     }
 
-    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
+    fn to_buf(&self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::HostTick as u8).to_be_bytes());
         bytes.extend_from_slice(&self.seq_num.to_be_bytes());
@@ -171,6 +170,8 @@ impl Packet for ClientTick {
         };
         i += 8;
         let dir = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+        i += 4;
+        let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
 
         return Ok(ClientTick {
             seq_num,
@@ -178,12 +179,13 @@ impl Packet for ClientTick {
             ack,
             tick: UserCmd {
                 pos,
-                dir
+                dir,
+                events
             }
         })
     }
 
-    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
+    fn to_buf(&self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::ClientTick as u8).to_be_bytes());
         bytes.extend_from_slice(&self.seq_num.to_be_bytes());
@@ -192,6 +194,7 @@ impl Packet for ClientTick {
         bytes.extend_from_slice(&self.tick.pos.x.to_be_bytes());
         bytes.extend_from_slice(&self.tick.pos.y.to_be_bytes());
         bytes.extend_from_slice(&self.tick.dir.to_be_bytes());
+        bytes.extend_from_slice(&self.tick.events.to_be_bytes());
     }
 }
 
@@ -207,7 +210,7 @@ impl Packet for ConnectionResponse {
         return Ok(ConnectionResponse { player_id, seed });
     }
 
-    fn to_buf(&self, mut bytes: &mut Vec<u8>) {
+    fn to_buf(&self, bytes: &mut Vec<u8>) {
         bytes.extend_from_slice(&MAGIC_NUMBER.to_be_bytes());
         bytes.extend_from_slice(&(PacketType::ConnectionResponse as u8).to_be_bytes());
         bytes.extend_from_slice(&self.player_id.to_be_bytes());

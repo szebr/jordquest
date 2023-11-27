@@ -8,11 +8,13 @@ use bevy::prelude::*;
 use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
+use crate::game::player::LocalEvents;
+use crate::game::player;
 
 
 pub const TICKRATE: u8 = 10;
 pub const TICKLEN_S: f32 = 1. / TICKRATE as f32;
-pub const DELAY: u16 = 0;
+pub const DELAY: u16 = 2;
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
 //pub const TIMEOUT: u16 = TICKRATE as u16 * 10;  // 10 seconds to timeout
 pub const MAX_DATAGRAM_SIZE: usize = 1024;
@@ -39,12 +41,12 @@ impl Plugin for NetPlugin {
         app
             .add_systems(Startup, (startup, host::startup))  // you cant conditionally run this unless you do a bunch of bullshit
             .add_systems(FixedUpdate,
-                         (increment_tick,
+                         (increment_tick.after(client::fixed).after(host::fixed),
                          client::fixed.run_if(is_client).after(movement::update_buffer),
                          host::fixed.run_if(is_host).after(enemy::fixed_move).after(movement::update_buffer),
                          lerp::resolve_collisions.run_if(is_host).run_if(in_state(AppState::Game)).before(increment_tick)))
             .add_systems(Update,
-                         (lerp::lerp_pos,
+                         (lerp::lerp_pos.after(host::update).after(player::handle_usercmd_events),
                          client::update.run_if(is_client),
                          host::update.run_if(is_host)))
             .add_systems(OnEnter(AppState::Game), host::connect.run_if(is_host))
@@ -63,6 +65,7 @@ pub fn startup(mut commands: Commands) {
     commands.insert_resource(TickNum { 0: 0 });
     commands.insert_resource(Socket(None));
     commands.insert_resource(IsHost(true));  // gets changed when you start the game
+    commands.insert_resource(LocalEvents { attack: false, spawn: false });
     commands.insert_resource(Ack { rmt_num: 0, bitfield: 0 });
 }
 

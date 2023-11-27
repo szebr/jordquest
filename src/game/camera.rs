@@ -6,8 +6,9 @@ use crate::movement;
 use crate::game::camp::setup_camps;
 use crate::game::components::{Camp, CampStatus, Health};
 use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP}};
-use crate::{map, map::WorldMap, map::TILESIZE};
-use super::buffers::PosBuffer;
+use crate::map;
+use crate::game::player::LocalEvents;
+use crate::net::IsHost;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -87,7 +88,7 @@ pub fn spawn_minimap(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut assets: ResMut<Assets<Image>>,
-    map: Res<WorldMap>,
+    map: Res<map::WorldMap>,
     mut game_camera: Query<Entity, With<SpatialCameraBundle>>,
 ) {
     let minimap_border_entity = commands.spawn((
@@ -156,7 +157,7 @@ fn spawn_camp_markers(
     asset_server: Res<AssetServer>,
     mut minimap: Query<Entity, With<Minimap>>,
     camp_markers: Query<Entity, With<CampMarker>>,
-    camps: Query<(&Camp, &PosBuffer), With<Camp>>
+    camps: Query<(&Camp, &Transform), With<Camp>>
 ) {
     // Return immediately if the camp markers already exist
     // TODO: Call this function once on a CampSpawnEvent to make this loop redundant
@@ -171,8 +172,8 @@ fn spawn_camp_markers(
                     texture: asset_server.load("camp_marker.png"),
                     transform: Transform {
                         translation: Vec3 {
-                            x: (camp_pos.0.get(0).x / TILESIZE as f32),
-                            y: (camp_pos.0.get(0).y / TILESIZE as f32),
+                            x: (camp_pos.translation.x / map::TILESIZE as f32),
+                            y: (camp_pos.translation.y / map::TILESIZE as f32),
                             z: 2.
                         },
                         ..Default::default()
@@ -210,7 +211,7 @@ fn hide_cleared_camp_markers(
 
 // Creates and returns the Image of the minimap from the map data
 fn draw_minimap(
-    map: Res<WorldMap>,
+    map: Res<map::WorldMap>,
 ) -> Image 
 {
     let mut minimap_data: Vec<u8> = Vec::new();
@@ -306,10 +307,10 @@ fn marker_follow_local_player(
         // Set marker position on minimap to reflect the player's current position in the game world
         for mut marker_tf in &mut local_player_marker {
             if local_player_transform.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.x = local_player_transform.translation.x / TILESIZE as f32;
+                marker_tf.translation.x = local_player_transform.translation.x / map::TILESIZE as f32;
             }
             if local_player_transform.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.y = local_player_transform.translation.y / TILESIZE as f32;
+                marker_tf.translation.y = local_player_transform.translation.y / map::TILESIZE as f32;
             }
         }
     }
@@ -322,7 +323,9 @@ fn respawn_update(
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut local_player: Query<(&mut Transform, &mut Health), With<LocalPlayer>>,
     mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
-    map: Res<WorldMap>,
+    map: Res<map::WorldMap>,
+    is_host: Res<IsHost>,
+    mut local_events: ResMut<LocalEvents>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
     // Get mouse position upon click
@@ -359,8 +362,11 @@ fn respawn_update(
 
                     let (mut local_player_transform, mut local_player_health) = local_player.single_mut();
 
-                    local_player_health.current = PLAYER_DEFAULT_HP;
+                    local_events.spawn = true;
                     spawn_writer.send(LocalPlayerSpawnEvent);
+                    if is_host.0 {
+                        local_player_health.current = PLAYER_DEFAULT_HP;
+                    }
                     local_player_transform.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     local_player_transform.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 

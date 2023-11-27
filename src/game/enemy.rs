@@ -276,13 +276,13 @@ pub fn update_enemies(
 }
 
 pub fn fixed_aggro(
-    tick: Res<net::TickNum>,
+    tick: Res<TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer, &IsSpecial), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (enemy_entity, epb, mut aggro, mut wep_timer, is_special) in &mut enemies {
+    for (enemy_entity, epb, mut aggro, mut wep_timer) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;

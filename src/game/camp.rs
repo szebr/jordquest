@@ -10,7 +10,6 @@ use crate::map::{MAPSIZE, TILESIZE, CampNodes};
 use crate::components::PowerUpType;
 use crate::components::*;
 use crate::Decorations;
-use crate::buffers::*;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
 
@@ -62,10 +61,12 @@ pub fn setup_camps(
 
         let special_enemy_index = rng.gen_range(0..CAMP_ENEMIES);
 
-        let pb = PosBuffer(CircularBuffer::new_from(camp_pos));
         commands.spawn((
             Camp(campid),
-            pb,
+            SpatialBundle {
+                transform: Transform::from_xyz(camp_pos.x, camp_pos.y, 0.),
+                ..default()
+            },
             Grade(camp_grade),
             CampEnemies{
                 max_enemies: CAMP_ENEMIES,
@@ -106,7 +107,7 @@ pub fn setup_camps(
             let powerups: [PowerUpType; 5] = [PowerUpType::MaxHPUp, PowerUpType::DamageDealtUp, PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
             //TODO: make this a random percentage based on the mapconfig resource
             let power_up_to_drop = powerups[camp_grade as usize - 1];
-            let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE as u32;
+            let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE;
 
             if is_special{
                 chance_drop_powerup = true;
