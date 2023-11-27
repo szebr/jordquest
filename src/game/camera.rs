@@ -172,8 +172,8 @@ fn spawn_camp_markers(
                     texture: asset_server.load("camp_marker.png"),
                     transform: Transform {
                         translation: Vec3 {
-                            x: (camp_pos.translation.x / map::TILESIZE as f32),
-                            y: (camp_pos.translation.y / map::TILESIZE as f32),
+                            x: ((camp_pos.translation.x / map::TILESIZE as f32) as i32) as f32,
+                            y: ((camp_pos.translation.y / map::TILESIZE as f32) as i32) as f32,
                             z: 2.
                         },
                         ..Default::default()
