@@ -4,7 +4,7 @@ use bevy::window::PrimaryWindow;
 use crate::AppState;
 use crate::movement;
 use crate::game::camp::setup_camps;
-use crate::game::components::{Camp, CampStatus, Health};
+use crate::game::components::{Camp, CampStatus, Grade, Health};
 use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP}};
 use crate::map;
 use crate::game::player::LocalEvents;
@@ -19,6 +19,14 @@ const MINIMAP_TRANSLATION: Vec3 = Vec3::new(
     ((super::WIN_H / 2.) as u32 - MINIMAP_PAD.y - (MINIMAP_DIMENSIONS.y / 2)) as f32 * GAME_PROJ_SCALE,
     5.
 );
+
+const CAMP_MARKER_COLORS: [Color; 5] = [
+    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
+    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
+    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
+    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
+    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.}
+];
 
 #[derive(Component)]
 pub struct GameCamera;
@@ -157,7 +165,7 @@ fn spawn_camp_markers(
     asset_server: Res<AssetServer>,
     mut minimap: Query<Entity, With<Minimap>>,
     camp_markers: Query<Entity, With<CampMarker>>,
-    camps: Query<(&Camp, &Transform), With<Camp>>
+    camps: Query<(&Camp, &Transform, &Grade), With<Camp>>
 ) {
     // Return immediately if the camp markers already exist
     // TODO: Call this function once on a CampSpawnEvent to make this loop redundant
@@ -166,7 +174,7 @@ fn spawn_camp_markers(
     }
 
     for parent in &mut minimap {
-        for (camp_num, camp_pos) in camps.iter() {
+        for (camp_num, camp_pos, camp_grade) in camps.iter() {
             let camp_marker_ent = commands.spawn((
                 SpriteBundle {
                     texture: asset_server.load("camp_marker.png"),
@@ -176,6 +184,10 @@ fn spawn_camp_markers(
                             y: ((camp_pos.translation.y / map::TILESIZE as f32) as i32) as f32,
                             z: 2.
                         },
+                        ..Default::default()
+                    },
+                    sprite: Sprite {
+                        color: CAMP_MARKER_COLORS[camp_grade.0 as usize],
                         ..Default::default()
                     },
                     ..Default::default()
