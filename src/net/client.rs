@@ -4,9 +4,9 @@ use bevy::prelude::*;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
 use crate::game::map::MapSeed;
-use crate::game::player::{LocalPlayer, SetIdEvent};
-use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, packets};
-use crate::net::packets::{ConnectionResponse, EnemyTickEvent, HostTick, Packet, PacketType, PlayerTickEvent, UserCmd};
+use crate::game::player::{ATTACK_BITFLAG, LocalEvents, LocalPlayer, SetIdEvent, SPAWN_BITFLAG};
+use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
+use crate::net::packets::*;
 
 pub fn connect(
     addresses: Res<menus::NetworkAddresses>,
@@ -23,7 +23,7 @@ pub fn connect(
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
     let host = sock.0.as_mut().unwrap();
     host.connect(host_addr).expect("can't connect to host");
-    packets::send_empty_packet(PacketType::ConnectionRequest, host, &host_addr).expect("failed to request connection");
+    send_empty_packet(PacketType::ConnectionRequest, host, &host_addr).expect("failed to request connection");
     println!("connection successful");
 }
 
@@ -34,7 +34,9 @@ pub fn disconnect(mut sock: ResMut<net::Socket>) {
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
-    pb_query: Query<&PosBuffer, With<LocalPlayer>>
+    pb_query: Query<&PosBuffer, With<LocalPlayer>>,
+    ack: Res<net::Ack>,
+    mut local_events: ResMut<LocalEvents>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -42,14 +44,28 @@ pub fn fixed(
     if pb.is_err() { return }
     let pb = pb.unwrap();
     let pos = pb.0.get(tick.0);
-    let packet = packets::ClientTick {
+    let mut events: u8 = 0;
+    if local_events.spawn {
+        events |= SPAWN_BITFLAG;
+        local_events.spawn = false;
+    }
+    if local_events.attack {
+        events |= ATTACK_BITFLAG;
+        local_events.attack = false;
+    }
+    let packet = ClientTick {
         seq_num: tick.0,
+        rmt_num: ack.rmt_num,
+        ack: ack.bitfield,
         tick: UserCmd {
             pos: *pos,
             dir: 0.0,
+            events,
         },
     };
-    packet.write(sock, &sock.peer_addr().expect("Sock not connected during fixed")).expect("ClientTick send failed");
+    let mut bytes: Vec<u8> = Vec::new();
+    packet.to_buf(&mut bytes);
+    send_buf(bytes.as_slice(), sock, &sock.peer_addr().expect("Sock not connected during fixed")).expect("ClientTick send failed");
 }
 
 pub fn update(
@@ -100,9 +116,10 @@ pub fn update(
                         tick
                     })
                 }
-                // TODO this is hilarious... client ticks are just slaves to host ticks
-                //   client doesn't even tick its own clock
-                tick_num.0 = packet.seq_num;
+                if tick_num.0.abs_diff(packet.seq_num) > 1 {
+                    println!("re-syncing");
+                    tick_num.0 = packet.seq_num;
+                }
             },
             pt if pt == PacketType::ServerFull as u8 => {
                 println!("Server is full!");

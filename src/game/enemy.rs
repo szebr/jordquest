@@ -29,9 +29,6 @@ pub const SPECIAL_ATTACK_RATE_MOD: f32 = 0.5;
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
 
-//TODO public struct resource holding enemy count
-
-
 #[derive(Component)]
 pub struct EnemyWeapon;
 
@@ -94,7 +91,7 @@ pub fn spawn_enemy(
     pu[power_up_type as usize] = 1;
     let enemy_hp;
     let enemy_attack_rate;
-    if is_special { 
+    if is_special {
         enemy_hp = (ENEMY_MAX_HP as f32 * SPECIAL_MAX_HP_MOD) as u8;
         enemy_attack_rate = ATTACK_RATE * SPECIAL_ATTACK_RATE_MOD;
     } else {
@@ -152,11 +149,11 @@ pub fn handle_attack(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), With<Enemy>>,
+    mut query_enemies: Query<(Entity, &Health, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
     mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
-        if aggro.0 == None { continue }
+    for (enemy_entity, enemy_hp, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
+        if enemy_hp.current <= 0 || aggro.0 == None { continue; }
         spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
             let attack_radius;
@@ -279,13 +276,13 @@ pub fn update_enemies(
 }
 
 pub fn fixed_aggro(
-    tick: Res<net::TickNum>,
+    tick: Res<TickNum>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer, &IsSpecial), With<Enemy>>,
+    mut enemies: Query<(Entity, &PosBuffer, &mut Aggro, &mut SpawnEnemyWeaponTimer), With<Enemy>>,
     players: Query<(&Player, &PosBuffer, &Health), Without<Enemy>>
 ) {
-    for (enemy_entity, epb, mut aggro, mut wep_timer, is_special) in &mut enemies {
+    for (enemy_entity, epb, mut aggro, mut wep_timer) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
         let mut closest_player = None;
         let mut best_distance = f32::MAX;
@@ -487,7 +484,7 @@ pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
     });
 
     // A* algorithm
-    while let Some(Node { position, cost }) = open_list.pop() {
+    while let Some(Node { position, ..}) = open_list.pop() {
         // reached the target, return the path
         if position == target {
             return reconstruct_path(from, target);
@@ -609,8 +606,8 @@ pub fn handle_packet(
     for ev in enemy_reader.iter() {
         // TODO this is slow but i have no idea how to make the borrow checker okay
         //   with the idea of an array of player PosBuffer references
-        for (pl, mut pb) in &mut enemy_query {
-            if pl.0 == ev.tick.id {
+        for (en, mut pb) in &mut enemy_query {
+            if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
             }
         }

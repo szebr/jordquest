@@ -4,11 +4,10 @@ use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
 use crate::game::buffers::PosBuffer;
-use crate::game::player::{LocalPlayer, PLAYER_DEFAULT_HP};
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
-use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE, Socket};
+use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
 
 pub const RENDER_DISTANCE: f32 = 640.;
 
@@ -16,8 +15,8 @@ pub const RENDER_DISTANCE: f32 = 640.;
 pub struct Connection {
     pub addr: SocketAddr,
     pub player_id: u8,
-    pub ack: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
-    pub ack_bits: u32
+    pub rmt_num: u16,  // if the ack is older than TIMEOUT ticks ago, disconnect the player
+    pub ack: u32
 }
 
 #[derive(Resource)]
@@ -52,51 +51,54 @@ pub fn disconnect(
 pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
-    sock: Res<Socket>,
-    local_player: Query<(&PosBuffer, &Health, &Player), With<LocalPlayer>>,
-    player_query: Query<(&PosBuffer, &Health, &Player), Without<LocalPlayer>>,
-    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>
+    sock: Res<net::Socket>,
+    player_query: Query<(&PosBuffer, &Health, &Player)>,
+    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
-    let mut players: Vec<PlayerTick> = Vec::new();
-    let (lp_pos, lp_hp, lp_pl) = local_player.single();  // fuck it, panic if this fails
-    let lp_pos = *lp_pos.0.get(tick.0);
-    players.push(PlayerTick {
-        id: lp_pl.0,
-        pos: lp_pos,
-        hp: lp_hp.current
-    });
-    for (pb, hp, pl) in &player_query {
-        let pos = *pb.0.get(tick.0);
-        if pos.distance(lp_pos) < RENDER_DISTANCE {
-            players.push(PlayerTick {
-                id: pl.0,
-                pos,
-                hp: hp.current
-            });
-        }
-    }
-    let mut enemies: Vec<EnemyTick> = Vec::new();
-    for (pb, hp, en) in &enemy_query {
-        let pos = *pb.0.get(tick.0);
-        if pos.distance(lp_pos) < RENDER_DISTANCE {
-            enemies.push(EnemyTick {
-                id: en.0,
-                pos,
-                hp: hp.current
-            });
-        }
-    }
-    let packet = HostTick {
-        seq_num: tick.0,
-        enemies,
-        players,
-    };
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
-        let peer = conn.unwrap().addr;
-        packet.write(&sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
+        let conn = conn.unwrap();
+        for (lp_pb, _, lp_pl) in &player_query {
+            if conn.player_id == lp_pl.0 {
+                // for "this" player, add self, then calculate who is close and add them.
+                let lp_pos = *lp_pb.0.get(tick.0);
+                let mut players: Vec<PlayerTick> = Vec::new();
+                for (pb, hp, pl) in &player_query {
+                    let pos = *pb.0.get(tick.0);
+                    if pos.distance(lp_pos) < RENDER_DISTANCE {
+                        players.push(PlayerTick {
+                            id: pl.0,
+                            pos,
+                            hp: hp.current
+                        });
+                    }
+                }
+                let mut enemies: Vec<EnemyTick> = Vec::new();
+                for (pb, hp, en) in &enemy_query {
+                    let pos = *pb.0.get(tick.0);
+                    if pos.distance(lp_pos) < RENDER_DISTANCE {
+                        enemies.push(EnemyTick {
+                            id: en.0,
+                            pos,
+                            hp: hp.current
+                        });
+                    }
+                }
+                let packet = HostTick {
+                    seq_num: tick.0,
+                    rmt_num: conn.rmt_num,
+                    ack: conn.ack,
+                    enemies,
+                    players,
+                };
+                let peer = conn.addr;
+                let mut bytes: Vec<u8> = Vec::new();
+                packet.to_buf(&mut bytes);
+                send_buf(bytes.as_slice(), &sock, &peer).expect(&*format!("failed to send HostTick to {:?}", peer));
+            }
+        }
     }
 }
 
@@ -134,8 +136,8 @@ fn add_connection(conns: &mut Connections, origin: &SocketAddr) -> Option<u8> {
             let _ = conn.insert(Connection {
                 addr: *origin,
                 player_id: fresh_id,
+                rmt_num: 0,
                 ack: 0,
-                ack_bits: 0,
             });
             return Some(fresh_id);
         }
@@ -148,7 +150,6 @@ pub fn update(
     mut conns: ResMut<Connections>,
     tick_num: Res<net::TickNum>,
     mut usercmd_writer: EventWriter<UserCmdEvent>,
-    mut players: Query<(&mut Health, &Player)>,
     seed: Res<MapSeed>
 ) {
     if sock.0.is_none() { return }
@@ -172,16 +173,13 @@ pub fn update(
                     send_empty_packet(PacketType::ServerFull, sock, &origin).expect("cant send server full");
                 }
                 let player_id = maybe_id.unwrap();
-                for (mut hp, pl) in &mut players {
-                    if pl.0 == player_id {
-                        hp.current = PLAYER_DEFAULT_HP;
-                        // TODO this is the crappy bandaid way of doing it, doesn't work after respawns
-                    }
-                }
-                ConnectionResponse {
+                let packet = ConnectionResponse {
                     player_id,
                     seed: seed.0
-                }.write(sock, &origin).expect("Can't send connection response");
+                };
+                let mut bytes: Vec<u8> = Vec::new();
+                packet.to_buf(&mut bytes);
+                send_buf(bytes.as_slice(), sock, &origin).expect("Can't send connection response");
             },
             pt if pt == PacketType::ClientTick as u8 => {
                 let packet = ClientTick::from_buf(&buf[3..]);
