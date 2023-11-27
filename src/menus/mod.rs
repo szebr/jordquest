@@ -81,6 +81,7 @@ impl Plugin for MainMenuPlugin{
         .add_systems(Update, init_map_seed_input_system)
         .add_systems(Update, init_eid_percentage_input_system)
         .add_systems(Update, bevy::window::close_on_esc)
+        .add_systems(Update, animate.run_if(in_state(AppState::MainMenu)))
         .add_systems(Startup, startup);
 }}
 

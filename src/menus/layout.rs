@@ -225,18 +225,69 @@ pub fn despawn_main_menu(
     }
 }
 
+#[derive(Component)]
+pub struct TitleImage;
+
+#[derive(Component)]
+pub struct TitleShadow;
+
 pub fn spawn_main_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let main_menu_id = spawn_flex_column(&mut commands, MainMenu);
+    let title = commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Px(864.0),
+                height: Val::Px(144.0),
+                margin: UiRect::bottom(Val::VMin(10.)),
+                ..default()
+            },
+            background_color: Color::WHITE.into(),
+            ..default()
+        },
+        UiImage::new(asset_server.load("jordquest.png")),
+        TitleImage,
+    )).id();
+    let shadow = commands.spawn((
+        NodeBundle {
+            style: Style {
+                width: Val::Px(864.0),
+                height: Val::Px(144.0),
+                margin: UiRect::bottom(Val::VMin(10.)),
+                ..default()
+            },
+            background_color: BackgroundColor(*Color::BLACK.set_a(0.8)),
+            ..default()
+        },
+        UiImage::new(asset_server.load("jordquest.png")),
+        TitleShadow
+    )).id();
+    commands.entity(shadow).add_child(title);
     let mut main_menu = commands.entity(main_menu_id);
-    spawn_title(&mut main_menu, &font, "JORDQUEST");
+    main_menu.add_child(shadow);
     spawn_button(&mut main_menu, &font, HostButton, "Host");
     spawn_button(&mut main_menu, &font, JoinButton, "Join");
     spawn_button(&mut main_menu, &font, ControlsButton, "Controls");
     spawn_button(&mut main_menu, &font, CreditsButton, "Credits");
+}
+
+pub fn animate(
+    mut titles: Query<&mut Transform, (With<TitleImage>, Without<TitleShadow>)>,
+    mut shadows: Query<&mut Transform, With<TitleShadow>>,
+    time: Res<Time>,
+) {
+    let scale = time.elapsed_seconds().sin() * 0.03 + 1.;
+    let child_scale = (1./scale) * time.elapsed_seconds().sin() * -0.1 + 1.1;
+    for mut tf in &mut titles {
+        tf.scale = Vec3::splat(child_scale);
+    }
+    for mut tf in &mut shadows {
+        tf.scale = Vec3::splat(scale);
+    }
 }
 
 fn add_credits_slide(
