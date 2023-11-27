@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
@@ -58,7 +57,7 @@ pub fn setup_camps(
         // determines camp/enemy type
         let camp_grade: u8 = rng.gen_range(1..=NUM_GRADES);
         //get the prefab data for the given grade
-        let mut prefab_data = get_prefab_data(camp_grade);
+        let prefab_data = get_prefab_data(camp_grade);
 
         let special_enemy_index = rng.gen_range(0..CAMP_ENEMIES);
 
@@ -77,7 +76,9 @@ pub fn setup_camps(
             CampRespawnTimer(Timer::from_seconds(CAMP_RESPAWN_TIME, TimerMode::Once)),
         ));
 
-        // DECORATIONS NEED TO SPAWN BEFORE ENEMIES SO THAT THE VECDEQUE IS IN THE CORRECT ORDER
+        let mut vec_counter = 0;
+
+        // DECORATIONS NEED TO SPAWN BEFORE ENEMIES SO THAT THE VEC IS IN THE CORRECT ORDER
         //spawn decorations here
         for n in 0..3 {
             commands.spawn((
@@ -86,8 +87,8 @@ pub fn setup_camps(
                     sprite: TextureAtlasSprite {index: decoration_atlas.coord_to_index(n, camp_grade as i32), ..default()},
                     transform: Transform{
                         translation: Vec3::new(
-                            camp_pos.x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                            camp_pos.y + (prefab_data.pop_front().unwrap() * 16) as f32, 
+                            camp_pos.x + (prefab_data[vec_counter] * 16) as f32, 
+                            camp_pos.y + (prefab_data[vec_counter + 1] * 16) as f32, 
                             2.
                         ),
                         scale: Vec3::new(2., 2., 0.),
@@ -97,6 +98,8 @@ pub fn setup_camps(
                 },
                 Collider(DEC_SIZE),
             ));
+
+            vec_counter+=2;
         }
 
         //spawn enemies for this camp
@@ -119,14 +122,14 @@ pub fn setup_camps(
                 id,
                 campid, 
                 Vec2::new(
-                    camp_pos.x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                    camp_pos.y + (prefab_data.pop_front().unwrap() * 16) as f32), 
+                    camp_pos.x + (prefab_data[vec_counter] * 16) as f32, 
+                    camp_pos.y + (prefab_data[vec_counter + 1] * 16) as f32), 
                 camp_grade as i32, 
                 power_up_to_drop,
                 chance_drop_powerup,
                 is_special,
             );
-            id += 1;
+            vec_counter += 2;
         }
         campid += 1;
     }
@@ -178,198 +181,25 @@ fn get_spawn_vec(row: f32, col:f32) -> Vec2{
 * en 5 y offset = [15]
 */
 
-fn get_prefab_data(grade: u8) -> VecDeque<i8>{
+fn get_prefab_data(grade: u8) -> Vec<i32>{
 
-    let mut pd: VecDeque<i8> = VecDeque::new();
+    let pd;
     match grade {
         1 => {
-            // add decoration 1 position offset
-            pd.push_back(0);
-            pd.push_back(7);
-            // add decoration 2 position offset
-            pd.push_back(-5);
-            pd.push_back(-3);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-2);
-            // add enemy 1 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add enemy 2 position offset
-            pd.push_back(-2);
-            pd.push_back(-1);
-            // add enemy 3 position offset
-            pd.push_back(3);
-            pd.push_back(2);
-            // add enemy 4 position offset
-            pd.push_back(6);
-            pd.push_back(1);
-            // add enemy 5 position offset
-            pd.push_back(0);
-            pd.push_back(-5);
+            pd = vec![0, 7, -5, -3, 3, -2, -3, 4, -2, -1, 3, 2, 6, 1, 0, -5];
         },
         2 => {
-            // add decoration 1 position offset
-            pd.push_back(-5);
-            pd.push_back(4);
-            // add decoration 2 position offset
-            pd.push_back(0);
-            pd.push_back(1);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-4);
-            // add enemy 1 position offset
-            pd.push_back(-2);
-            pd.push_back(7);
-            // add enemy 2 position offset
-            pd.push_back(-6);
-            pd.push_back(-3);
-            // add enemy 3 position offset
-            pd.push_back(-3);
-            pd.push_back(-6);
-            // add enemy 4 position offset
-            pd.push_back(2);
-            pd.push_back(-3);
-            // add enemy 5 position offset
-            pd.push_back(4);
-            pd.push_back(3);
+            pd = vec![-5, 4, 0, 1, 3, -4, -2, 7, -6, -3, -3, -6, 2, -3, 4, 3];
         },
         3 => {
-            // add decoration 1 position offset
-            pd.push_back(-1);
-            pd.push_back(5);
-            // add decoration 2 position offset
-            pd.push_back(-3);
-            pd.push_back(-2);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-2);
-            // add enemy 1 position offset
-            pd.push_back(-4);
-            pd.push_back(5);
-            // add enemy 2 position offset
-            pd.push_back(-2);
-            pd.push_back(1);
-            // add enemy 3 position offset
-            pd.push_back(-6);
-            pd.push_back(0);
-            // add enemy 4 position offset
-            pd.push_back(4);
-            pd.push_back(0);
-            // add enemy 5 position offset
-            pd.push_back(-4);
-            pd.push_back(-4);
+            pd = vec![-1, 5, -3, -2, 3, -2, -4, 5, -2, 1, -6, 0, 4, 0, -4, -4];
         },
         4 => {
-            // add decoration 1 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add decoration 2 position offset
-            pd.push_back(3);
-            pd.push_back(2);
-            // add decoration 3 position offset
-            pd.push_back(5);
-            pd.push_back(-1);
-            // add enemy 1 position offset
-            pd.push_back(2);
-            pd.push_back(6);
-            // add enemy 2 position offset
-            pd.push_back(-5);
-            pd.push_back(1);
-            // add enemy 3 position offset
-            pd.push_back(-2);
-            pd.push_back(1);
-            // add enemy 4 position offset
-            pd.push_back(-4);
-            pd.push_back(-3);
-            // add enemy 5 position offset
-            pd.push_back(1);
-            pd.push_back(-6);
+            pd = vec![-3, 4, 3, 2, 5, -1, 2, 6, -5, 1, -2, 1, -4, -3, 1, -6];
         },
         _ => {
-            // add decoration 1 position offset
-            pd.push_back(3);
-            pd.push_back(3);
-            // add decoration 2 position offset
-            pd.push_back(2);
-            pd.push_back(-2);
-            // add decoration 3 position offset
-            pd.push_back(-5);
-            pd.push_back(-5);
-            // add enemy 1 position offset
-            pd.push_back(4);
-            pd.push_back(6);
-            // add enemy 2 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add enemy 3 position offset
-            pd.push_back(5);
-            pd.push_back(0);
-            // add enemy 4 position offset
-            pd.push_back(-6);
-            pd.push_back(-2);
-            // add enemy 5 position offset
-            pd.push_back(-1);
-            pd.push_back(-4);
+            pd = vec![3, 3, 2, -2, -5, -5, 4, 6, -3, 4, 5, 0, -6, -2, -1, -4];
         },
     }
     pd
-}
-
-// respawn the enemies in a camp after a certain amount of time
-pub fn respawn_camp_enemies(
-    mut commands: Commands,
-    mut camp_query: Query<(&Camp, &mut CampEnemies, &mut CampStatus, &Grade, &mut CampRespawnTimer, &GlobalTransform)>,
-    entity_atlas: Res<Atlas>,
-    asset_server: Res<AssetServer>,
-    map_seed: Res<MapSeed>,
-    time: Res<Time>,
-){
-    for (camp_id, mut enemies_in_camp, mut camp_status, 
-        grade, mut respawn_timer, pos) in camp_query.iter_mut(){
-        // only respawn enemies in camps that are currently cleared
-        if !camp_status.0 {
-            respawn_timer.0.tick(time.delta());
-        }
-        if respawn_timer.0.finished()
-        {
-            let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
-            let special_enemy_index = rng.gen_range(0..enemies_in_camp.max_enemies);
-            let powerups: [PowerUpType; 5] = [PowerUpType::MaxHPUp, PowerUpType::DamageDealtUp, 
-                PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
-            let power_up_to_drop = powerups[grade.0 as usize - 1];
-            respawn_timer.0.reset();
-            let mut id: u8 = 0;
-            let mut prefab_data = get_prefab_data(grade.0);
-            for _ in 0..6 {
-                prefab_data.pop_front();
-            }
-            camp_status.0 = true;
-
-            // spawn enemies for this camp
-            for n in 0..enemies_in_camp.max_enemies{
-                let is_special = n == special_enemy_index;
-                let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE;
-                if is_special{
-                    chance_drop_powerup = true;
-                }
-                enemy::spawn_enemy(
-                    &mut commands, 
-                    &asset_server,
-                    &entity_atlas, 
-                    id,
-                    camp_id.0, 
-                    Vec2::new(
-                        pos.translation().x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                        pos.translation().y + (prefab_data.pop_front().unwrap() * 16) as f32), 
-                        grade.0 as i32, 
-                    power_up_to_drop,
-                    chance_drop_powerup,
-                    is_special,
-                );
-                enemies_in_camp.current_enemies += 1;
-                id += 1;
-            }
-        }
-    }
 }
