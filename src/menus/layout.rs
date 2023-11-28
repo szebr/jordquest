@@ -266,8 +266,22 @@ pub fn spawn_main_menu(
         UiImage::new(asset_server.load("jordquest.png")),
         TitleShadow
     )).id();
+    let background = commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                width: Val::Px(1280.),
+                height: Val::Px(720.),
+                ..default()
+            },
+            background_color: Color::WHITE.into(),
+            ..default()
+        },
+        UiImage::new(asset_server.load("background.png")),
+    )).id();
     commands.entity(shadow).add_child(title);
     let mut main_menu = commands.entity(main_menu_id);
+    main_menu.add_child(background);
     main_menu.add_child(shadow);
     spawn_button(&mut main_menu, &font, HostButton, "Host");
     spawn_button(&mut main_menu, &font, JoinButton, "Join");
