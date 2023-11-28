@@ -21,11 +21,11 @@ const MINIMAP_TRANSLATION: Vec3 = Vec3::new(
 );
 
 const CAMP_MARKER_COLORS: [Color; 5] = [
-    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
-    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
-    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
-    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.},
-    Color::Rgba{red: 0., green: 0., blue: 0., alpha: 255.}
+    Color::Rgba{red: 0.2, green: 0.76, blue: 0.13, alpha: 1.}, // HP up
+    Color::Rgba{red: 0.76, green: 0.13, blue: 0.13, alpha: 1.}, // Damage up
+    Color::Rgba{red: 0.13, green: 0.27, blue: 0.76, alpha: 1.}, // Defense up
+    Color::Rgba{red: 0.76, green: 0.13, blue: 0.66, alpha: 1.}, // Attack speed up
+    Color::Rgba{red: 0.76, green: 0.6, blue: 0.13, alpha: 1.}  // Movement speed up
 ];
 
 #[derive(Component)]
@@ -187,7 +187,7 @@ fn spawn_camp_markers(
                         ..Default::default()
                     },
                     sprite: Sprite {
-                        color: CAMP_MARKER_COLORS[camp_grade.0 as usize],
+                        color: CAMP_MARKER_COLORS[(camp_grade.0 - 1) as usize],
                         ..Default::default()
                     },
                     ..Default::default()
