@@ -57,7 +57,8 @@ pub const CAMPSIZE: usize = 17; // Diameter of camp size in tiles
 pub const MAXEGGS: usize = 5;
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
-pub const MAXCHESTS: usize = 5; // Maximum number of possible chests to spawn
+pub const MAXCHESTS: usize = 4; // Maximum number of possible chests to spawn
+pub const CHESTDIST: f32 = 40.;
 
 // Base colors for navigable tiles
 pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
@@ -368,7 +369,7 @@ fn read_map(
             // check that the chest is far enough away from any camp
             for node in camp_nodes_mst.node_indices() {
                 let node = &camp_nodes_mst[node];
-                if euclidean_distance(cur_chest, *node) < 30. {
+                if euclidean_distance(cur_chest, *node) < CHESTDIST{
                     valid = false;
                 }
             }

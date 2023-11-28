@@ -103,6 +103,7 @@ pub struct EnemyCamp(pub u8); // holds id of enemy's parent camp
 
 #[derive(Component)]
 pub struct ItemChest{
+    pub id: u8,
     pub contents: [u8; CHEST_CONTENTS],
 }
 

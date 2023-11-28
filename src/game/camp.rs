@@ -8,6 +8,8 @@ use crate::map::{MAPSIZE, TILESIZE, CampNodes};
 use crate::components::PowerUpType;
 use crate::components::*;
 use crate::Decorations;
+use crate::Chests;
+use crate::buffers::*;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
 use crate::map::ChestCoords;
@@ -20,6 +22,7 @@ const CAMP_RESPAWN_TIME: f32 = 60.;
 
 #[derive(Component)]
 pub struct CampRespawnTimer(pub Timer);
+const CHEST_SIZE: Vec2 = Vec2 {x: 32., y: 32.};
 
 pub struct CampPlugin;
 
@@ -27,7 +30,8 @@ impl Plugin for CampPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(OnEnter(AppState::Game), setup_camps
             .after(setup_map));
-        app.add_systems(OnEnter(AppState::Game), setup_chests.after(setup_camps));
+        app.add_systems(OnEnter(AppState::Game), setup_chests
+            .after(setup_camps));
         app.add_systems(Update,(
             handle_camp_clear,
             respawn_camp_enemies,
@@ -138,11 +142,46 @@ pub fn setup_camps(
 
 pub fn setup_chests(
     mut commands: Commands,
-    entity_atlas:Res<Atlas>,
-    asset_server: Res<AssetServer>,
     chest_coords: Res<ChestCoords>,
+    map_seed: Res<MapSeed>,
+    chest_atlas: Res<Chests>,
 ){
 
+    // for chests in chest_coords, commands.spawn with chest component and health
+    let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
+    let mut i = 0;
+    
+    for chest in chest_coords.0.iter(){
+        let chest_pos: Vec2 = get_spawn_vec(chest.x, chest.y);
+
+        let pb = PosBuffer(CircularBuffer::new_from(chest_pos));
+        let new_chest = commands.spawn((
+            ItemChest{
+                id: i,
+                // 5 random powerups
+                contents: [rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5)]
+            },
+            pb,
+            Health {
+                current: 1,
+                max: 1,
+                dead: false,
+            },
+            Collider(CHEST_SIZE)
+        )).id();
+        commands.entity(new_chest).insert(SpriteSheetBundle{
+            texture_atlas: chest_atlas.handle.clone(),
+            sprite: TextureAtlasSprite { index: chest_atlas.coord_to_index(0, 1), ..Default::default()},
+            transform: Transform { 
+                translation: Vec3::new(chest_pos.x, chest_pos.y, 1.0),  
+                scale: Vec3::new(2., 2., 0.),
+                ..Default::default() 
+            },
+            ..Default::default()
+        });
+
+        i+=1;
+    }
 }
 
 pub fn handle_camp_clear(
@@ -207,7 +246,7 @@ fn get_prefab_data(grade: u8) -> Vec<i32>{
             pd = vec![-3, 4, 3, 2, 5, -1, 2, 6, -5, 1, -2, 1, -4, -3, 1, -6];
         },
         _ => {
-            pd = vec![3, 3, 2, -2, -5, -5, 4, 6, -3, 4, 5, 0, -6, -2, -1, -4];
+            pd = vec![3, 3, 2, -2, -5, -4, 4, 6, -3, 4, 5, 0, -6, -2, -1, -4];
         },
     }
     pd
