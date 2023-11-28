@@ -388,6 +388,8 @@ pub fn find_next(
         }
     }
 
+    u_map = process_map(&u_map);
+
     // get path
     let path = a_star(&u_map, start, target);
     let pivots = find_pivot_points(path);
@@ -463,6 +465,34 @@ pub fn reconstruct_path(from: HashMap<V2, V2>, mut current: V2) -> Vec<V2> {
     path
 }
 
+pub fn process_map(map: &[[i32; MAPSIZE]; MAPSIZE]) -> [[i32; MAPSIZE]; MAPSIZE] {
+    let mut u_map = [[0; MAPSIZE]; MAPSIZE];
+
+    for x in 0..MAPSIZE {
+        for y in 0..MAPSIZE {
+            u_map[x][y] = map[x][y];
+
+            if u_map[x][y] == 2 {
+                // Update horizontal and vertical neighbors
+                if x > 0 {
+                    u_map[x - 1][y] = 2;
+                }
+                if x < MAPSIZE - 1 {
+                    u_map[x + 1][y] = 2;
+                }
+                if y > 0 {
+                    u_map[x][y - 1] = 2;
+                }
+                if y < MAPSIZE - 1 {
+                    u_map[x][y + 1] = 2;
+                }
+            }
+        }
+    }
+
+    u_map
+}
+
 pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
     let is_valid_position = is_valid_position(map);
 
@@ -490,18 +520,22 @@ pub fn a_star(map: &[[i32; MAPSIZE]], start: V2, target: V2) -> Vec<V2> {
             return reconstruct_path(from, target);
         }
 
-        // check neighbors
-        for dx in 0..3 {
-            for dy in 0..3 {
-                // skip current
-                if dx == 1 && dy == 1 {
+        for dx in [-1, 0, 1].iter().copied() {
+            for dy in [-1, 0, 1].iter().copied() {
+                // skip diagonals
+                if dx != 0 && dy != 0 {
                     continue;
                 }
-
+        
+                // skip current
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+        
                 // find neighbor
                 let neighbor = V2 {
-                    x: (position.x as isize + dx as isize - 1) as usize,
-                    y: (position.y as isize + dy as isize - 1) as usize,
+                    x: (position.x as isize + dx) as usize,
+                    y: (position.y as isize + dy) as usize,
                 };
 
                 // skip invalid neighbors
