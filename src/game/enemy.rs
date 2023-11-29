@@ -241,7 +241,7 @@ pub fn update_enemies(
                 }
 
                 // check if the camp is cleared and assign 5 points for clearing the camp
-                if enemies_in_camp.current_enemies == 0 && camp_status.status == true{
+                if enemies_in_camp.current_enemies == 0 && camp_status.0 == true{
                     for (mut stats, pl) in player.iter_mut() {
                         if pl.0 == la.0.expect("camp has no attacker") {
                             if Some(stats.score.checked_add(5)) != None {

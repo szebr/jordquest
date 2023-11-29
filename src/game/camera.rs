@@ -208,7 +208,7 @@ fn hide_cleared_camp_markers(
     for (marker_num, mut marker_visibility) in &mut camp_markers {
         for (camp_num, camp_status) in &camps {
             if camp_num.0 == marker_num.0 {
-                match camp_status.status {
+                match camp_status.0 {
                     true => {
                         *marker_visibility = Visibility::Visible;
                     }

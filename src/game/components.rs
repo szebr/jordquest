@@ -97,10 +97,7 @@ pub struct CampEnemies{
 }
 
 #[derive(Component)]
-pub struct CampStatus{
-    //status of camp : true = filled, false = clear
-    pub status: bool,
-}
+pub struct CampStatus(pub bool); // true if camp is captured, false if not
 
 #[derive(Component)]
 pub struct EnemyCamp(pub u8); // holds id of enemy's parent camp

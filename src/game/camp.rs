@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
@@ -17,6 +16,11 @@ use crate::map::MapSeed;
 const CAMP_ENEMIES: u8 = 5;
 const NUM_GRADES: u8 = 5;
 const DEC_SIZE: Vec2 = Vec2 {x: 32., y: 32.};
+const POWERUP_DROP_CHANCE: u32 = 50;
+const CAMP_RESPAWN_TIME: f32 = 60.;
+
+#[derive(Component)]
+pub struct CampRespawnTimer(pub Timer);
 
 pub struct CampPlugin;
 
@@ -27,6 +31,7 @@ impl Plugin for CampPlugin{
         //app.add_systems(OnEnter(AppState::Game), spawn_camp_enemy);
         app.add_systems(Update,(
             handle_camp_clear,
+            respawn_camp_enemies,
         ));
     }
 }
@@ -38,12 +43,8 @@ pub fn setup_camps(
     decoration_atlas: Res<Decorations>,
     map_seed: Res<MapSeed>,
     asset_server: Res<AssetServer>,
-    //TODO: USE THIS FOR SEED UPDATES
-    //rng: SeedableRng
 ) {
-    //TODO: make this based off the generated seed when that gets implemented
     let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
-    const POWERUP_DROP_CHANCE: u32 = 50;
     // spawn a camp at a specified position
 
     //TODO: respawn enemies in a camp after a certain amount of time
@@ -72,10 +73,8 @@ pub fn setup_camps(
                 max_enemies: CAMP_ENEMIES,
                 current_enemies: CAMP_ENEMIES,
             },
-            CampStatus{
-                status: true,
-            },
-            
+            CampStatus(true),
+            CampRespawnTimer(Timer::from_seconds(CAMP_RESPAWN_TIME, TimerMode::Once)),
         ));
 
         // DECORATIONS NEED TO SPAWN BEFORE ENEMIES SO THAT THE VECDEQUE IS IN THE CORRECT ORDER
@@ -140,10 +139,10 @@ pub fn handle_camp_clear(
     for (enemies_in_camp, mut camp_status) in camp_query.iter_mut(){
         
         // only let this happen for camps that are currently active
-        if camp_status.status {
+        if camp_status.0 {
             //set the camp as cleared if all enemies are gone
             if enemies_in_camp.current_enemies == 0 {
-                camp_status.status = false;
+                camp_status.0 = false;
             }
             
         }
@@ -315,4 +314,62 @@ fn get_prefab_data(grade: u8) -> VecDeque<i8>{
         },
     }
     pd
+}
+
+// respawn the enemies in a camp after a certain amount of time
+pub fn respawn_camp_enemies(
+    mut commands: Commands,
+    mut camp_query: Query<(&Camp, &mut CampEnemies, &mut CampStatus, &Grade, &mut CampRespawnTimer, &GlobalTransform)>,
+    entity_atlas: Res<Atlas>,
+    asset_server: Res<AssetServer>,
+    map_seed: Res<MapSeed>,
+    time: Res<Time>,
+){
+    for (camp_id, mut enemies_in_camp, mut camp_status, 
+        grade, mut respawn_timer, pos) in camp_query.iter_mut(){
+        // only respawn enemies in camps that are currently cleared
+        if !camp_status.0 {
+            respawn_timer.0.tick(time.delta());
+        }
+        if respawn_timer.0.finished()
+        {
+            let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
+            let special_enemy_index = rng.gen_range(0..enemies_in_camp.max_enemies);
+            let powerups: [PowerUpType; 5] = [PowerUpType::MaxHPUp, PowerUpType::DamageDealtUp, 
+                PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
+            let power_up_to_drop = powerups[grade.0 as usize - 1];
+            respawn_timer.0.reset();
+            let mut id: u8 = 0;
+            let mut prefab_data = get_prefab_data(grade.0);
+            for _ in 0..6 {
+                prefab_data.pop_front();
+            }
+            camp_status.0 = true;
+
+            // spawn enemies for this camp
+            for n in 0..enemies_in_camp.max_enemies{
+                let is_special = n == special_enemy_index;
+                let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE;
+                if is_special{
+                    chance_drop_powerup = true;
+                }
+                enemy::spawn_enemy(
+                    &mut commands, 
+                    &asset_server,
+                    &entity_atlas, 
+                    id,
+                    camp_id.0, 
+                    Vec2::new(
+                        pos.translation().x + (prefab_data.pop_front().unwrap() * 16) as f32, 
+                        pos.translation().y + (prefab_data.pop_front().unwrap() * 16) as f32), 
+                        grade.0 as i32, 
+                    power_up_to_drop,
+                    chance_drop_powerup,
+                    is_special,
+                );
+                enemies_in_camp.current_enemies += 1;
+                id += 1;
+            }
+        }
+    }
 }
