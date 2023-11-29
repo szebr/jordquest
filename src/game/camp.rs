@@ -35,6 +35,7 @@ impl Plugin for CampPlugin{
         app.add_systems(Update,(
             handle_camp_clear,
             respawn_camp_enemies,
+            handle_chest_hit,
         ));
     }
 }
@@ -196,6 +197,19 @@ pub fn handle_camp_clear(
                 camp_status.0 = false;
             }
             
+        }
+    }
+}
+
+pub fn handle_chest_hit(
+    mut chest_query: Query<(&mut Health, &mut TextureAtlasSprite), With<ItemChest>>,
+    chest_atlas: Res<Chests>,
+){
+    for (mut chest_hp, mut chest_sprite) in chest_query.iter_mut(){
+        if chest_hp.current == 0 && !chest_hp.dead{
+            println!("CHEST IS DEAD, CHANGING SPRITE");
+            chest_hp.dead = true;
+            *chest_sprite = TextureAtlasSprite {index: chest_atlas.coord_to_index(0, 0), ..Default::default()}
         }
     }
 }
