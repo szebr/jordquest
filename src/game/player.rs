@@ -202,6 +202,7 @@ pub fn update_score(
 pub fn update_players(
     mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
     for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
@@ -222,6 +223,7 @@ pub fn update_players(
         }
         else if health.current > 0 && health.dead {
             health.dead = false;
+            spawn_writer.send(LocalPlayerSpawnEvent);
             *vis = Visibility::Visible;
         }
     }
