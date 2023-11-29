@@ -238,6 +238,7 @@ fn spawn_enemy_player_markers(
                             color: ENEMY_PLAYER_COLOR,
                             ..Default::default()
                         },
+                        visibility: Visibility::Hidden,
                         ..Default::default()
                     },
                     EnemyPlayerMarker(player_id as u8),
