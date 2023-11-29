@@ -28,7 +28,7 @@ const CAMP_MARKER_COLORS: [Color; 5] = [
     Color::Rgba{red: 0.76, green: 0.6, blue: 0.13, alpha: 1.}  // Movement speed up
 ];
 
-const ENEMY_PLAYER_COLOR: Color = Color::Rgba {red: 0.5, green: 0., blue: 0., alpha: 1.};
+const ENEMY_PLAYER_COLOR: Color = Color::Rgba {red: 1., green: 0.2, blue: 0.2, alpha: 1.};
 
 #[derive(Component)]
 pub struct GameCamera;
