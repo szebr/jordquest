@@ -8,7 +8,6 @@ use crate::game::components::{Camp, CampStatus, Grade, Health};
 use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP}};
 use crate::map;
 use crate::game::player::LocalEvents;
-use crate::menus::components::InGameUi;
 use crate::net::IsHost;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
@@ -193,7 +192,6 @@ fn spawn_camp_markers(
                     },
                     ..Default::default()
                 },
-                InGameUi,
                 CampMarker(camp_num.0),
             )).id();
 
@@ -212,8 +210,8 @@ fn hide_cleared_camp_markers(
     for (marker_num, mut marker_visibility) in &mut camp_markers {
         for (camp_num, camp_status) in &camps {
             if camp_num.0 == marker_num.0 {
-                if !camp_status.0 || (input.pressed(KeyCode::Tab) ||
-                    *app_state_current_state.get() == AppState::GameOver) {
+                if !camp_status.0 || input.pressed(KeyCode::Tab) ||
+                    *app_state_current_state.get() == AppState::GameOver {
                     *marker_visibility = Visibility::Hidden;
                 }
                 else {
