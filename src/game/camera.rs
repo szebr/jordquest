@@ -203,18 +203,19 @@ fn spawn_camp_markers(
 // TODO: Tie this function to a camp cleared/camp spawned event instead of running on Update
 fn hide_cleared_camp_markers(
     mut camp_markers: Query<(&CampMarker, &mut Visibility), With<CampMarker>>,
-    camps: Query<(&Camp, &CampStatus), With<Camp>>
+    camps: Query<(&Camp, &CampStatus), With<Camp>>,
+    input: Res<Input<KeyCode>>,
+    app_state_current_state: Res<State<AppState>>,
 ) {
     for (marker_num, mut marker_visibility) in &mut camp_markers {
         for (camp_num, camp_status) in &camps {
             if camp_num.0 == marker_num.0 {
-                match camp_status.0 {
-                    true => {
-                        *marker_visibility = Visibility::Visible;
-                    }
-                    false => {
-                        *marker_visibility = Visibility::Hidden;
-                    }
+                if !camp_status.0 || input.pressed(KeyCode::Tab) ||
+                    *app_state_current_state.get() == AppState::GameOver {
+                    *marker_visibility = Visibility::Hidden;
+                }
+                else {
+                    *marker_visibility = Visibility::Visible;
                 }
             }
         }
@@ -338,7 +339,6 @@ fn respawn_update(
     map: Res<map::WorldMap>,
     is_host: Res<IsHost>,
     mut local_events: ResMut<LocalEvents>,
-    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -375,7 +375,6 @@ fn respawn_update(
                     let (mut local_player_transform, mut local_player_health) = local_player.single_mut();
 
                     local_events.spawn = true;
-                    spawn_writer.send(LocalPlayerSpawnEvent);
                     if is_host.0 {
                         local_player_health.current = PLAYER_DEFAULT_HP;
                     }

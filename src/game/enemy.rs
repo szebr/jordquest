@@ -634,15 +634,13 @@ pub fn fixed_resolve(
 
 pub fn handle_packet(
     mut enemy_reader: EventReader<net::packets::EnemyTickEvent>,
-    mut enemy_query: Query<(&Enemy, &mut PosBuffer)>
+    mut enemy_query: Query<(&Enemy, &mut PosBuffer, &mut Health)>
 ) {
-    //TODO if you receive info that your predicted local position is wrong, it needs to be corrected
     for ev in enemy_reader.iter() {
-        // TODO this is slow but i have no idea how to make the borrow checker okay
-        //   with the idea of an array of player PosBuffer references
-        for (en, mut pb) in &mut enemy_query {
+        for (en, mut pb, mut hp) in &mut enemy_query {
             if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
+                hp.current = ev.tick.hp;
             }
         }
     }

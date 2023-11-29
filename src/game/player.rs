@@ -10,7 +10,7 @@ use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
-use crate::net::{DELAY, is_client, is_host, IsHost, TickNum};
+use crate::net::{is_client, is_host, IsHost};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
 
@@ -202,6 +202,7 @@ pub fn update_score(
 pub fn update_players(
     mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
     for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
@@ -222,6 +223,7 @@ pub fn update_players(
         }
         else if health.current > 0 && health.dead {
             health.dead = false;
+            spawn_writer.send(LocalPlayerSpawnEvent);
             *vis = Visibility::Visible;
         }
     }
@@ -517,7 +519,6 @@ pub fn handle_id_events(
 pub fn handle_usercmd_events(
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
-    tick: Res<TickNum>
 ) {
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut hp) in &mut player_query {

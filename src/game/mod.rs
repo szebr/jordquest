@@ -1,4 +1,4 @@
-use bevy::{prelude::*, render::texture};
+use bevy::prelude::*;
 
 pub mod player;
 pub mod enemy;
