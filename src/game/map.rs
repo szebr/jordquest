@@ -57,7 +57,7 @@ pub const CAMPSIZE: usize = 17; // Diameter of camp size in tiles
 pub const MAXEGGS: usize = 5;
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
-pub const MAXCHESTS: usize = 4; // Maximum number of possible chests to spawn
+pub const MAXCHESTS: usize = 10; // Maximum number of possible chests to spawn
 pub const CHESTDIST: f32 = 50.;
 
 // Base colors for navigable tiles
