@@ -67,7 +67,8 @@ impl Plugin for CameraPlugin {
             .add_systems(Update, hide_cleared_camp_markers.run_if(any_with_component::<CampMarker>()))
             .add_systems(Update, spawn_enemy_player_markers.run_if(any_with_component::<LocalPlayer>()))
             .add_systems(Update, show_enemy_player_markers.run_if(player::local_player_dead))
-            .add_systems(Update, hide_enemy_player_markers.run_if(not(player::local_player_dead)));
+            .add_systems(Update, hide_enemy_player_markers.run_if(not(player::local_player_dead)))
+            .add_systems(Update, show_hide_local_player_marker.run_if(any_with_component::<LocalPlayerMarker>()));
     }
 }
 
@@ -146,25 +147,6 @@ pub fn spawn_minimap(
     )).id();
 
     commands.entity(minimap_border_entity).add_child(minimap_entity);
-
-    let local_player_marker_entity = commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("player_marker.png"),
-            transform: Transform {
-                translation: Vec3 {
-                    x: 0.,
-                    y: 0.,
-                    z: 3.
-                },
-                ..Default::default()
-            },
-            visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
-            ..Default::default()
-        },
-        LocalPlayerMarker,
-    )).id();
-
-    commands.entity(minimap_entity).add_child(local_player_marker_entity);
 }
 
 fn spawn_camp_markers(
@@ -409,6 +391,20 @@ fn marker_follow_local_player(
     }
 }
 
+fn show_hide_local_player_marker(
+    mut local_player_marker: Query<&mut Visibility, With<LocalPlayerMarker>>,
+    input: Res<Input<KeyCode>>,
+    app_state_current_state: Res<State<AppState>>,
+) {
+    for mut marker_visibility in &mut local_player_marker{
+        if input.pressed(KeyCode::Tab) || *app_state_current_state.get() == AppState::GameOver {
+            *marker_visibility = Visibility::Hidden;
+        } else {
+            *marker_visibility = Visibility::Visible;
+        }
+    }
+}
+
 fn make_position_not_float(position: f32) -> f32 {
     return position as i32 as f32;
 }
@@ -419,10 +415,14 @@ fn respawn_update(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut local_player: Query<(&mut Transform, &mut Health), With<LocalPlayer>>,
-    mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
+    //mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
     map: Res<map::WorldMap>,
     is_host: Res<IsHost>,
     mut local_events: ResMut<LocalEvents>,
+    minimap: Query<Entity, With<Minimap>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    local_player_marker: Query<Entity, With<LocalPlayerMarker>>
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -465,9 +465,29 @@ fn respawn_update(
                     local_player_transform.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     local_player_transform.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 
-                    // Show marker
-                    for mut visibility in &mut marker_visibility {
-                        *visibility = Visibility::Visible;
+                    // Spawn local player marker if necessary
+                    for _marker in &local_player_marker {
+                        return;
+                    }
+
+                    for minimap_entity in minimap.iter() {
+                        let local_player_marker_entity = commands.spawn((
+                            SpriteBundle {
+                                texture: asset_server.load("player_marker.png"),
+                                transform: Transform {
+                                    translation: Vec3 {
+                                        x: 0.,
+                                        y: 0.,
+                                        z: 3.
+                                    },
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                            LocalPlayerMarker,
+                        )).id();
+                    
+                        commands.entity(minimap_entity).add_child(local_player_marker_entity);
                     }
                 }
             }
