@@ -5,9 +5,8 @@ use crate::AppState;
 use crate::movement;
 use crate::game::camp::setup_camps;
 use crate::game::components::{Camp, CampStatus, Grade, Health, Player};
-use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
+use crate::game::{player, player::{LocalEvents, LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
 use crate::map;
-use crate::game::player::LocalEvents;
 use crate::net::IsHost;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
