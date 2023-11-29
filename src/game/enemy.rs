@@ -68,7 +68,7 @@ impl Plugin for EnemyPlugin{
                 update_enemies.after(handle_packet),
                 handle_attack.after(update_enemies),
                 enemy_regen_health.after(update_enemies),
-            ))
+            ).run_if(is_host))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
 }
