@@ -1,7 +1,6 @@
 use std::time::Duration;
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-// use bevy::utils::hashbrown::raw::Global;
 use bevy::window::PrimaryWindow;
 use crate::{enemy, net};
 use crate::game::movement::*;
@@ -94,7 +93,6 @@ impl Plugin for PlayerPlugin{
                     .after(handle_attack_input), 
                 local_check_sword_collision
                     .after(handle_attack)
-                    .after(handle_attack_input)
                     .before(fixed)
                     .run_if(is_client)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
