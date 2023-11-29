@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
@@ -6,12 +5,14 @@ use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
 use crate::map::{MAPSIZE, TILESIZE, CampNodes};
-use crate::components::PowerUpType;
 use crate::components::*;
 use crate::Decorations;
+use crate::Chests;
+use crate::buffers::*;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
-
+use crate::map::ChestCoords;
+use crate::PowerupAtlas;
 
 const CAMP_ENEMIES: u8 = 5;
 const NUM_GRADES: u8 = 5;
@@ -21,6 +22,8 @@ const CAMP_RESPAWN_TIME: f32 = 60.;
 
 #[derive(Component)]
 pub struct CampRespawnTimer(pub Timer);
+const CHEST_SIZE: Vec2 = Vec2 {x: 32., y: 32.};
+const CHEST_REWARDS: [f32; 10] = [0., 35., 30., 12., 19., -25., -19., -25., -30., 12.];
 
 pub struct CampPlugin;
 
@@ -28,10 +31,12 @@ impl Plugin for CampPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(OnEnter(AppState::Game), setup_camps
             .after(setup_map));
-        //app.add_systems(OnEnter(AppState::Game), spawn_camp_enemy);
+        app.add_systems(OnEnter(AppState::Game), setup_chests
+            .after(setup_camps));
         app.add_systems(Update,(
             handle_camp_clear,
             respawn_camp_enemies,
+            handle_chest_hit,
         ));
     }
 }
@@ -58,7 +63,7 @@ pub fn setup_camps(
         // determines camp/enemy type
         let camp_grade: u8 = rng.gen_range(1..=NUM_GRADES);
         //get the prefab data for the given grade
-        let mut prefab_data = get_prefab_data(camp_grade);
+        let prefab_data = get_prefab_data(camp_grade);
 
         let special_enemy_index = rng.gen_range(0..CAMP_ENEMIES);
 
@@ -77,7 +82,9 @@ pub fn setup_camps(
             CampRespawnTimer(Timer::from_seconds(CAMP_RESPAWN_TIME, TimerMode::Once)),
         ));
 
-        // DECORATIONS NEED TO SPAWN BEFORE ENEMIES SO THAT THE VECDEQUE IS IN THE CORRECT ORDER
+        let mut vec_counter = 0;
+
+        // DECORATIONS NEED TO SPAWN BEFORE ENEMIES SO THAT THE VEC IS IN THE CORRECT ORDER
         //spawn decorations here
         for n in 0..3 {
             commands.spawn((
@@ -86,8 +93,8 @@ pub fn setup_camps(
                     sprite: TextureAtlasSprite {index: decoration_atlas.coord_to_index(n, camp_grade as i32), ..default()},
                     transform: Transform{
                         translation: Vec3::new(
-                            camp_pos.x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                            camp_pos.y + (prefab_data.pop_front().unwrap() * 16) as f32, 
+                            camp_pos.x + (prefab_data[vec_counter] * 16) as f32, 
+                            camp_pos.y + (prefab_data[vec_counter + 1] * 16) as f32, 
                             2.
                         ),
                         scale: Vec3::new(2., 2., 0.),
@@ -97,6 +104,8 @@ pub fn setup_camps(
                 },
                 Collider(DEC_SIZE),
             ));
+
+            vec_counter+=2;
         }
 
         //spawn enemies for this camp
@@ -119,18 +128,61 @@ pub fn setup_camps(
                 id,
                 campid, 
                 Vec2::new(
-                    camp_pos.x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                    camp_pos.y + (prefab_data.pop_front().unwrap() * 16) as f32), 
+                    camp_pos.x + (prefab_data[vec_counter] * 16) as f32, 
+                    camp_pos.y + (prefab_data[vec_counter + 1] * 16) as f32), 
                 camp_grade as i32, 
                 power_up_to_drop,
                 chance_drop_powerup,
                 is_special,
             );
-            id += 1;
+            vec_counter += 2;
         }
         campid += 1;
     }
 
+}
+
+pub fn setup_chests(
+    mut commands: Commands,
+    chest_coords: Res<ChestCoords>,
+    map_seed: Res<MapSeed>,
+    chest_atlas: Res<Chests>,
+){
+
+    // for chests in chest_coords, commands.spawn with chest component and health
+    let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
+    let mut i = 0;
+    
+    for chest in chest_coords.0.iter(){
+        let chest_pos: Vec2 = get_spawn_vec(chest.x, chest.y);
+
+        let pb = PosBuffer(CircularBuffer::new_from(chest_pos));
+        commands.spawn((
+            ItemChest{
+                id: i,
+                // 5 random powerups
+                contents: [rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5), rng.gen_range(0..5)]
+            },
+            pb,
+            Health {
+                current: 1,
+                max: 1,
+                dead: false,
+            },
+            Collider(CHEST_SIZE),
+            SpriteSheetBundle{
+                texture_atlas: chest_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: chest_atlas.coord_to_index(0, 1), ..Default::default()},
+                transform: Transform { 
+                    translation: Vec3::new(chest_pos.x, chest_pos.y, 1.0),  
+                    scale: Vec3::new(2., 2., 0.),
+                    ..Default::default() 
+                },
+                ..Default::default()
+            }));
+
+        i+=1;
+    }
 }
 
 pub fn handle_camp_clear(
@@ -144,7 +196,44 @@ pub fn handle_camp_clear(
             if enemies_in_camp.current_enemies == 0 {
                 camp_status.0 = false;
             }
-            
+        }
+    }
+}
+
+pub fn handle_chest_hit(
+    mut commands: Commands,
+    mut chest_query: Query<(&mut Health, &mut TextureAtlasSprite, &ItemChest, &Transform), With<ItemChest>>,
+    chest_atlas: Res<Chests>,
+    powerup_atlas: Res<PowerupAtlas>,
+){
+    for (mut chest_hp, mut chest_sprite, chest, tf) in chest_query.iter_mut(){
+        if chest_hp.current == 0 && !chest_hp.dead{
+            // remove the collider
+            chest_hp.dead = true;
+            //change the sprite of the chest
+            *chest_sprite = TextureAtlasSprite {index: chest_atlas.coord_to_index(0, 0), ..Default::default()};
+            // spawn the powerups
+
+            let mut i = 0;
+            for powerups in chest.contents.iter(){
+                commands.spawn((
+                    SpriteSheetBundle{
+                        texture_atlas: powerup_atlas.handle.clone(),
+                        sprite: TextureAtlasSprite {
+                            index: powerup_atlas.coord_to_index(0, *powerups as i32),
+                            ..Default::default()
+                        },
+                        transform: Transform {
+                            translation: Vec3::new(tf.translation.x + CHEST_REWARDS[i], tf.translation.y + CHEST_REWARDS[i+1], 1.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    PowerUp(unsafe {std::mem::transmute(*powerups as u8)}),
+                ));
+
+                i+=2;
+            }
         }
     }
 }
@@ -178,139 +267,24 @@ fn get_spawn_vec(row: f32, col:f32) -> Vec2{
 * en 5 y offset = [15]
 */
 
-fn get_prefab_data(grade: u8) -> VecDeque<i8>{
+fn get_prefab_data(grade: u8) -> Vec<i32>{
 
-    let mut pd: VecDeque<i8> = VecDeque::new();
+    let pd;
     match grade {
         1 => {
-            // add decoration 1 position offset
-            pd.push_back(0);
-            pd.push_back(7);
-            // add decoration 2 position offset
-            pd.push_back(-5);
-            pd.push_back(-3);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-2);
-            // add enemy 1 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add enemy 2 position offset
-            pd.push_back(-2);
-            pd.push_back(-1);
-            // add enemy 3 position offset
-            pd.push_back(3);
-            pd.push_back(2);
-            // add enemy 4 position offset
-            pd.push_back(6);
-            pd.push_back(1);
-            // add enemy 5 position offset
-            pd.push_back(0);
-            pd.push_back(-5);
+            pd = vec![0, 7, -5, -3, 3, -2, -3, 4, -2, -1, 3, 2, 6, 1, 0, -5];
         },
         2 => {
-            // add decoration 1 position offset
-            pd.push_back(-5);
-            pd.push_back(4);
-            // add decoration 2 position offset
-            pd.push_back(0);
-            pd.push_back(1);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-4);
-            // add enemy 1 position offset
-            pd.push_back(-2);
-            pd.push_back(7);
-            // add enemy 2 position offset
-            pd.push_back(-6);
-            pd.push_back(-3);
-            // add enemy 3 position offset
-            pd.push_back(-3);
-            pd.push_back(-6);
-            // add enemy 4 position offset
-            pd.push_back(2);
-            pd.push_back(-3);
-            // add enemy 5 position offset
-            pd.push_back(4);
-            pd.push_back(3);
+            pd = vec![-5, 4, 0, 1, 3, -4, -2, 7, -6, -3, -3, -6, 2, -3, 4, 3];
         },
         3 => {
-            // add decoration 1 position offset
-            pd.push_back(-1);
-            pd.push_back(5);
-            // add decoration 2 position offset
-            pd.push_back(-3);
-            pd.push_back(-2);
-            // add decoration 3 position offset
-            pd.push_back(3);
-            pd.push_back(-2);
-            // add enemy 1 position offset
-            pd.push_back(-4);
-            pd.push_back(5);
-            // add enemy 2 position offset
-            pd.push_back(-2);
-            pd.push_back(1);
-            // add enemy 3 position offset
-            pd.push_back(-6);
-            pd.push_back(0);
-            // add enemy 4 position offset
-            pd.push_back(4);
-            pd.push_back(0);
-            // add enemy 5 position offset
-            pd.push_back(-4);
-            pd.push_back(-4);
+            pd = vec![-1, 5, -3, -2, 3, -2, -4, 5, -2, 1, -6, 0, 4, 0, -4, -4];
         },
         4 => {
-            // add decoration 1 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add decoration 2 position offset
-            pd.push_back(3);
-            pd.push_back(2);
-            // add decoration 3 position offset
-            pd.push_back(5);
-            pd.push_back(-1);
-            // add enemy 1 position offset
-            pd.push_back(2);
-            pd.push_back(6);
-            // add enemy 2 position offset
-            pd.push_back(-5);
-            pd.push_back(1);
-            // add enemy 3 position offset
-            pd.push_back(-2);
-            pd.push_back(1);
-            // add enemy 4 position offset
-            pd.push_back(-4);
-            pd.push_back(-3);
-            // add enemy 5 position offset
-            pd.push_back(1);
-            pd.push_back(-6);
+            pd = vec![-3, 4, 3, 2, 5, -1, 2, 6, -5, 1, -2, 1, -4, -3, 1, -6];
         },
         _ => {
-            // add decoration 1 position offset
-            pd.push_back(3);
-            pd.push_back(3);
-            // add decoration 2 position offset
-            pd.push_back(2);
-            pd.push_back(-2);
-            // add decoration 3 position offset
-            pd.push_back(-5);
-            pd.push_back(-5);
-            // add enemy 1 position offset
-            pd.push_back(4);
-            pd.push_back(6);
-            // add enemy 2 position offset
-            pd.push_back(-3);
-            pd.push_back(4);
-            // add enemy 3 position offset
-            pd.push_back(5);
-            pd.push_back(0);
-            // add enemy 4 position offset
-            pd.push_back(-6);
-            pd.push_back(-2);
-            // add enemy 5 position offset
-            pd.push_back(-1);
-            pd.push_back(-4);
+            pd = vec![3, 3, 2, -2, -4, -4, 4, 6, -3, 4, 5, 0, -6, -2, -1, -4];
         },
     }
     pd
@@ -341,10 +315,10 @@ pub fn respawn_camp_enemies(
             respawn_timer.0.reset();
             let mut id: u8 = 0;
             let mut prefab_data = get_prefab_data(grade.0);
-            for _ in 0..6 {
-                prefab_data.pop_front();
-            }
             camp_status.0 = true;
+
+            // for the prefab offsets
+            let mut i = 6;
 
             // spawn enemies for this camp
             for n in 0..enemies_in_camp.max_enemies{
@@ -360,8 +334,8 @@ pub fn respawn_camp_enemies(
                     id,
                     camp_id.0, 
                     Vec2::new(
-                        pos.translation().x + (prefab_data.pop_front().unwrap() * 16) as f32, 
-                        pos.translation().y + (prefab_data.pop_front().unwrap() * 16) as f32), 
+                        pos.translation().x + (prefab_data[i] * 16) as f32, 
+                        pos.translation().y + (prefab_data[i+1] * 16) as f32), 
                         grade.0 as i32, 
                     power_up_to_drop,
                     chance_drop_powerup,
@@ -369,6 +343,7 @@ pub fn respawn_camp_enemies(
                 );
                 enemies_in_camp.current_enemies += 1;
                 id += 1;
+                i += 2;
             }
         }
     }

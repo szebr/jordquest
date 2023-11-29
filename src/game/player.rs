@@ -409,6 +409,7 @@ pub fn check_sword_collision(
     mut enemies: Query<(&Enemy, &Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
     mut players: Query<(&Player, &StoredPowerUps), With<LocalPlayer>>,
     mut sword: Query<(&GlobalTransform, &mut PlayerWeapon), With<PlayerWeapon>>,
+    mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>
 ) {
     for (sword_transform, mut player_wep) in sword.iter_mut() {
         if player_wep.active == false { continue; }
@@ -428,6 +429,14 @@ pub fn check_sword_collision(
                         }
                     }
                 }
+            }
+        }
+        // check if weapon is colliding with a chest
+        for (chest_tf, mut chest_hp) in chest.iter_mut() {
+            let sword_position = sword_transform.translation().truncate();
+            let chest_position = chest_tf.translation.truncate();
+            if sword_position.distance(chest_position) < 30.0 && !chest_hp.dead{
+                chest_hp.current = 0;
             }
         }
     }
