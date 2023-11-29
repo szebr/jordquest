@@ -214,7 +214,6 @@ fn hide_cleared_camp_markers(
             if camp_num.0 == marker_num.0 {
                 if !camp_status.0 || (input.pressed(KeyCode::Tab) ||
                     *app_state_current_state.get() == AppState::GameOver) {
-                    println!("gyatt gyatt gyatt gyatt");
                     *marker_visibility = Visibility::Hidden;
                 }
                 else {
