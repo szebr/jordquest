@@ -16,13 +16,6 @@ pub struct Fade {
     pub max: f32
 }
 
-#[derive(Component)]
-pub struct SwordAnimation{
-    pub current: f32,
-    pub max: f32,
-    pub cursor_direction: Vec2,
-}
-
 pub const NUM_POWERUPS: usize = 5;
 pub const DAMAGE_DEALT_UP: u8 = 10;
 pub const DAMAGE_REDUCTION_UP: f32 = 0.9;
