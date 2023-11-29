@@ -260,7 +260,7 @@ pub fn spawn_main_menu(
                 margin: UiRect::bottom(Val::VMin(10.)),
                 ..default()
             },
-            background_color: BackgroundColor(*Color::BLACK.set_a(0.8)),
+            background_color: BackgroundColor(*Color::BLACK.clone().set_a(0.8)),
             ..default()
         },
         UiImage::new(asset_server.load("jordquest.png")),

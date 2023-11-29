@@ -10,7 +10,7 @@ use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
-use crate::net::{DELAY, is_client, is_host, IsHost, TickNum};
+use crate::net::{is_client, is_host, IsHost};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
 
@@ -517,7 +517,6 @@ pub fn handle_id_events(
 pub fn handle_usercmd_events(
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
-    tick: Res<TickNum>
 ) {
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut hp) in &mut player_query {
