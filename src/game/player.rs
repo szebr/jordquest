@@ -13,7 +13,6 @@ use crate::game::PlayerId;
 use crate::net::{is_client, is_host, IsHost, TICKLEN_S};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
-use crate::net::client::fixed;
 
 pub const PLAYER_SPEED: f32 = 250.;
 pub const PLAYER_DEFAULT_HP: u8 = 100;
@@ -89,11 +88,9 @@ impl Plugin for PlayerPlugin{
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, 
-                (handle_attack
-                    .after(handle_attack_input), 
+                (handle_attack,
                 local_check_sword_collision
                     .after(handle_attack)
-                    .before(fixed)
                     .run_if(is_client)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
