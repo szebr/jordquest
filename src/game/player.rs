@@ -437,7 +437,6 @@ pub fn check_sword_collision(
             let chest_position = chest_tf.translation.truncate();
             if sword_position.distance(chest_position) < 30.0 && !chest_hp.dead{
                 chest_hp.current = 0;
-                println!("HIT A CHEST");
             }
         }
     }

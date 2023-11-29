@@ -58,7 +58,7 @@ pub const MAXEGGS: usize = 5;
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 pub const MAXCHESTS: usize = 4; // Maximum number of possible chests to spawn
-pub const CHESTDIST: f32 = 40.;
+pub const CHESTDIST: f32 = 50.;
 
 // Base colors for navigable tiles
 pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
@@ -362,7 +362,7 @@ fn read_map(
 
     for _ in 0..numchests {
         loop{
-            let cur_chest = Vec2 {x: rng.gen_range(1..MAPSIZE - 1) as f32, y: rng.gen_range(1..MAPSIZE - 1) as f32};
+            let cur_chest = Vec2 {x: rng.gen_range(5..MAPSIZE - 5) as f32, y: rng.gen_range(5..MAPSIZE - 5) as f32};
 
             let mut valid = true;
 
@@ -374,10 +374,15 @@ fn read_map(
                 }
             }
             // check that chest is not surrounded by a wall
-            if map.biome_map[cur_chest.y as usize][cur_chest.x as usize] == Biome::Ground 
-            && map.biome_map[cur_chest.y as usize + 1][cur_chest.x as usize] == Biome::Ground
-            && map.biome_map[cur_chest.y as usize + 1][cur_chest.x as usize + 1] == Biome::Ground
-            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize + 1] == Biome::Ground
+            if map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize - 3] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize + 3] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize - 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize + 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize - 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize + 3] == Biome::Ground 
             && valid{
                 println!("Chest coords at x: {} y: {}", cur_chest.x, cur_chest.y);
                 chest_coords.push(cur_chest);
@@ -385,7 +390,6 @@ fn read_map(
             }
         }
     }
-
 
     // Create the outer walls
     for row in 0..MAPSIZE {

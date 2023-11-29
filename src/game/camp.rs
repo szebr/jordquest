@@ -5,7 +5,6 @@ use crate::AppState;
 use crate::game::enemy;
 use crate::Atlas;
 use crate::map::{MAPSIZE, TILESIZE, CampNodes};
-use crate::components::PowerUpType;
 use crate::components::*;
 use crate::Decorations;
 use crate::Chests;
@@ -13,6 +12,7 @@ use crate::buffers::*;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
 use crate::map::ChestCoords;
+use crate::PowerupAtlas;
 
 const CAMP_ENEMIES: u8 = 5;
 const NUM_GRADES: u8 = 5;
@@ -23,6 +23,7 @@ const CAMP_RESPAWN_TIME: f32 = 60.;
 #[derive(Component)]
 pub struct CampRespawnTimer(pub Timer);
 const CHEST_SIZE: Vec2 = Vec2 {x: 32., y: 32.};
+const CHEST_REWARDS: [f32; 10] = [0., 35., 30., 12., 19., -25., -19., -25., -30., 12.];
 
 pub struct CampPlugin;
 
@@ -156,7 +157,7 @@ pub fn setup_chests(
         let chest_pos: Vec2 = get_spawn_vec(chest.x, chest.y);
 
         let pb = PosBuffer(CircularBuffer::new_from(chest_pos));
-        let new_chest = commands.spawn((
+        commands.spawn((
             ItemChest{
                 id: i,
                 // 5 random powerups
@@ -168,18 +169,17 @@ pub fn setup_chests(
                 max: 1,
                 dead: false,
             },
-            Collider(CHEST_SIZE)
-        )).id();
-        commands.entity(new_chest).insert(SpriteSheetBundle{
-            texture_atlas: chest_atlas.handle.clone(),
-            sprite: TextureAtlasSprite { index: chest_atlas.coord_to_index(0, 1), ..Default::default()},
-            transform: Transform { 
-                translation: Vec3::new(chest_pos.x, chest_pos.y, 1.0),  
-                scale: Vec3::new(2., 2., 0.),
-                ..Default::default() 
-            },
-            ..Default::default()
-        });
+            Collider(CHEST_SIZE),
+            SpriteSheetBundle{
+                texture_atlas: chest_atlas.handle.clone(),
+                sprite: TextureAtlasSprite { index: chest_atlas.coord_to_index(0, 1), ..Default::default()},
+                transform: Transform { 
+                    translation: Vec3::new(chest_pos.x, chest_pos.y, 1.0),  
+                    scale: Vec3::new(2., 2., 0.),
+                    ..Default::default() 
+                },
+                ..Default::default()
+            }));
 
         i+=1;
     }
@@ -196,20 +196,44 @@ pub fn handle_camp_clear(
             if enemies_in_camp.current_enemies == 0 {
                 camp_status.0 = false;
             }
-            
         }
     }
 }
 
 pub fn handle_chest_hit(
-    mut chest_query: Query<(&mut Health, &mut TextureAtlasSprite), With<ItemChest>>,
+    mut commands: Commands,
+    mut chest_query: Query<(&mut Health, &mut TextureAtlasSprite, &ItemChest, &Transform), With<ItemChest>>,
     chest_atlas: Res<Chests>,
+    powerup_atlas: Res<PowerupAtlas>,
 ){
-    for (mut chest_hp, mut chest_sprite) in chest_query.iter_mut(){
+    for (mut chest_hp, mut chest_sprite, chest, tf) in chest_query.iter_mut(){
         if chest_hp.current == 0 && !chest_hp.dead{
-            println!("CHEST IS DEAD, CHANGING SPRITE");
+            // remove the collider
             chest_hp.dead = true;
-            *chest_sprite = TextureAtlasSprite {index: chest_atlas.coord_to_index(0, 0), ..Default::default()}
+            //change the sprite of the chest
+            *chest_sprite = TextureAtlasSprite {index: chest_atlas.coord_to_index(0, 0), ..Default::default()};
+            // spawn the powerups
+
+            let mut i = 0;
+            for powerups in chest.contents.iter(){
+                commands.spawn((
+                    SpriteSheetBundle{
+                        texture_atlas: powerup_atlas.handle.clone(),
+                        sprite: TextureAtlasSprite {
+                            index: powerup_atlas.coord_to_index(0, *powerups as i32),
+                            ..Default::default()
+                        },
+                        transform: Transform {
+                            translation: Vec3::new(tf.translation.x + CHEST_REWARDS[i], tf.translation.y + CHEST_REWARDS[i+1], 1.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    PowerUp(unsafe {std::mem::transmute(*powerups as u8)}),
+                ));
+
+                i+=2;
+            }
         }
     }
 }
