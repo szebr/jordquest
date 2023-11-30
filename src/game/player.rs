@@ -415,7 +415,6 @@ pub fn check_sword_collision(
     mut chest: Query<(&Transform, &ItemChest, &mut Health), (With<ItemChest>, Without<Enemy>)>,
     events: Res<LocalEvents>,
 ) {
-    let is_host = events.attack;
     for (ent, mut player_wep) in sword.iter_mut() {
         for (player_tf, player_id, player_spu) in players.iter_mut() {
             for (enemy_id, enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
@@ -458,7 +457,7 @@ pub fn check_sword_collision(
                 player_wep.entities_hit.push(chest_id.id);
             }
         } 
-        if is_host {
+        if events.attack {
             // I think this might be where you would send player_wep.entities_hit to the server
         }
         commands.entity(ent).despawn_recursive();
