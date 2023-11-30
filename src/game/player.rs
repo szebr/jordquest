@@ -398,6 +398,10 @@ pub fn handle_attack(
         if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
 
         chest_hp.current = 0;
+        commands.spawn(AudioBundle {
+            source: asset_server.load("chest.ogg"),
+            ..default()
+        });
     }
     commands.spawn(AudioBundle {
         source: asset_server.load("player-swing.ogg"),
