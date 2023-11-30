@@ -38,14 +38,12 @@ pub struct LocalPlayerSpawnEvent;
 pub struct LocalPlayer;
 
 #[derive(Component)]
-pub struct PlayerWeapon {
-    pub cursor_direction: Vec2,
-    pub entities_hit: Vec<u8>,
-}
+pub struct PlayerWeapon;
 
 #[derive(Component)]
 pub struct SwordAnimation{
     pub current: f32,
+    pub cursor_vector: Vec2,
     pub max: f32,
 }
 
@@ -86,9 +84,7 @@ impl Plugin for PlayerPlugin{
                 despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
                 handle_tick_events.run_if(is_client),
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(FixedUpdate, 
-                (handle_attack,
-                check_sword_collision.after(handle_attack).before(net::client::fixed)))
+            .add_systems(FixedUpdate, handle_attack.before(net::client::fixed))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
@@ -327,12 +323,14 @@ pub fn handle_attack(
     mut local_events: ResMut<LocalEvents>,
     is_host: Res<IsHost>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut players: Query<(Entity, &Transform, &mut Cooldown, &PlayerShield), With<LocalPlayer>>,
+    mut players: Query<(Entity, &Player, &Transform, &mut Cooldown, &PlayerShield, &StoredPowerUps), With<LocalPlayer>>,
     cameras: Query<&Transform, With<SpatialCameraBundle>>,
+    mut enemies: Query<(&Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
+    mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (e, tf, mut c, shield) = player.unwrap();
+    let (e, pl, tf, mut c, shield, spu) = player.unwrap();
     if shield.active { return }
     let camera = cameras.get_single();
     if camera.is_err() { return }
@@ -347,7 +345,7 @@ pub fn handle_attack(
     cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
     cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
     cursor_position += camera.translation.xy();
-    let direction_vector = (cursor_position - tf.translation.xy()).normalize();
+    let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
 
     commands.entity(e).with_children(|parent| {
         parent.spawn((SpriteBundle {
@@ -355,15 +353,37 @@ pub fn handle_attack(
             visibility: Visibility::Hidden,
             ..Default::default()
         },
-        PlayerWeapon {
-            cursor_direction: direction_vector,
-            entities_hit: Vec::new(),
-        },
+        PlayerWeapon,
         SwordAnimation {
             current: 0.0,
+            cursor_vector,
             max: TICKLEN_S,
         },));
     });
+    let player_pos = tf.translation.truncate();
+    let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
+    for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
+        let enemy_pos = enemy_tf.translation.truncate();
+        if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
+
+        let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
+        let angle_diff = sword_angle - combat_angle;
+        if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
+
+        last_attacker.0 = Some(pl.0);
+        let damage = SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP;
+        enemy_hp.current = enemy_hp.current.saturating_sub(damage);
+    }
+    for (chest_tf, mut chest_hp) in chest.iter_mut() {
+        let chest_pos = chest_tf.translation.truncate();
+        if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
+
+        let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
+        let angle_diff = sword_angle - combat_angle;
+        if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
+
+        chest_hp.current = 0;
+    }
     if is_host.0 {
         local_events.attack = false;
     }
@@ -372,15 +392,15 @@ pub fn handle_attack(
 // animate the sword swing when the player attacks
 pub fn animate_sword(
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Visibility, &PlayerWeapon, &mut SwordAnimation), With<PlayerWeapon>>,
+    mut query: Query<(&mut Transform, &mut Visibility, &mut SwordAnimation), With<PlayerWeapon>>,
 ) {
-    for (mut tf, mut vis, pw, mut anim) in query.iter_mut() {
+    for (mut tf, mut vis, mut anim) in query.iter_mut() {
         let attack_radius = 50.0;
         let current_step = anim.current / anim.max;
 
-        let cursor_angle = pw.cursor_direction.y.atan2(pw.cursor_direction.x);
+        let cursor_angle = anim.cursor_vector.y.atan2(anim.cursor_vector.x);
         let sword_translation_angle;
-        if pw.cursor_direction.x > 0.0 {
+        if anim.cursor_vector.x > 0.0 {
             sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 - cursor_angle;
         } else {
             sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 + cursor_angle;
@@ -389,7 +409,7 @@ pub fn animate_sword(
         let sword_rotation_angle = sword_rotation_vector.y.atan2(sword_rotation_vector.x);
 
         tf.translation.x = sword_translation_angle.cos() * attack_radius;
-        if pw.cursor_direction.x > 0.0 {
+        if anim.cursor_vector.x > 0.0 {
             tf.rotation = Quat::from_rotation_z(-1.0 * sword_rotation_angle);
             tf.translation.y = -1.0 * sword_translation_angle.sin() * attack_radius;
         } else {
@@ -404,63 +424,6 @@ pub fn animate_sword(
         if anim.current >= anim.max {
             *vis = Visibility::Hidden;
         }
-    }
-}
-
-pub fn check_sword_collision(
-    mut commands: Commands,
-    mut enemies: Query<(&Enemy, &Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
-    mut players: Query<(&Transform, &Player, &StoredPowerUps), With<LocalPlayer>>,
-    mut sword: Query<(Entity, &mut PlayerWeapon), With<PlayerWeapon>>,
-    mut chest: Query<(&Transform, &ItemChest, &mut Health), (With<ItemChest>, Without<Enemy>)>,
-    events: Res<LocalEvents>,
-) {
-    for (ent, mut player_wep) in sword.iter_mut() {
-        for (player_tf, player_id, player_spu) in players.iter_mut() {
-            for (enemy_id, enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
-                if player_wep.entities_hit.contains(&enemy_id.0) { continue; } // already hit enemy
-
-                let enemy_pos = enemy_tf.translation.truncate();
-                let player_pos = player_tf.translation.truncate();
-                if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
-                
-                let sword_angle = player_wep.cursor_direction.y.atan2(player_wep.cursor_direction.x);
-                let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
-                let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
-
-                player_wep.entities_hit.push(enemy_id.0);
-                last_attacker.0 = Some(player_id.0);
-                match enemy_hp.current.checked_sub(SWORD_DAMAGE + player_spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
-                    Some(v) => {
-                        enemy_hp.current = v;
-                    }
-                    None => {
-                        enemy_hp.current = 0;
-                    }
-                }
-            }
-            for (chest_tf, chest_id, mut chest_hp) in chest.iter_mut() {
-                if player_wep.entities_hit.contains(&chest_id.id) { continue; } // already hit chest
-
-                let player_pos = player_tf.translation.truncate();
-                let chest_pos = chest_tf.translation.truncate();
-                if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
-
-                let sword_angle = player_wep.cursor_direction.y.atan2(player_wep.cursor_direction.x);
-                let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
-                let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
-
-                if chest_hp.dead { continue; } // chest was already dead
-                chest_hp.current = 0;
-                player_wep.entities_hit.push(chest_id.id);
-            }
-        } 
-        if events.attack {
-            // I think this might be where you would send player_wep.entities_hit to the server
-        }
-        commands.entity(ent).despawn_recursive();
     }
 }
 
