@@ -11,12 +11,18 @@ use bevy::app::AppExit;
 pub fn interact_with_button<B: ButtonTypeTrait>(
     mut button_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<B::Marker>)>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>
 ) {
     if let Ok((interaction, mut background_color)) = button_query.get_single_mut() {
         match *interaction {
             Interaction::Pressed => {
                 *background_color = Color::GRAY.into();
                 app_state_next_state.set(B::app_state());
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("button.ogg"),
+                    ..default()
+                });
             }
             Interaction::Hovered => {
                 *background_color = Color::GRAY.into();
