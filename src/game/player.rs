@@ -80,7 +80,6 @@ impl Plugin for PlayerPlugin{
                 update_players,
                 handle_attack_input,
                 animate_sword.after(handle_attack),
-                check_sword_collision.after(handle_attack).run_if(is_host),
                 grab_powerup,
                 handle_move,
                 spawn_shield_on_right_click,
@@ -89,9 +88,7 @@ impl Plugin for PlayerPlugin{
                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, 
                 (handle_attack,
-                local_check_sword_collision
-                    .after(handle_attack)
-                    .run_if(is_client)))
+                check_sword_collision.after(handle_attack).before(net::client::fixed)))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
@@ -374,11 +371,10 @@ pub fn handle_attack(
 
 // animate the sword swing when the player attacks
 pub fn animate_sword(
-    mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Transform, &mut Visibility, &PlayerWeapon, &mut SwordAnimation), With<PlayerWeapon>>,
+    mut query: Query<(&mut Transform, &mut Visibility, &PlayerWeapon, &mut SwordAnimation), With<PlayerWeapon>>,
 ) {
-    for (e, mut tf, mut vis, pw, mut anim) in query.iter_mut() {
+    for (mut tf, mut vis, pw, mut anim) in query.iter_mut() {
         let attack_radius = 50.0;
         let current_step = anim.current / anim.max;
 
@@ -406,19 +402,21 @@ pub fn animate_sword(
         }
         anim.current += time.delta_seconds();
         if anim.current >= anim.max {
-            commands.entity(e).despawn_recursive();
+            *vis = Visibility::Hidden;
         }
     }
 }
 
-// TODO use aabb collision instead of distance
 pub fn check_sword_collision(
+    mut commands: Commands,
     mut enemies: Query<(&Enemy, &Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
     mut players: Query<(&Transform, &Player, &StoredPowerUps), With<LocalPlayer>>,
-    mut sword: Query<&mut PlayerWeapon, With<PlayerWeapon>>,
+    mut sword: Query<(Entity, &mut PlayerWeapon), With<PlayerWeapon>>,
     mut chest: Query<(&Transform, &ItemChest, &mut Health), (With<ItemChest>, Without<Enemy>)>,
+    events: Res<LocalEvents>,
 ) {
-    for mut player_wep in sword.iter_mut() {
+    let is_host = events.attack;
+    for (ent, mut player_wep) in sword.iter_mut() {
         for (player_tf, player_id, player_spu) in players.iter_mut() {
             for (enemy_id, enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
                 if player_wep.entities_hit.contains(&enemy_id.0) { continue; } // already hit enemy
@@ -460,64 +458,11 @@ pub fn check_sword_collision(
                 player_wep.entities_hit.push(chest_id.id);
             }
         } 
+        if is_host {
+            // I think this might be where you would send player_wep.entities_hit to the server
+        }
+        commands.entity(ent).despawn_recursive();
     }
-}
-
-pub fn local_check_sword_collision(
-    mut enemies: Query<(&Enemy, &Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
-    mut players: Query<(&Transform, &Player, &StoredPowerUps), With<Player>>,
-    mut sword: Query<&mut PlayerWeapon, With<PlayerWeapon>>,
-    mut chest: Query<(&Transform, &ItemChest, &mut Health), (With<ItemChest>, Without<Enemy>)>,
-    events: Res<LocalEvents>,
-) {
-    for mut player_wep in sword.iter_mut() {
-        if !events.attack { println!("LocalEvents.attack was set to false"); continue; }
-        for (player_tf, player_id, player_spu) in players.iter_mut() {
-            for (enemy_id, enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
-                if player_wep.entities_hit.contains(&enemy_id.0) { println!("already hit enemy"); continue; }
-
-                let enemy_pos = enemy_tf.translation.truncate();
-                let player_pos = player_tf.translation.truncate();
-                if player_pos.distance(enemy_pos) > 32.0 + 50.0 { println!("enemy too far"); continue; }
-                
-                let sword_angle = player_wep.cursor_direction.y.atan2(player_wep.cursor_direction.x);
-                let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
-                let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { println!("enemy not in sector"); continue; }
-
-                player_wep.entities_hit.push(enemy_id.0);
-                last_attacker.0 = Some(player_id.0);
-                match enemy_hp.current.checked_sub(SWORD_DAMAGE + player_spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP) {
-                    Some(v) => {
-                        enemy_hp.current = v;
-                    }
-                    None => {
-                        enemy_hp.current = 0;
-                    }
-                }
-                println!("local dealt damage");
-            }
-            for (chest_tf, chest_id, mut chest_hp) in chest.iter_mut() {
-                if player_wep.entities_hit.contains(&chest_id.id) { println!("already hit chest"); continue; }
-
-                let player_pos = player_tf.translation.truncate();
-                let chest_pos = chest_tf.translation.truncate();
-                if player_pos.distance(chest_pos) > 32.0 + 50.0 { println!("chest too far"); continue; }
-
-                let sword_angle = player_wep.cursor_direction.y.atan2(player_wep.cursor_direction.x);
-                let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
-                let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { println!("chest not in sector"); continue; }
-
-                if chest_hp.dead { println!("chest was already dead"); continue; }
-
-                chest_hp.current = 0;
-                player_wep.entities_hit.push(chest_id.id);
-                println!("local dealt damage");
-            }
-        } 
-    }
-    // To get the entities that the sword hit, query the PlayerWeapon component for the entities_hit field after this system runs
 }
 
 pub fn spawn_shield_on_right_click(
