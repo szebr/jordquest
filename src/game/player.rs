@@ -10,7 +10,7 @@ use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
-use crate::net::{DELAY, is_client, is_host, IsHost, TickNum};
+use crate::net::{is_client, is_host, IsHost};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
 
@@ -204,6 +204,7 @@ pub fn update_players(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
     for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
@@ -228,6 +229,7 @@ pub fn update_players(
         }
         else if health.current > 0 && health.dead {
             health.dead = false;
+            spawn_writer.send(LocalPlayerSpawnEvent);
             *vis = Visibility::Visible;
         }
     }
@@ -426,6 +428,7 @@ pub fn check_sword_collision(
     mut sword: Query<(&GlobalTransform, &mut PlayerWeapon), With<PlayerWeapon>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     for (sword_transform, mut player_wep) in sword.iter_mut() {
         if player_wep.active == false { continue; }
@@ -449,6 +452,14 @@ pub fn check_sword_collision(
                         ..default()
                     });
                 }
+            }
+        }
+        // check if weapon is colliding with a chest
+        for (chest_tf, mut chest_hp) in chest.iter_mut() {
+            let sword_position = sword_transform.translation().truncate();
+            let chest_position = chest_tf.translation.truncate();
+            if sword_position.distance(chest_position) < 30.0 && !chest_hp.dead{
+                chest_hp.current = 0;
             }
         }
     }
@@ -533,7 +544,6 @@ pub fn handle_id_events(
 pub fn handle_usercmd_events(
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
-    tick: Res<TickNum>
 ) {
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut hp) in &mut player_query {

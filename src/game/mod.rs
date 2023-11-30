@@ -19,6 +19,7 @@ pub const ROUND_TIME: f32 = 5.0 * 60.0;
 pub const ENTITY_SHEET_DIMS: Vec2 = Vec2 {x: 6., y: 4.}; // (rows, columns)
 pub const DECORATION_SHEET_DIMS: Vec2 = Vec2{x: 6., y: 3.};
 pub const POWERUP_SHEET_DIMS: Vec2 = Vec2{x: 5., y: 1.};
+pub const CHEST_SHEET_DIMS: Vec2 = Vec2{x: 1., y: 2.};
 
 #[derive(Resource)]
 pub struct PowerupAtlas{
@@ -47,6 +48,21 @@ impl Decorations {
         let mut index: i32 = ((y as f32 * DECORATION_SHEET_DIMS[1]) + x as f32) as i32;
         if index < 0 || index > ((DECORATION_SHEET_DIMS[0] * DECORATION_SHEET_DIMS[1]) - 1.) as i32 {
             index = ((DECORATION_SHEET_DIMS[0] * DECORATION_SHEET_DIMS[1]) - 1.) as i32;
+        }
+        return index as usize;
+    }
+}
+
+#[derive(Resource)]
+pub struct Chests {
+    pub handle: Handle<TextureAtlas>
+}
+
+impl Chests {
+    fn coord_to_index(&self, x: i32, y: i32) -> usize {
+        let mut index: i32 = ((y as f32 * CHEST_SHEET_DIMS[1]) + x as f32) as i32;
+        if index < 0 || index > ((CHEST_SHEET_DIMS[0] * CHEST_SHEET_DIMS[1]) - 1.) as i32 {
+            index = ((CHEST_SHEET_DIMS[0] * CHEST_SHEET_DIMS[1]) - 1.) as i32;
         }
         return index as usize;
     }
@@ -147,6 +163,18 @@ pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
     let powerup_atlas = PowerupAtlas{handle: powerup_atlas_handle};
     commands.insert_resource(powerup_atlas);
 
+    let chest_handle = asset_server.load("chest_sheet.png");
+    let chest_tex_atlas = TextureAtlas::from_grid(
+        chest_handle, 
+        Vec2::splat(16.), 
+        CHEST_SHEET_DIMS[1] as usize, 
+        CHEST_SHEET_DIMS[0] as usize, 
+        Some(Vec2::new(1., 1.)), 
+        None
+    );
+    let chest_atlas_handle = texture_atlases.add(chest_tex_atlas);
+    let chest_atlas = Chests{handle: chest_atlas_handle};
+    commands.insert_resource(chest_atlas);
 
     commands.insert_resource(PlayerId(0xFF));
     commands.insert_resource(MapConfig{

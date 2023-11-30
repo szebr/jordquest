@@ -4,10 +4,9 @@ use bevy::window::PrimaryWindow;
 use crate::AppState;
 use crate::movement;
 use crate::game::camp::setup_camps;
-use crate::game::components::{Camp, CampStatus, Grade, Health};
-use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP}};
+use crate::game::components::{Camp, CampStatus, Grade, Health, Player};
+use crate::game::{player, player::{LocalEvents, LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
 use crate::map;
-use crate::game::player::LocalEvents;
 use crate::net::IsHost;
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
@@ -28,11 +27,16 @@ const CAMP_MARKER_COLORS: [Color; 5] = [
     Color::Rgba{red: 0.76, green: 0.6, blue: 0.13, alpha: 1.}  // Movement speed up
 ];
 
+const ENEMY_PLAYER_COLOR: Color = Color::Rgba {red: 1., green: 0.2, blue: 0.2, alpha: 1.};
+
 #[derive(Component)]
 pub struct GameCamera;
 
 #[derive(Component)]
 pub struct LocalPlayerMarker;
+
+#[derive(Component)]
+pub struct EnemyPlayerMarker(pub u8);
 
 #[derive(Component)]
 pub struct CampMarker(pub u8);
@@ -60,7 +64,11 @@ impl Plugin for CameraPlugin {
             .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
             .add_systems(Update, configure_map_on_event)
             .add_systems(Update, spawn_camp_markers.run_if(any_with_component::<Camp>()))
-            .add_systems(Update, hide_cleared_camp_markers.run_if(any_with_component::<CampMarker>()));
+            .add_systems(Update, hide_cleared_camp_markers.run_if(any_with_component::<CampMarker>()))
+            .add_systems(Update, spawn_enemy_player_markers.run_if(any_with_component::<LocalPlayer>()))
+            .add_systems(Update, show_enemy_player_markers.run_if(player::local_player_dead))
+            .add_systems(Update, hide_enemy_player_markers.run_if(not(player::local_player_dead)))
+            .add_systems(Update, show_hide_local_player_marker.run_if(any_with_component::<LocalPlayerMarker>()));
     }
 }
 
@@ -139,25 +147,6 @@ pub fn spawn_minimap(
     )).id();
 
     commands.entity(minimap_border_entity).add_child(minimap_entity);
-
-    let local_player_marker_entity = commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("player_marker.png"),
-            transform: Transform {
-                translation: Vec3 {
-                    x: 0.,
-                    y: 0.,
-                    z: 3.
-                },
-                ..Default::default()
-            },
-            visibility: Visibility::Hidden, // Hide the marker initially and make it visible after first spawn
-            ..Default::default()
-        },
-        LocalPlayerMarker,
-    )).id();
-
-    commands.entity(minimap_entity).add_child(local_player_marker_entity);
 }
 
 fn spawn_camp_markers(
@@ -200,24 +189,98 @@ fn spawn_camp_markers(
     }
 }
 
+fn spawn_enemy_player_markers(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut minimap: Query<Entity, With<Minimap>>,
+    enemy_player_markers: Query<Entity, With<EnemyPlayerMarker>>,
+    local_player_id: Res<PlayerId>
+) {
+    // Return immediately if the enemy player markers already exist
+    for _marker in &enemy_player_markers {
+        return;
+    }
+
+    for parent in &mut minimap {
+        for player_id in 0..MAX_PLAYERS {
+            if player_id as u8 != local_player_id.0 {
+                let enemy_player_marker_ent = commands.spawn((
+                    SpriteBundle {
+                        texture: asset_server.load("player_marker.png"),
+                        transform: Transform {
+                            translation: Vec3 {
+                                x: 0.,
+                                y: 0.,
+                                z: 2.
+                            },
+                            ..Default::default()
+                        },
+                        sprite: Sprite {
+                            color: ENEMY_PLAYER_COLOR,
+                            ..Default::default()
+                        },
+                        visibility: Visibility::Hidden,
+                        ..Default::default()
+                    },
+                    EnemyPlayerMarker(player_id as u8),
+                )).id();
+        
+                commands.entity(parent).add_child(enemy_player_marker_ent);
+            }
+        }
+    }
+}
+
 // TODO: Tie this function to a camp cleared/camp spawned event instead of running on Update
 fn hide_cleared_camp_markers(
     mut camp_markers: Query<(&CampMarker, &mut Visibility), With<CampMarker>>,
-    camps: Query<(&Camp, &CampStatus), With<Camp>>
+    camps: Query<(&Camp, &CampStatus), With<Camp>>,
+    input: Res<Input<KeyCode>>,
+    app_state_current_state: Res<State<AppState>>,
 ) {
     for (marker_num, mut marker_visibility) in &mut camp_markers {
         for (camp_num, camp_status) in &camps {
             if camp_num.0 == marker_num.0 {
-                match camp_status.status {
-                    true => {
-                        *marker_visibility = Visibility::Visible;
-                    }
-                    false => {
-                        *marker_visibility = Visibility::Hidden;
-                    }
+                if !camp_status.0 || input.pressed(KeyCode::Tab) ||
+                    *app_state_current_state.get() == AppState::GameOver {
+                    *marker_visibility = Visibility::Hidden;
+                }
+                else {
+                    *marker_visibility = Visibility::Visible;
                 }
             }
         }
+    }
+}
+
+fn show_enemy_player_markers(
+    mut enemy_player_markers: Query<(&EnemyPlayerMarker, &mut Visibility, &mut Transform), With<EnemyPlayerMarker>>,
+    players: Query<(&Player, &Transform, &Health), (With<Player>, Without<LocalPlayer>, Without<EnemyPlayerMarker>)>,
+    input: Res<Input<KeyCode>>,
+    app_state_current_state: Res<State<AppState>>,
+) {
+    for (marker_id, mut marker_visibility, mut marker_transform) in &mut enemy_player_markers {
+        for (player_id, player_transform, player_health) in &players {
+            if input.pressed(KeyCode::Tab) ||
+                    *app_state_current_state.get() == AppState::GameOver {
+                    *marker_visibility = Visibility::Hidden;
+                }
+                else {
+                    if marker_id.0 == player_id.0 && !player_health.dead {
+                        *marker_visibility = Visibility::Visible;
+                        marker_transform.translation.x = make_position_not_float(player_transform.translation.x / map::TILESIZE as f32);
+                        marker_transform.translation.y = make_position_not_float(player_transform.translation.y / map::TILESIZE as f32);
+                    }
+                }
+        }
+    }
+}
+
+fn hide_enemy_player_markers(
+    mut enemy_player_markers: Query<&mut Visibility, With<EnemyPlayerMarker>>,
+) {
+    for mut marker_visibility in &mut enemy_player_markers {
+        *marker_visibility = Visibility::Hidden;
     }
 }
 
@@ -319,13 +382,31 @@ fn marker_follow_local_player(
         // Set marker position on minimap to reflect the player's current position in the game world
         for mut marker_tf in &mut local_player_marker {
             if local_player_transform.translation.x > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.x < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.x = local_player_transform.translation.x / map::TILESIZE as f32;
+                marker_tf.translation.x = make_position_not_float(local_player_transform.translation.x / map::TILESIZE as f32);
             }
             if local_player_transform.translation.y > -(((map::MAPSIZE / 2) * map::TILESIZE) as f32) && local_player_transform.translation.y < ((map::MAPSIZE / 2) * map::TILESIZE) as f32 {
-                marker_tf.translation.y = local_player_transform.translation.y / map::TILESIZE as f32;
+                marker_tf.translation.y = make_position_not_float(local_player_transform.translation.y / map::TILESIZE as f32);
             }
         }
     }
+}
+
+fn show_hide_local_player_marker(
+    mut local_player_marker: Query<&mut Visibility, With<LocalPlayerMarker>>,
+    input: Res<Input<KeyCode>>,
+    app_state_current_state: Res<State<AppState>>,
+) {
+    for mut marker_visibility in &mut local_player_marker{
+        if input.pressed(KeyCode::Tab) || *app_state_current_state.get() == AppState::GameOver {
+            *marker_visibility = Visibility::Hidden;
+        } else {
+            *marker_visibility = Visibility::Visible;
+        }
+    }
+}
+
+fn make_position_not_float(position: f32) -> f32 {
+    return position as i32 as f32;
 }
 
 // Runs in Respawn state, waits for mouse click to get player's desired (re)spawn position
@@ -334,11 +415,14 @@ fn respawn_update(
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
     mut local_player: Query<(&mut Transform, &mut Health), With<LocalPlayer>>,
-    mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
+    //mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
     map: Res<map::WorldMap>,
     is_host: Res<IsHost>,
     mut local_events: ResMut<LocalEvents>,
-    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>
+    minimap: Query<Entity, With<Minimap>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    local_player_marker: Query<Entity, With<LocalPlayerMarker>>
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -375,16 +459,35 @@ fn respawn_update(
                     let (mut local_player_transform, mut local_player_health) = local_player.single_mut();
 
                     local_events.spawn = true;
-                    spawn_writer.send(LocalPlayerSpawnEvent);
                     if is_host.0 {
                         local_player_health.current = PLAYER_DEFAULT_HP;
                     }
                     local_player_transform.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
                     local_player_transform.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 
-                    // Show marker
-                    for mut visibility in &mut marker_visibility {
-                        *visibility = Visibility::Visible;
+                    // Spawn local player marker if necessary
+                    for _marker in &local_player_marker {
+                        return;
+                    }
+
+                    for minimap_entity in minimap.iter() {
+                        let local_player_marker_entity = commands.spawn((
+                            SpriteBundle {
+                                texture: asset_server.load("player_marker.png"),
+                                transform: Transform {
+                                    translation: Vec3 {
+                                        x: 0.,
+                                        y: 0.,
+                                        z: 3.
+                                    },
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                            LocalPlayerMarker,
+                        )).id();
+                    
+                        commands.entity(minimap_entity).add_child(local_player_marker_entity);
                     }
                 }
             }

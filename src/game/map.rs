@@ -45,6 +45,9 @@ pub struct MapSeed(pub u64);
 #[derive(Resource)]
 pub struct NumCamps(pub u8);
 
+#[derive(Resource)]
+pub struct ChestCoords(pub Vec<Vec2>);
+
 // Set the size of the map in tiles (its a square)
 // CHANGE THIS TO CHANGE MAP SIZE
 pub const MAPSIZE: usize = 256;
@@ -54,6 +57,8 @@ pub const CAMPSIZE: usize = 17; // Diameter of camp size in tiles
 pub const MAXEGGS: usize = 5;
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
+pub const MAXCHESTS: usize = 10; // Maximum number of possible chests to spawn
+pub const CHESTDIST: f32 = 50.;
 
 // Base colors for navigable tiles
 pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
@@ -127,10 +132,12 @@ fn initialize_map_resources(mut commands: Commands) {
     let camp_nodes = CampNodes(Vec::new());
     let map_seed = MapSeed(0);
     let num_camps = NumCamps(10);
+    let chest_coords = ChestCoords(Vec::new());
     commands.insert_resource(world_map);
     commands.insert_resource(camp_nodes);
     commands.insert_resource(map_seed);
     commands.insert_resource(num_camps);
+    commands.insert_resource(chest_coords);
 }
 
 // Set the map seed based on the MapSeedInput resource (default 0)
@@ -167,6 +174,7 @@ fn read_map(
     camp_nodes: &mut Vec<Vec2>,
     num_camps: &Res<NumCamps>,
     mut rng: &mut ChaChaRng,
+    chest_coords: &mut Vec<Vec2>,
 ) -> Result<(), Box<dyn Error>> {
     // seed, amplitude, frequency, octaves
     let perlin = Perlin::new(rng.next_u64(), 1.0, 0.08, 3);
@@ -349,6 +357,40 @@ fn read_map(
         }
     }
 
+    // Generate a random low number of high-tier item chests in the map
+    let numchests = rng.gen_range(2..=MAXCHESTS);
+
+    for _ in 0..numchests {
+        loop{
+            let cur_chest = Vec2 {x: rng.gen_range(5..MAPSIZE - 5) as f32, y: rng.gen_range(5..MAPSIZE - 5) as f32};
+
+            let mut valid = true;
+
+            // check that the chest is far enough away from any camp
+            for node in camp_nodes_mst.node_indices() {
+                let node = &camp_nodes_mst[node];
+                if euclidean_distance(cur_chest, *node) < CHESTDIST{
+                    valid = false;
+                }
+            }
+            // check that chest is not surrounded by a wall
+            if map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize - 3] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize - 3][cur_chest.x as usize + 3] == Biome::Ground
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize - 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize][cur_chest.x as usize + 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize - 3] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize] == Biome::Ground 
+            && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize + 3] == Biome::Ground 
+            && valid{
+                println!("Chest coords at x: {} y: {}", cur_chest.x, cur_chest.y);
+                chest_coords.push(cur_chest);
+                break;
+            }
+        }
+    }
+
     // Create the outer walls
     for row in 0..MAPSIZE {
         map.biome_map[row][0] = Biome::Wall;
@@ -372,12 +414,13 @@ pub fn setup_map(
     num_camps: Res<NumCamps>,
     mut camp_nodes: ResMut<CampNodes>,
     mut world_map: ResMut<WorldMap>,
+    mut chest_coords: ResMut<ChestCoords>,
 ) {
     //create an rng to randomly choose a goober in the near future
     let mut rng = rand_chacha::ChaChaRng::seed_from_u64(map_seed.0);
 
-    // Generate the map and camp nodes
-    let _ = read_map(&mut world_map, &mut camp_nodes.0, &num_camps, &mut rng);
+    // Generate the map, camp nodes, and item nodes
+    let _ = read_map(&mut world_map, &mut camp_nodes.0, &num_camps, &mut rng, &mut chest_coords.0);
 
     // Get a handle for a pure white TILESIZE x TILESIZE image to be colored based on tile type later
     let tile_handle = assets.add(create_tile_image());

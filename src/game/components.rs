@@ -29,6 +29,7 @@ pub const DAMAGE_REDUCTION_UP: f32 = 0.9;
 pub const MAX_HP_UP: u8 = 20;
 pub const ATTACK_SPEED_UP: f32 = 1.1;
 pub const MOVEMENT_SPEED_UP: u8 = 15;
+pub const CHEST_CONTENTS: usize = 5;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
@@ -38,8 +39,6 @@ pub enum PowerUpType {
     AttackSpeedUp = 3,
     MovementSpeedUp = 4,
 }
-
-
 
 #[derive(Component)]
 pub struct StoredPowerUps{
@@ -97,12 +96,15 @@ pub struct CampEnemies{
 }
 
 #[derive(Component)]
-pub struct CampStatus{
-    //status of camp : true = filled, false = clear
-    pub status: bool,
-}
+pub struct CampStatus(pub bool); // true if camp is captured, false if not
 
 #[derive(Component)]
 pub struct EnemyCamp(pub u8); // holds id of enemy's parent camp
+
+#[derive(Component)]
+pub struct ItemChest{
+    pub id: u8,
+    pub contents: [u8; CHEST_CONTENTS],
+}
 
 
