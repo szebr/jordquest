@@ -200,6 +200,10 @@ pub fn handle_attack(
                             }
                         }
                     }
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("playerHurt.ogg"),
+                        ..default()
+                    });
                 }
             }
         }
