@@ -241,7 +241,7 @@ pub fn update_enemies(
                     for (mut stats, pl) in player.iter_mut() {
                         if pl.0 == la.0.expect("camp has no attacker") {
                             stats.score = stats.score.saturating_add(5);
-                            stats.score = stats.camps_captured.saturating_add(1);
+                            stats.camps_captured = stats.camps_captured.saturating_add(1);
                             println!("5 points awarded for clearing camp {}", camp_num.0)
                         }
                     }
@@ -253,7 +253,7 @@ pub fn update_enemies(
             for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
                     stats.score = stats.score.saturating_add(1);
-                    stats.score = stats.score.saturating_add(1);
+                    stats.enemies_killed = stats.enemies_killed.saturating_add(1);
                 }
             }
             continue;
