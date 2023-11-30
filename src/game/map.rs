@@ -58,7 +58,8 @@ pub const MAXEGGS: usize = 5;
 pub const EXTRANODES: usize = 20; // Number of extra nodes to add to the graph
 pub const EXTRAPATHS: usize = 2; // Number of extra paths to add to the graph
 pub const MAXCHESTS: usize = 10; // Maximum number of possible chests to spawn
-pub const CHESTDIST: f32 = 50.;
+pub const CHEST_CAMP_DIST: f32 = 50.;
+pub const CHEST_CHEST_DIST: f32 = 20.;
 
 // Base colors for navigable tiles
 pub const BASECOLOR_GROUND: Color = Color::Rgba{red: 0.243, green: 0.621, blue: 0.039, alpha: 1.0};
@@ -358,7 +359,7 @@ fn read_map(
     }
 
     // Generate a random low number of high-tier item chests in the map
-    let numchests = rng.gen_range(2..=MAXCHESTS);
+    let numchests = MAXCHESTS;
 
     for _ in 0..numchests {
         loop{
@@ -369,7 +370,13 @@ fn read_map(
             // check that the chest is far enough away from any camp
             for node in camp_nodes_mst.node_indices() {
                 let node = &camp_nodes_mst[node];
-                if euclidean_distance(cur_chest, *node) < CHESTDIST{
+                if euclidean_distance(cur_chest, *node) < CHEST_CAMP_DIST{
+                    valid = false;
+                }
+            }
+
+            for chests in chest_coords.iter(){
+                if euclidean_distance(cur_chest, *chests) < CHEST_CHEST_DIST{
                     valid = false;
                 }
             }
