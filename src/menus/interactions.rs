@@ -20,7 +20,7 @@ pub fn interact_with_button<B: ButtonTypeTrait>(
                 *background_color = Color::GRAY.into();
                 app_state_next_state.set(B::app_state());
                 commands.spawn(AudioBundle {
-                    source: asset_server.load("button.ogg"),
+                    source: asset_server.load("click.ogg"),
                     ..default()
                 });
             }
