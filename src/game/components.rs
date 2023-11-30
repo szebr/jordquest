@@ -19,14 +19,14 @@ pub struct Fade {
 pub const NUM_POWERUPS: usize = 5;
 pub const DAMAGE_DEALT_UP: u8 = 10;
 pub const DAMAGE_REDUCTION_UP: f32 = 0.9;
-pub const MAX_HP_UP: u8 = 20;
+pub const MEAT_VALUE: u8 = 30;
 pub const ATTACK_SPEED_UP: f32 = 1.1;
 pub const MOVEMENT_SPEED_UP: u8 = 15;
 pub const CHEST_CONTENTS: usize = 5;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
-    MaxHPUp = 0,
+    Meat = 0,
     DamageDealtUp = 1,
     DamageReductionUp = 2,
     AttackSpeedUp = 3,

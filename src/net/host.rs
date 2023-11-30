@@ -47,7 +47,6 @@ pub fn disconnect(
     }
 }
 
-//TODO this needs to run after every other fixed has run
 pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,

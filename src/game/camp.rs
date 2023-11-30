@@ -112,7 +112,7 @@ pub fn setup_camps(
         for n in 0..CAMP_ENEMIES{
             let is_special = n == special_enemy_index;
             //generate a random powerup to drop from each enemy
-            let powerups: [PowerUpType; 5] = [PowerUpType::MaxHPUp, PowerUpType::DamageDealtUp, PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
+            let powerups: [PowerUpType; 5] = [PowerUpType::Meat, PowerUpType::DamageDealtUp, PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
             //TODO: make this a random percentage based on the mapconfig resource
             let power_up_to_drop = powerups[camp_grade as usize - 1];
             let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE;
@@ -310,7 +310,7 @@ pub fn respawn_camp_enemies(
         {
             let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
             let special_enemy_index = rng.gen_range(0..enemies_in_camp.max_enemies);
-            let powerups: [PowerUpType; 5] = [PowerUpType::MaxHPUp, PowerUpType::DamageDealtUp, 
+            let powerups: [PowerUpType; 5] = [PowerUpType::Meat, PowerUpType::DamageDealtUp,
                 PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
             let power_up_to_drop = powerups[grade.0 as usize - 1];
             respawn_timer.0.reset();
