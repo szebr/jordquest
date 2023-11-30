@@ -203,11 +203,17 @@ pub fn update_score(
 // If player hp <= 0, reset player position and subtract 1 from player score if possible
 pub fn update_players(
     mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
     for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
+            commands.spawn(AudioBundle {
+                source: asset_server.load("dead-2.ogg"),
+                ..default()
+            });
             health.dead = true;
             *vis = Visibility::Hidden;
             if lp.is_some() {
@@ -234,6 +240,7 @@ pub fn update_players(
 // if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
 pub fn grab_powerup(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
     powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
     mut powerup_displays: Query<(&mut Text, &PowerupDisplayText), With<PowerupDisplayText>>,
@@ -294,6 +301,10 @@ pub fn grab_powerup(
                         / PLAYER_SPEED);
                     }
                 }
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("powerup.ogg"),
+                    ..default()
+                });
                 // despawn powerup
                 commands.entity(powerup_entity).despawn();
             }
@@ -373,6 +384,10 @@ pub fn handle_attack(
         last_attacker.0 = Some(pl.0);
         let damage = SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP;
         enemy_hp.current = enemy_hp.current.saturating_sub(damage);
+        commands.spawn(AudioBundle {
+            source: asset_server.load("hitHurt.ogg"),
+            ..default()
+        });
     }
     for (chest_tf, mut chest_hp) in chest.iter_mut() {
         let chest_pos = chest_tf.translation.truncate();
@@ -384,6 +399,10 @@ pub fn handle_attack(
 
         chest_hp.current = 0;
     }
+    commands.spawn(AudioBundle {
+        source: asset_server.load("player-swing.ogg"),
+        ..default()
+    });
     if is_host.0 {
         local_events.attack = false;
     }
@@ -447,6 +466,10 @@ pub fn spawn_shield_on_right_click(
                     },
                     ..Default::default()
                 }).insert(Shield);
+            });
+            commands.spawn(AudioBundle {
+                source: asset_server.load("shield.ogg"),
+                ..default()
             });
         }
     }
@@ -517,7 +540,8 @@ pub fn handle_usercmd_events(
 
 // RUN CONDITIONS
 
-pub fn local_player_dead(health: Query<&Health, With<LocalPlayer>>) -> bool {
+pub fn local_player_dead(health: Query<&Health, With<LocalPlayer>>
+) -> bool {
     let health = health.get_single();
     if health.is_err() { return false; }
     let health = health.unwrap();
