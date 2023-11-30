@@ -384,7 +384,6 @@ fn read_map(
             && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize] == Biome::Ground 
             && map.biome_map[cur_chest.y as usize + 3][cur_chest.x as usize + 3] == Biome::Ground 
             && valid{
-                println!("Chest coords at x: {} y: {}", cur_chest.x, cur_chest.y);
                 chest_coords.push(cur_chest);
                 break;
             }

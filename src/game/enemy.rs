@@ -242,7 +242,6 @@ pub fn update_enemies(
                         if pl.0 == la.0.expect("camp has no attacker") {
                             stats.score = stats.score.saturating_add(5);
                             stats.camps_captured = stats.camps_captured.saturating_add(1);
-                            println!("5 points awarded for clearing camp {}", camp_num.0)
                         }
                     }
                 }

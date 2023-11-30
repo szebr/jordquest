@@ -34,7 +34,6 @@ pub fn connect(addresses: Res<menus::NetworkAddresses>,
     let host_addr = SocketAddr::new(IpAddr::from(host_ip), host_port);
     sock.0 = Some(UdpSocket::bind(host_addr).expect("host port in use"));
     sock.0.as_mut().unwrap().set_nonblocking(true).expect("can't set nonblocking");
-    println!("host successful");
 }
 
 pub fn disconnect(

@@ -24,7 +24,6 @@ pub fn connect(
     let host = sock.0.as_mut().unwrap();
     host.connect(host_addr).expect("can't connect to host");
     send_empty_packet(PacketType::ConnectionRequest, host, &host_addr).expect("failed to request connection");
-    println!("connection successful");
 }
 
 pub fn disconnect(mut sock: ResMut<net::Socket>) {
