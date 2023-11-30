@@ -190,15 +190,7 @@ pub fn handle_attack(
                     let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
                     if dmg > 0
                     {
-                        match player_hp.current.checked_sub(dmg) {
-                            Some(v) => {
-                                player_hp.current = v;
-                            }
-                            None => {
-                                // player would die from hit
-                                player_hp.current = 0;
-                            }
-                        }
+                        player_hp.current = player_hp.current.saturating_sub(dmg);
                     }
                     commands.spawn(AudioBundle {
                         source: asset_server.load("playerHurt.ogg"),
@@ -248,13 +240,8 @@ pub fn update_enemies(
                 if enemies_in_camp.current_enemies == 0 && camp_status.0 == true{
                     for (mut stats, pl) in player.iter_mut() {
                         if pl.0 == la.0.expect("camp has no attacker") {
-                            if Some(stats.score.checked_add(5)) != None {
-                                stats.score += 5;
-                            }
-                            if Some (stats.camps_captured.checked_add(1)) != None {
-                                stats.camps_captured += 1;
-                            }
-                            println!("5 points awarded for clearing camp {}", camp_num.0)
+                            stats.score = stats.score.saturating_add(5);
+                            stats.camps_captured = stats.camps_captured.saturating_add(1);
                         }
                     }
                 }
@@ -264,12 +251,8 @@ pub fn update_enemies(
             commands.entity(e).despawn_recursive();
             for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
-                    if Some(stats.score.checked_add(1)) != None {
-                        stats.score += 1;
-                    }
-                    if Some (stats.enemies_killed.checked_add(1)) != None {
-                        stats.enemies_killed += 1
-                    }
+                    stats.score = stats.score.saturating_add(1);
+                    stats.enemies_killed = stats.enemies_killed.saturating_add(1);
                 }
             }
             continue;
