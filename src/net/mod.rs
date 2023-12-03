@@ -70,10 +70,10 @@ pub fn startup(mut commands: Commands) {
 
 pub fn increment_tick(
     mut tick: ResMut<TickNum>,
-    mut pos_buffers: Query(&mut PosBuffer),
-    mut event_buffers: Query(&mut EventBuffer),
-    mut dir_buffers: Query(&mut DirBuffer),
-    mut hp_buffers: Query(&mut HpBuffer),
+    mut pos_buffers: Query<&mut PosBuffer>,
+    mut event_buffers: Query<&mut EventBuffer>,
+    mut dir_buffers: Query<&mut DirBuffer>,
+    mut hp_buffers: Query<&mut HpBuffer>,
 ) {
     tick.0 += 1;
     for mut pb in &mut pos_buffers {
