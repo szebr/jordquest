@@ -2,9 +2,9 @@ use std::net::*;
 use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
-use crate::game::buffers::PosBuffer;
+use crate::game::buffers::{EventBuffer, PosBuffer};
 use crate::game::map::MapSeed;
-use crate::game::player::{ATTACK_BITFLAG, LocalEvents, LocalPlayer, SetIdEvent, SPAWN_BITFLAG};
+use crate::game::player::{LocalPlayer, SetIdEvent};
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
 use crate::net::packets::*;
 
@@ -33,25 +33,15 @@ pub fn disconnect(mut sock: ResMut<net::Socket>) {
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
-    pb_query: Query<&PosBuffer, With<LocalPlayer>>,
+    players: Query<(&PosBuffer, &EventBuffer), With<LocalPlayer>>,
     ack: Res<net::Ack>,
-    mut local_events: ResMut<LocalEvents>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
-    let pb = pb_query.get_single();
-    if pb.is_err() { return }
-    let pb = pb.unwrap();
+    let player = players.get_single();
+    if player.is_err() { return }
+    let (pb, eb) = player.unwrap();
     let pos = pb.0.get(tick.0);
-    let mut events: u8 = 0;
-    if local_events.spawn {
-        events |= SPAWN_BITFLAG;
-        local_events.spawn = false;
-    }
-    if local_events.attack {
-        events |= ATTACK_BITFLAG;
-        local_events.attack = false;
-    }
     let packet = ClientTick {
         seq_num: tick.0,
         rmt_num: ack.rmt_num,
@@ -59,7 +49,7 @@ pub fn fixed(
         tick: UserCmd {
             pos: *pos,
             dir: 0.0,
-            events,
+            events: *eb.0.get(tick.0),
         },
     };
     let mut bytes: Vec<u8> = Vec::new();

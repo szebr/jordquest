@@ -5,9 +5,10 @@ use crate::AppState;
 use crate::movement;
 use crate::game::camp::setup_camps;
 use crate::game::components::{Camp, CampStatus, Grade, Health, Player};
-use crate::game::{player, player::{LocalEvents, LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
+use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
+use crate::game::buffers::EventBuffer;
 use crate::map;
-use crate::net::IsHost;
+use crate::net::{IsHost, TickNum};
 
 pub const GAME_PROJ_SCALE: f32 = 0.5;
 
@@ -414,15 +415,14 @@ fn respawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut app_state_next_state: ResMut<NextState<AppState>>,
-    mut local_player: Query<(&mut Transform, &mut Health), With<LocalPlayer>>,
-    //mut marker_visibility: Query<&mut Visibility, (With<LocalPlayerMarker>, Without<LocalPlayer>)>,
+    mut local_player: Query<(&mut Transform, &mut Health, &mut EventBuffer), With<LocalPlayer>>,
     map: Res<map::WorldMap>,
     is_host: Res<IsHost>,
-    mut local_events: ResMut<LocalEvents>,
     minimap: Query<Entity, With<Minimap>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    local_player_marker: Query<Entity, With<LocalPlayerMarker>>
+    local_player_marker: Query<Entity, With<LocalPlayerMarker>>,
+    tick: Res<TickNum>,
 ) {
     // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
@@ -456,14 +456,15 @@ fn respawn_update(
                     // Valid spawn tile
                     app_state_next_state.set(AppState::Game);
 
-                    let (mut local_player_transform, mut local_player_health) = local_player.single_mut();
+                    let (mut lp_tf, mut lp_hp, mut lp_eb) = local_player.single_mut();
 
-                    local_events.spawn = true;
+                    let events = lp_eb.0.get(tick.0).clone();
+                    lp_eb.0.set(tick.0, events | player::SPAWN_BITFLAG);
                     if is_host.0 {
-                        local_player_health.current = PLAYER_DEFAULT_HP;
+                        lp_hp.current = PLAYER_DEFAULT_HP;
                     }
-                    local_player_transform.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
-                    local_player_transform.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
+                    lp_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                    lp_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 
                     // Spawn local player marker if necessary
                     for _marker in &local_player_marker {

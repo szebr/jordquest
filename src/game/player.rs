@@ -10,7 +10,7 @@ use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
-use crate::net::{is_client, is_host, IsHost, TICKLEN_S};
+use crate::net::{is_client, is_host, TICKLEN_S, TickNum};
 use crate::net::packets::{PlayerTickEvent, UserCmdEvent};
 use crate::menus::layout::{toggle_leaderboard, update_leaderboard};
 
@@ -21,8 +21,8 @@ pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
 const DEFAULT_COOLDOWN: f32 = 0.8;
-pub const SPAWN_BITFLAG: u8 = 1;
-pub const ATTACK_BITFLAG: u8 = 2;
+pub const ATTACK_BITFLAG: u8 = 1;
+pub const SPAWN_BITFLAG: u8 = 2;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
@@ -47,12 +47,6 @@ pub struct SwordAnimation{
     pub max: f32,
 }
 
-#[derive(Resource)]
-pub struct LocalEvents {
-    pub attack: bool,
-    pub spawn: bool
-}
-
 #[derive(Component)]
 pub struct Cooldown(pub Timer);
 
@@ -74,17 +68,17 @@ impl Plugin for PlayerPlugin{
         app.add_systems(FixedUpdate, update_buffer.before(net::client::fixed).before(enemy::fixed_move))
             .add_systems(Update,
                 (update_health_bars,
-                update_score,
-                update_players,
-                handle_attack_input,
-                animate_sword.after(handle_attack),
-                grab_powerup,
-                handle_move,
-                spawn_shield_on_right_click,
-                despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
-                handle_tick_events.run_if(is_client),
-                handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(FixedUpdate, handle_attack.before(net::client::fixed))
+                 update_score,
+                 handle_life_and_death,
+                 handle_attack_input.before(handle_attack_event),
+                 animate_sword.after(handle_attack_event),
+                 grab_powerup,
+                 handle_move,
+                 spawn_shield_on_right_click,
+                 despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
+                 handle_tick_events.run_if(is_client),
+                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
+            .add_systems(FixedUpdate, handle_attack_event.before(net::host::fixed).before(net::client::fixed))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
@@ -102,6 +96,111 @@ pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     }
 }
 
+
+/*
+
+client::fixed
+  send ClientTick to host
+
+client::update
+  receive HostTick and send events to other systems to fill out info
+
+host::fixed
+  send HostTick culled for each guy
+
+host::update
+  receive ClientTick and send events to other systems to fill out info
+
+attack_input (update, all)
+  if left clicking and cooldown is up, set event.attack to true
+
+attack_simulate (on attack event, host)
+  go through all of the players, collecting their powerups, mut Stats, PosBuffer, DirBuffer, EventBuffer, mut HpBuffer, option lp
+  if EventBuffer says it's not attacking, continue
+  go through all enemies, collecting their PosBuffer, mut HpBuffer
+  if attacker, tick = seq_num, else tick = seq_num - net::DELAY
+  do collision checks for each player that is attacking on enemies (using PosBuffer and DirBuffer of player, PosBuffer of enemy)
+  enemies that are hit take damage depending on player powerups, (using powerups of player, HpBuffer of enemy)
+  HpBuffer is updated at true current tick
+  go through all of the players
+  if same player as this one, continue
+  if player is shielding on this tick, continue
+  do collision checks using PosBuffer and DirBuffer of attacker, PosBuffer of victim
+  if hit, set HpBuffer of victim for true current tick
+  if killed, set Stats of attacker and victim
+  go through all of the chests
+  if chest hp is 0, continue
+  do collision checks using PosBuffer and DirBuffer of attacker, position of chest
+  if hit, set hp of chest to zero and bust it open
+
+attack_host (fixed, host)
+  if attack is true, make an attack event for yourself
+
+attack_draw (fixed, all)
+  go through all of the players, collecting their PosBuffer, DirBuffer, EventBuffer, option lp
+  if lp, delay = 0, else delay = net::DELAY
+  if attacking this tick, draw their attack
+
+powerup_simulate (fixed, host)
+  go through all of the powerups, go through all the players, if they are in the same place remove powerup and add to player powerups
+
+shield_input (update, all)
+  if right clicking, set event.shield to true
+
+to check if shield is active, check if this tick's shield event is true
+
+shield_draw (fixed, all)
+  for every player, if event.shield is true for this tick, show their shield
+
+spawn_input (update if dead, all)
+  if left clicking and valid position, set event.spawn to true and move player there
+
+handle_host_tick (on host tick event, client)
+  for each player, mark it dead and invisible
+  for players in tick, if alive, mark not dead and not invisible, fill PosBuffer, HpBuffer, DirBuffer, EventBuffer, Stats, Powerups for each player
+  for players, find localplayer, check if dead and if Res<MapState> == MAP_MINI, then send LocalPlayerDeathEvent
+                                 check if not dead and if Res<MapState> == MAP_SPAWN, then send LocalPlayerSpawnEvent
+  for each enemy, mark it dead and invisible
+  for enemies in tick, if alive, mark not dead and not invisible, fill PosBuffer, HpBuffer, EventBuffer
+  remove all powerups
+  for powerups in tick, spawn a powerup on location
+  remove all chests
+  for chests in tick, spawn a chest on location, if hp 0 then empty, otherwise full
+  redraw score counter, powerup ui, health bars
+
+handle_client_tick (on client tick event, host)
+  fill player PosBuffer, DirBuffer, EventBuffer
+  if player sent an attack, make an attack event and send it
+
+UserCmd
+    pos
+    dir
+    events
+
+PlayerTick
+    pos
+    hp
+    dir
+    events
+    stats
+    powerups
+
+EnemyTick
+    pos
+    hp
+    special
+    events
+
+HostTick
+    PlayerTicks
+    ** all below are culled by visibility **
+    EnemyTicks
+    Chests (hp, Vec2)
+    Powerups (type, Vec2)
+
+
+ */
+
 pub fn spawn_players(
     mut commands: Commands,
     entity_atlas: Res<Atlas>,
@@ -113,6 +212,9 @@ pub fn spawn_players(
         pl = commands.spawn((
             Player(i as u8),
             PosBuffer(CircularBuffer::new()),
+            DirBuffer(CircularBuffer::new()),
+            EventBuffer(CircularBuffer::new()),
+            HpBuffer(CircularBuffer::new()),
             Stats {
                 score: 0,
                 enemies_killed: 0,
@@ -158,7 +260,7 @@ pub fn spawn_players(
             HealthBar,
         )).id();
 
-        commands.entity(pl).push_children(&[health_bar]);
+        commands.entity(pl).add_child(health_bar);
     }
 }
 
@@ -206,15 +308,14 @@ pub fn update_score(
     }
 }
 
-// If player hp <= 0, reset player position and subtract 1 from player score if possible
-pub fn update_players(
-    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats, &Player)>,
+pub fn handle_life_and_death(
+    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut death_writer: EventWriter<LocalPlayerDeathEvent>,
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
-    for (mut health, mut vis, lp, mut stats, _) in players.iter_mut() {
+    for (mut health, mut vis, lp, mut stats) in players.iter_mut() {
         if health.current <= 0 && !health.dead {
             commands.spawn(AudioBundle {
                 source: asset_server.load("dead-2.ogg"),
@@ -235,7 +336,9 @@ pub fn update_players(
         }
         else if health.current > 0 && health.dead {
             health.dead = false;
-            spawn_writer.send(LocalPlayerSpawnEvent);
+            if lp.is_some() {
+                spawn_writer.send(LocalPlayerSpawnEvent);
+            }
             *vis = Visibility::Visible;
         }
     }
@@ -301,106 +404,107 @@ pub fn grab_powerup(
 }
 
 pub fn handle_attack_input(
-    mut local_events: ResMut<LocalEvents>,
     time: Res<Time>,
+    tick: Res<TickNum>,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut players: Query<&mut Cooldown, With<LocalPlayer>>,
+    mut players: Query<(&mut Cooldown, &mut EventBuffer), With<LocalPlayer>>,
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let mut c = player.unwrap();
+    let (mut c, mut eb) = player.unwrap();
     c.0.tick(time.delta());
     if !(mouse_button_inputs.pressed(MouseButton::Left) && c.0.finished()) {
         return;
     }
-    local_events.attack = true;
+    let events = eb.0.get(tick.0).clone();
+    eb.0.set(tick.0, events | ATTACK_BITFLAG);
+    c.0.reset();
 }
 
-pub fn handle_attack(
+pub fn handle_attack_event(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut local_events: ResMut<LocalEvents>,
-    is_host: Res<IsHost>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut players: Query<(Entity, &Player, &Transform, &mut Cooldown, &PlayerShield, &StoredPowerUps), With<LocalPlayer>>,
+    tick: Res<TickNum>,
+    mut players: Query<(Entity, &Player, &Transform, &PlayerShield, &StoredPowerUps, &EventBuffer)>,
     cameras: Query<&Transform, With<SpatialCameraBundle>>,
     mut enemies: Query<(&Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
-    let player = players.get_single_mut();
-    if player.is_err() { return }
-    let (e, pl, tf, mut c, shield, spu) = player.unwrap();
-    if shield.active { return }
-    let camera = cameras.get_single();
-    if camera.is_err() { return }
-    let camera = camera.unwrap();
-    if !local_events.attack { return }
-    c.0.reset();
+    for player in &mut players {
+        let (e, pl, tf, shield, spu, eb) = player;
+        if shield.active { continue }
+        let camera = cameras.get_single();
+        if camera.is_err() { return }
+        let camera = camera.unwrap();
+        if eb.0.get(tick.0) & ATTACK_BITFLAG == 0 {
+            continue;
+        }
 
-    let window = window_query.single();
-    let cursor_position = window.cursor_position();
-    if cursor_position.is_none() { return }
-    let mut cursor_position = cursor_position.unwrap();
-    cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
-    cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
-    cursor_position += camera.translation.xy();
-    let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
 
-    commands.entity(e).with_children(|parent| {
-        parent.spawn((SpriteBundle {
-            texture: asset_server.load("sword01.png").into(),
-            visibility: Visibility::Hidden,
-            ..Default::default()
-        },
-        PlayerWeapon,
-        SwordAnimation {
-            current: 0.0,
-            cursor_vector,
-            max: TICKLEN_S,
-        },));
-    });
-    let player_pos = tf.translation.truncate();
-    let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
-    for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
-        let enemy_pos = enemy_tf.translation.truncate();
-        if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
+        let window = window_query.single();
+        let cursor_position = window.cursor_position();
+        if cursor_position.is_none() { return }
+        let mut cursor_position = cursor_position.unwrap();
+        cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
+        cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
+        cursor_position += camera.translation.xy();
+        let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
 
-        let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
-        let angle_diff = sword_angle - combat_angle;
-        if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
+        commands.entity(e).with_children(|parent| {
+            parent.spawn((SpriteBundle {
+                texture: asset_server.load("sword01.png").into(),
+                visibility: Visibility::Hidden,
+                ..Default::default()
+            },
+                          PlayerWeapon,
+                          SwordAnimation {
+                              current: 0.0,
+                              cursor_vector,
+                              max: TICKLEN_S,
+                          }, ));
+        });
+        let player_pos = tf.translation.truncate();
+        let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
+        for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
+            let enemy_pos = enemy_tf.translation.truncate();
+            if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
 
-        last_attacker.0 = Some(pl.0);
-        let damage = SWORD_DAMAGE + spu.power_ups[PowerUpType::DamageDealtUp as usize] * DAMAGE_DEALT_UP;
-        enemy_hp.current = enemy_hp.current.saturating_sub(damage);
+            let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
+            let angle_diff = sword_angle - combat_angle;
+            if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
+
+            last_attacker.0 = Some(pl.0);
+            let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
+            enemy_hp.current = enemy_hp.current.saturating_sub(damage);
+            commands.spawn(AudioBundle {
+                source: asset_server.load("hitHurt.ogg"),
+                ..default()
+            });
+        }
+        for (chest_tf, mut chest_hp) in chest.iter_mut() {
+            let chest_pos = chest_tf.translation.truncate();
+            if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
+
+            let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
+            let angle_diff = sword_angle - combat_angle;
+            if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
+
+            if chest_hp.current != 0 {
+                chest_hp.current = 0;
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("chest.ogg"),
+                    ..default()
+                });
+            }
+        }
         commands.spawn(AudioBundle {
-            source: asset_server.load("hitHurt.ogg"),
+            source: asset_server.load("player-swing.ogg"),
             ..default()
         });
-    }
-    for (chest_tf, mut chest_hp) in chest.iter_mut() {
-        let chest_pos = chest_tf.translation.truncate();
-        if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
-
-        let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
-        let angle_diff = sword_angle - combat_angle;
-        if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
-
-        chest_hp.current = 0;
-        commands.spawn(AudioBundle {
-            source: asset_server.load("chest.ogg"),
-            ..default()
-        });
-    }
-    commands.spawn(AudioBundle {
-        source: asset_server.load("player-swing.ogg"),
-        ..default()
-    });
-    if is_host.0 {
-        local_events.attack = false;
     }
 }
 
-// animate the sword swing when the player attacks
 pub fn animate_sword(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Visibility, &mut SwordAnimation), With<PlayerWeapon>>,
@@ -532,8 +636,7 @@ pub fn handle_usercmd_events(
 
 // RUN CONDITIONS
 
-pub fn local_player_dead(health: Query<&Health, With<LocalPlayer>>
-) -> bool {
+pub fn local_player_dead(health: Query<&Health, With<LocalPlayer>>) -> bool {
     let health = health.get_single();
     if health.is_err() { return false; }
     let health = health.unwrap();

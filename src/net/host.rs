@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
-use crate::game::buffers::PosBuffer;
+use crate::game::buffers::{EventBuffer, PosBuffer};
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
@@ -50,35 +50,37 @@ pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
     sock: Res<net::Socket>,
-    player_query: Query<(&PosBuffer, &Health, &Player)>,
-    enemy_query: Query<(&PosBuffer, &Health, &Enemy)>,
+    mut player_query: Query<(&PosBuffer, &Health, &Player, &EventBuffer)>,
+    mut enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
         let conn = conn.unwrap();
-        for (lp_pb, _, lp_pl) in &player_query {
+        for (lp_pb, _, lp_pl, _) in &player_query {
             if conn.player_id == lp_pl.0 {
                 // for "this" player, add self, then calculate who is close and add them.
                 let lp_pos = *lp_pb.0.get(tick.0);
                 let mut players: Vec<PlayerTick> = Vec::new();
-                for (pb, hp, pl) in &player_query {
+                for (pb, hp, pl, eb) in &player_query {
                     let pos = *pb.0.get(tick.0);
                     players.push(PlayerTick {
                         id: pl.0,
                         pos,
-                        hp: hp.current
+                        hp: hp.current,
+                        events: *eb.0.get(tick.0)
                     });
                 }
                 let mut enemies: Vec<EnemyTick> = Vec::new();
-                for (pb, hp, en) in &enemy_query {
+                for (pb, hp, en, eb) in &enemy_query {
                     let pos = *pb.0.get(tick.0);
                     if pos.distance(lp_pos) < RENDER_DISTANCE {
                         enemies.push(EnemyTick {
                             id: en.0,
                             pos,
-                            hp: hp.current
+                            hp: hp.current,
+                            events: *eb.0.get(tick.0)
                         });
                     }
                 }

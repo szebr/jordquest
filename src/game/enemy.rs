@@ -9,8 +9,7 @@ use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, TILESIZE, MAPSIZE, WorldMap};
 use crate::game::movement;
-use crate::game::player::PlayerShield;
-use super::player::PLAYER_DEFAULT_DEF;
+use crate::game::player::{PLAYER_DEFAULT_DEF, PlayerShield};
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
 use crate::PowerupAtlas;
@@ -25,6 +24,8 @@ pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.5;
 pub const SPECIAL_MAX_HP_MOD: f32 = 1.5; // cannot be more than 2.55 due to u8 max
 pub const SPECIAL_ATTACK_RATE_MOD: f32 = 0.5;
 
+pub const ATTACK_BITFLAG: u8 = 1;
+pub const AGGRO_BITFLAG: u8 = 2;
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
@@ -61,14 +62,11 @@ impl Plugin for EnemyPlugin{
                 fixed_aggro.after(movement::update_buffer),
                 fixed_move.after(fixed_aggro),
                 fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
-                ).run_if(is_host)
-            )
-            .add_systems(Update, (
-                handle_packet.run_if(is_client),
-                update_enemies.after(handle_packet),
+                update_enemies,
                 handle_attack.after(update_enemies),
-                enemy_regen_health.after(update_enemies),
-            ))
+                enemy_regen_health.after(update_enemies)).run_if(is_host)
+            )
+            .add_systems(Update, handle_packet.run_if(is_client))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
 }
@@ -204,13 +202,13 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
+    mut enemies: Query<(&mut Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU, &mut Visibility), With<Enemy>>,
     mut player: Query<(&mut Stats, &Player)>,
     powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf, ec_num, cdpu) in enemies.iter_mut() {
-        if hp.current <= 0 {
+    for (mut hp, la, spu, mut sp, tf, ec_num, cdpu, mut vis) in enemies.iter_mut() {
+        if hp.current <= 0 && !hp.dead {
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
                 // and spawning the appropriate one
@@ -233,7 +231,7 @@ pub fn update_enemies(
             // decrement the enemy counter of the camp that this enemy is apart of
             for (camp_num, mut enemies_in_camp, camp_status) in camp_query.iter_mut() {
                 if camp_num.0 == ec_num.0 {
-                    enemies_in_camp.current_enemies -= 1;
+                    enemies_in_camp.current_enemies = enemies_in_camp.current_enemies.saturating_sub(1);
                 }
 
                 // check if the camp is cleared and assign 5 points for clearing the camp
@@ -247,8 +245,9 @@ pub fn update_enemies(
                 }
             }
 
-            // despawn the enemy and increment the score of the player who killed it
-            commands.entity(e).despawn_recursive();
+            // kill the enemy and increment the score of the player who killed it
+            hp.dead = true;
+            *vis = Visibility::Hidden;
             for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
                     stats.score = stats.score.saturating_add(1);
@@ -621,13 +620,62 @@ pub fn fixed_resolve(
 
 pub fn handle_packet(
     mut enemy_reader: EventReader<net::packets::EnemyTickEvent>,
-    mut enemy_query: Query<(&Enemy, &mut PosBuffer, &mut Health)>
+    mut enemy_query: Query<(Entity, &Enemy, &mut PosBuffer, &mut Health, &mut Visibility, &IsSpecial)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     for ev in enemy_reader.iter() {
-        for (en, mut pb, mut hp) in &mut enemy_query {
+        for (e, en, mut pb, mut hp, mut vis, is) in &mut enemy_query {
             if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, ev.tick.pos);
                 hp.current = ev.tick.hp;
+                if hp.current <= 0 && !hp.dead {
+                    hp.dead = true;
+                    *vis = Visibility::Hidden;
+                }
+                else if hp.current > 0 && hp.dead {
+                    hp.dead = false;
+                    *vis = Visibility::Visible;
+                }
+                if ev.tick.events & ATTACK_BITFLAG != 0 {
+                    let attack_radius;
+                    if is.0 {
+                        attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+                    } else {
+                        attack_radius = 1.0;
+                    }
+                    let attack = commands.spawn((
+                        SpriteBundle {
+                        texture: asset_server.load("EnemyAttack01.png").into(),
+                        transform: Transform {
+                            translation: Vec3::new(0.0, 0.0, 5.0),
+                            scale: Vec3::new(attack_radius, attack_radius, 1.0),
+                            ..Default::default()
+                            },
+                        ..Default::default()
+                        },
+                        EnemyWeapon,
+                        Fade {current: 1.0, max: 1.0})
+                    ).id();
+                    commands.entity(e).add_child(attack);
+                }
+                if ev.tick.events & AGGRO_BITFLAG != 0 {
+                    let exlaim = commands.spawn((
+                        SpriteBundle {
+                            texture: asset_server.load("aggro.png").into(),
+                            transform: Transform {
+                                translation: Vec3::new(0.0, 32., 2.5),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        Fade {
+                            current: 2.0,
+                            max: 2.0
+                        }
+                    )).id();
+                    commands.entity(e).add_child(exlaim);
+                }
             }
         }
     }

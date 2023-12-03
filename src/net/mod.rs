@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
-use crate::game::player::LocalEvents;
+use crate::game::buffers::{DirBuffer, EventBuffer, HpBuffer, PosBuffer};
 use crate::game::player;
 
 
@@ -65,12 +65,23 @@ pub fn startup(mut commands: Commands) {
     commands.insert_resource(TickNum { 0: 0 });
     commands.insert_resource(Socket(None));
     commands.insert_resource(IsHost(true));  // gets changed when you start the game
-    commands.insert_resource(LocalEvents { attack: false, spawn: false });
     commands.insert_resource(Ack { rmt_num: 0, bitfield: 0 });
 }
 
-pub fn increment_tick(mut tick_num: ResMut<TickNum>) {
-    tick_num.0 += 1;
+pub fn increment_tick(
+    mut tick: ResMut<TickNum>,
+    mut buffers: Query<(&mut PosBuffer, &mut EventBuffer, &mut DirBuffer, &mut HpBuffer)>
+) {
+    tick.0 += 1;
+    for (mut pb, mut eb, mut db, mut hb) in &mut buffers {
+        let prev = pb.0.get(tick.0 - 1).clone();
+        pb.0.set(tick.0, prev);
+        eb.0.set(tick.0, 0);
+        let prev = db.0.get(tick.0 - 1).clone();
+        db.0.set(tick.0, prev);
+        let prev = hb.0.get(tick.0 - 1).clone();
+        hb.0.set(tick.0, prev);
+    }
 }
 
 // for conditionally running systems

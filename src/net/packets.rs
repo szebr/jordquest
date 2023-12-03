@@ -17,7 +17,8 @@ pub enum PacketType {
 pub struct EnemyTick {
     pub id: u8,
     pub pos: Vec2,
-    pub hp: u8
+    pub hp: u8,
+    pub events: u8
 }
 
 /// sent by network module to disperse enemy information from the host
@@ -32,6 +33,7 @@ pub struct PlayerTick {
     pub id: u8,
     pub pos: Vec2,
     pub hp: u8,
+    pub events: u8,
 }
 
 /// sent by network module to disperse player information from the host
@@ -101,7 +103,9 @@ impl Packet for HostTick {
             i += 8;
             let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            enemies.push(EnemyTick { id, pos, hp });
+            let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            enemies.push(EnemyTick { id, pos, hp, events });
         }
         let mut players: Vec<PlayerTick> = Vec::new();
         for _ in 0..player_count {
@@ -114,7 +118,9 @@ impl Packet for HostTick {
             i += 8;
             let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            players.push(PlayerTick { id, pos, hp });
+            let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            players.push(PlayerTick { id, pos, hp, events });
         }
         return Ok(HostTick {
             seq_num,
@@ -138,12 +144,14 @@ impl Packet for HostTick {
             bytes.extend_from_slice(&enemy.pos.x.to_be_bytes());
             bytes.extend_from_slice(&enemy.pos.y.to_be_bytes());
             bytes.extend_from_slice(&enemy.hp.to_be_bytes());
+            bytes.extend_from_slice(&enemy.events.to_be_bytes());
         }
         for player in &self.players {
             bytes.extend_from_slice(&player.id.to_be_bytes());
             bytes.extend_from_slice(&player.pos.x.to_be_bytes());
             bytes.extend_from_slice(&player.pos.y.to_be_bytes());
             bytes.extend_from_slice(&player.hp.to_be_bytes());
+            bytes.extend_from_slice(&player.events.to_be_bytes());
         }
     }
 }
