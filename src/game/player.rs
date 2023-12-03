@@ -189,13 +189,19 @@ pub fn update_health_bars(
 
 // Update the score displayed during the game
 pub fn update_score(
-    stats_query: Query<&Stats, With<LocalPlayer>>,
+    players: Query<(&Health, &Stats), With<LocalPlayer>>,
     mut score_displays: Query<&mut Text, With<ScoreDisplay>>,
+    mut powerup_displays: Query<(&mut Text, &PowerupDisplayText), (With<PowerupDisplayText>, Without<ScoreDisplay>)>,
 ) {
-    for mut text in score_displays.iter_mut() {
-        for stat in stats_query.iter() {
-            let score = stat.score;
-            text.sections[0].value = format!("Score: {}", score);
+    let score_display = score_displays.get_single_mut();
+    let lp = players.get_single();
+    if score_display.is_err() || lp.is_err() { return }
+    let mut text = score_display.unwrap();
+    let (hp, stats) = lp.unwrap();
+    text.sections[0].value = format!("Score: {}", stats.score);
+    for (mut powerup, index) in &mut powerup_displays {
+        if index.0 == 2 {
+            powerup.sections[0].value = format!("{}%", 100. * hp.current as f32 / PLAYER_DEFAULT_HP as f32);
         }
     }
 }
@@ -267,9 +273,6 @@ pub fn grab_powerup(
                     else if power_up.0 == PowerUpType::Meat && index.0 == 2 {
                         player_power_ups.power_ups[PowerUpType::Meat as usize] = player_power_ups.power_ups[PowerUpType::Meat as usize].saturating_add(1);
                         player_health.current = player_health.current.saturating_add(MEAT_VALUE);
-                        powerup.sections[0].value = format!("{:.2}x",
-                        (PLAYER_DEFAULT_HP as f32 + player_power_ups.power_ups[PowerUpType::Meat as usize] as f32 * MEAT_VALUE as f32)
-                        / PLAYER_DEFAULT_HP as f32);
                     }
                     else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
                         player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] = player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize].saturating_add(1);

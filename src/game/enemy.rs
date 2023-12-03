@@ -58,9 +58,9 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin{
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, (
-                fixed_aggro,
+                fixed_aggro.after(movement::update_buffer),
                 fixed_move.after(fixed_aggro),
-                fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move).after(net::lerp::resolve_collisions),
+                fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
                 ).run_if(is_host)
             )
             .add_systems(Update, (
