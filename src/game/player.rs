@@ -1,12 +1,9 @@
 use std::time::Duration;
-use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
 use crate::{enemy, net};
 use crate::game::movement::*;
 use crate::{Atlas, AppState};
 use crate::buffers::*;
-use crate::game::camera::SpatialCameraBundle;
 use crate::game::components::*;
 use crate::game::enemy::LastAttacker;
 use crate::game::PlayerId;
@@ -26,6 +23,17 @@ pub const SPAWN_BITFLAG: u8 = 2;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
+
+#[derive(Event)]
+pub struct AttackEvent {
+    pub seq_num: u16,
+    pub id: u8,
+}
+
+#[derive(Event)]
+pub struct SpawnEvent {
+    pub id: u8
+}
 
 #[derive(Event)]
 pub struct LocalPlayerDeathEvent;
@@ -66,23 +74,31 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
         app.add_systems(FixedUpdate, update_buffer.before(net::client::fixed).before(enemy::fixed_move))
-            .add_systems(Update,
-                (update_health_bars,
-                 update_score,
-                 handle_life_and_death,
-                 handle_attack_input.before(handle_attack_event),
-                 animate_sword.after(handle_attack_event),
-                 grab_powerup,
-                 handle_move,
-                 spawn_shield_on_right_click,
-                 despawn_shield_on_right_click_release.after(spawn_shield_on_right_click),
-                 handle_tick_events.run_if(is_client),
-                 handle_usercmd_events.run_if(is_host)).run_if(in_state(AppState::Game)))
-            .add_systems(FixedUpdate, handle_attack_event.before(net::host::fixed).before(net::client::fixed))
+            .add_systems(Update, (
+                handle_usercmd_events,
+                ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
+            .add_systems(Update, (
+                attack_input,
+                animate_sword,
+                handle_move,
+                handle_player_ticks.run_if(is_client),
+                ).run_if(in_state(AppState::Game)))
+            .add_systems(FixedUpdate, (
+                attack_host.before(attack_simulate),
+                attack_simulate,
+                spawn_simulate,
+            ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
+            .add_systems(FixedUpdate, (
+                attack_draw.after(attack_simulate),
+                health_simulate.after(spawn_simulate),
+                health_draw.after(health_simulate),
+                ).before(net::client::fixed).before(net::host::fixed))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
             .add_event::<SetIdEvent>()
+            .add_event::<AttackEvent>()
+            .init_resource::<Events<SpawnEvent>>()
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
@@ -111,6 +127,7 @@ host::fixed
 host::update
   receive ClientTick and send events to other systems to fill out info
 
+DONE
 attack_input (update, all)
   if left clicking and cooldown is up, set event.attack to true
 
@@ -273,13 +290,14 @@ pub fn remove_players(
     }
 }
 
+/*
 // Update the health bar child of player entity to reflect current hp
 pub fn update_health_bars(
     mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
-    mut player_health_query: Query<(&mut Health, &Children, &StoredPowerUps), With<Player>>,
+    mut player_health_query: Query<(&mut Health, &Children), With<Player>>,
 ) {
-    for (mut health, children, player_power_ups) in player_health_query.iter_mut() {
-        health.max = (PLAYER_DEFAULT_HP as f32 + player_power_ups.power_ups[PowerUpType::Meat as usize] as f32 * MEAT_VALUE as f32) as u8;
+    for (mut health, children) in player_health_query.iter_mut() {
+        health.max = PLAYER_DEFAULT_HP;
         for child in children.iter() {
             let tf = health_bar_query.get_mut(*child);
             if let Ok(mut tf) = tf {
@@ -359,26 +377,23 @@ pub fn grab_powerup(
             let powerup_pos = powerup_transform.translation.truncate();
             if player_pos.distance(powerup_pos) < 16. {
                 // add powerup to player
+                player_power_ups.power_ups[power_up.0 as usize] = player_power_ups.power_ups[power_up.0 as usize].saturating_add(1);
                 for (mut powerup, index) in &mut powerup_displays {
                     if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
-                        player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] = player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize].saturating_add(1);
                         powerup.sections[0].value = format!("{:.2}x",
                         (SWORD_DAMAGE as f32 + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] as f32 * DAMAGE_DEALT_UP as f32)
                         / SWORD_DAMAGE as f32);
                     }
                     else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
-                        player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] = player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize].saturating_add(1);
                         // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
                         powerup.sections[0].value = format!("{:.2}x", 
                         (PLAYER_DEFAULT_DEF
                         / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
                     }
                     else if power_up.0 == PowerUpType::Meat && index.0 == 2 {
-                        player_power_ups.power_ups[PowerUpType::Meat as usize] = player_power_ups.power_ups[PowerUpType::Meat as usize].saturating_add(1);
                         player_health.current = player_health.current.saturating_add(MEAT_VALUE);
                     }
                     else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
-                        player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize] = player_power_ups.power_ups[PowerUpType::AttackSpeedUp as usize].saturating_add(1);
                         let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
                         cooldown.0.set_duration(updated_duration);
                         powerup.sections[0].value = format!("{:.2}x",
@@ -386,7 +401,6 @@ pub fn grab_powerup(
                         / (cooldown.0.duration().as_millis() as f32 / 1000.)));
                     }
                     else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
-                        player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] = player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize].saturating_add(1);
                         powerup.sections[0].value = format!("{:.2}x",
                         (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32))
                         / PLAYER_SPEED);
@@ -402,8 +416,9 @@ pub fn grab_powerup(
         }
     }
 }
+ */
 
-pub fn handle_attack_input(
+pub fn attack_input(
     time: Res<Time>,
     tick: Res<TickNum>,
     mouse_button_inputs: Res<Input<MouseButton>>,
@@ -421,87 +436,103 @@ pub fn handle_attack_input(
     c.0.reset();
 }
 
-pub fn handle_attack_event(
+pub fn attack_host(
+    players: Query<&EventBuffer, With<LocalPlayer>>,
+    tick: Res<TickNum>,
+    mut attack_writer: EventWriter<AttackEvent>
+) {
+    let player = players.get_single();
+    if player.is_err() { return }
+    let eb = player.unwrap();
+    if eb.0.get(tick.0) & ATTACK_BITFLAG != 0 {
+        attack_writer.send(AttackEvent {
+            seq_num: tick.0,
+            id: 0
+        });
+    }
+}
+
+pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
     tick: Res<TickNum>,
-    mut players: Query<(Entity, &Player, &Transform, &PlayerShield, &StoredPowerUps, &EventBuffer)>,
-    cameras: Query<&Transform, With<SpatialCameraBundle>>,
+    players: Query<(Entity, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
+) {
+    for (e, eb, db, lp) in &players {
+        let tick = if lp.is_some() { tick.0 } else { tick.0.saturating_sub(net::DELAY) };
+        if eb.0.get(tick) & ATTACK_BITFLAG != 0 {
+            let dir = db.0.get(tick);
+            let cursor_vector = Vec2 { x: dir.cos(), y: dir.sin() };
+            commands.entity(e).with_children(|parent| {
+                parent.spawn((
+                    SpriteBundle {
+                        texture: asset_server.load("sword01.png").into(),
+                        visibility: Visibility::Hidden,
+                        ..Default::default()
+                    },
+                    PlayerWeapon,
+                    SwordAnimation {
+                        current: 0.0,
+                        cursor_vector,
+                        max: TICKLEN_S,
+                    })
+                );
+            });
+        }
+    }
+
+}
+
+pub fn attack_simulate(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut attack_reader: EventReader<AttackEvent>,
+    players: Query<(&Player, &Transform, &DirBuffer, &StoredPowerUps)>,
     mut enemies: Query<(&Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
-    for player in &mut players {
-        let (e, pl, tf, shield, spu, eb) = player;
-        if shield.active { continue }
-        let camera = cameras.get_single();
-        if camera.is_err() { return }
-        let camera = camera.unwrap();
-        if eb.0.get(tick.0) & ATTACK_BITFLAG == 0 {
-            continue;
-        }
+    for ev in &mut attack_reader {
+        for (pl, tf, db, spu) in &players {
+            if pl.0 != ev.id { continue }
+            let sword_angle = db.0.get(ev.seq_num);
+            let player_pos = tf.translation.truncate();
+            for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
+                let enemy_pos = enemy_tf.translation.truncate();
+                if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
 
+                let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
+                let angle_diff = sword_angle - combat_angle;
+                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
 
-        let window = window_query.single();
-        let cursor_position = window.cursor_position();
-        if cursor_position.is_none() { return }
-        let mut cursor_position = cursor_position.unwrap();
-        cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
-        cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
-        cursor_position += camera.translation.xy();
-        let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
-
-        commands.entity(e).with_children(|parent| {
-            parent.spawn((SpriteBundle {
-                texture: asset_server.load("sword01.png").into(),
-                visibility: Visibility::Hidden,
-                ..Default::default()
-            },
-                          PlayerWeapon,
-                          SwordAnimation {
-                              current: 0.0,
-                              cursor_vector,
-                              max: TICKLEN_S,
-                          }, ));
-        });
-        let player_pos = tf.translation.truncate();
-        let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
-        for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
-            let enemy_pos = enemy_tf.translation.truncate();
-            if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
-
-            let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
-            let angle_diff = sword_angle - combat_angle;
-            if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
-
-            last_attacker.0 = Some(pl.0);
-            let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
-            enemy_hp.current = enemy_hp.current.saturating_sub(damage);
-            commands.spawn(AudioBundle {
-                source: asset_server.load("hitHurt.ogg"),
-                ..default()
-            });
-        }
-        for (chest_tf, mut chest_hp) in chest.iter_mut() {
-            let chest_pos = chest_tf.translation.truncate();
-            if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
-
-            let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
-            let angle_diff = sword_angle - combat_angle;
-            if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
-
-            if chest_hp.current != 0 {
-                chest_hp.current = 0;
+                last_attacker.0 = Some(pl.0);
+                let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
+                enemy_hp.current = enemy_hp.current.saturating_sub(damage);
                 commands.spawn(AudioBundle {
-                    source: asset_server.load("chest.ogg"),
+                    source: asset_server.load("hitHurt.ogg"),
                     ..default()
                 });
             }
+            for (chest_tf, mut chest_hp) in chest.iter_mut() {
+                let chest_pos = chest_tf.translation.truncate();
+                if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
+
+                let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
+                let angle_diff = sword_angle - combat_angle;
+                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
+
+                if chest_hp.current != 0 {
+                    chest_hp.current = 0;
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("chest.ogg"),
+                        ..default()
+                    });
+                }
+            }
+            commands.spawn(AudioBundle {
+                source: asset_server.load("player-swing.ogg"),
+                ..default()
+            });
         }
-        commands.spawn(AudioBundle {
-            source: asset_server.load("player-swing.ogg"),
-            ..default()
-        });
     }
 }
 
@@ -542,6 +573,7 @@ pub fn animate_sword(
     }
 }
 
+/*
 pub fn spawn_shield_on_right_click(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -589,24 +621,94 @@ pub fn despawn_shield_on_right_click_release(
         }
     }
 }
+ */
+// shield
 
-// EVENT HANDLERS
-
-pub fn handle_tick_events(
-    mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
+pub fn spawn_simulate(
+    tick: Res<TickNum>,
+    mut spawn_reader: EventReader<SpawnEvent>,
+    mut players: Query<(&Player, &mut HpBuffer)>
 ) {
-    for ev in player_reader.iter() {
-        for (pl, mut pb, mut hp) in &mut player_query {
-            if pl.0 == ev.tick.id {
-                //println!("player {:?} at {:?} during tick {:?}, dead={:?}", pl.0, ev.tick.pos, ev.seq_num, hp.dead);
-                pb.0.set(ev.seq_num, ev.tick.pos);
-                hp.current = ev.tick.hp;
+    for ev in &mut spawn_reader {
+        for (pl, mut hb) in &mut players {
+            if pl.0 != ev.id { continue }
+            hb.0.set(tick.0, PLAYER_DEFAULT_HP);
+        }
+    }
+    spawn_reader.clear();
+}
+
+pub fn health_simulate(
+    tick: Res<TickNum>,
+    mut players: Query<(&HpBuffer, &mut Health, &mut Visibility, &mut Stats, Option<&LocalPlayer>)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut death_writer: EventWriter<LocalPlayerDeathEvent>,
+    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
+) {
+    for (hb, mut hp, mut vis, mut stats, lp) in &mut players {
+        hp.current = *hb.0.get(tick.0);
+        hp.max = PLAYER_DEFAULT_HP;
+        if hp.current > 0 && hp.dead {
+            hp.dead = false;
+            if lp.is_some() {
+                spawn_writer.send(LocalPlayerSpawnEvent);
+            }
+            *vis = Visibility::Visible;
+        }
+        else if hp.current == 0 && !hp.dead {
+            commands.spawn(AudioBundle {
+                source: asset_server.load("dead-2.ogg"),
+                ..default()
+            });
+            hp.dead = true;
+            *vis = Visibility::Hidden;
+            if lp.is_some() {
+                death_writer.send(LocalPlayerDeathEvent);
+            }
+            stats.deaths = stats.deaths.saturating_add(1);
+            if stats.deaths != 0 {
+                stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
+            }
+            else {
+                stats.kd_ratio = stats.players_killed as f32;
             }
         }
     }
 }
 
+pub fn health_draw(
+    players: Query<(&Health, &Children)>,
+    mut health_bars: Query<&mut Transform, With<HealthBar>>,
+) {
+    for (hp, children) in &players {
+        for child in children.iter() {
+            let tf = health_bars.get_mut(*child);
+            if let Ok(mut tf) = tf {
+                tf.scale = Vec3::new((hp.current as f32) / (hp.max as f32), 1.0, 1.0);
+            }
+        }
+    }
+}
+
+// EVENT HANDLERS
+
+pub fn handle_player_ticks(
+    tick: Res<TickNum>,
+    mut player_reader: EventReader<PlayerTickEvent>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer)>,
+) {
+    for ev in player_reader.iter() {
+        for (pl, mut pb, mut hb) in &mut player_query {
+            if pl.0 == ev.tick.id {
+                pb.0.set(ev.seq_num, ev.tick.pos);
+                hb.0.set(tick.0, ev.tick.hp);
+            }
+        }
+    }
+}
+
+/// This is for assigning IDs to players during the connection phase
 pub fn handle_id_events(
     mut id_reader: EventReader<SetIdEvent>,
     mut res_id: ResMut<PlayerId>,
@@ -619,16 +721,24 @@ pub fn handle_id_events(
 }
 
 pub fn handle_usercmd_events(
+    tick: Res<TickNum>,
     mut usercmd_reader: EventReader<UserCmdEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut Health)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut EventBuffer)>,
+    mut attack_writer: EventWriter<AttackEvent>,
+    mut spawn_writer: EventWriter<SpawnEvent>,
 ) {
     for ev in usercmd_reader.iter() {
-        for (pl, mut pb, mut hp) in &mut player_query {
+        for (pl, mut pb, mut eb) in &mut player_query {
             if pl.0 == ev.id {
-                if (ev.tick.events & SPAWN_BITFLAG) != 0 {
-                    hp.current = PLAYER_DEFAULT_HP;
-                }
                 pb.0.set(ev.seq_num, ev.tick.pos);
+                eb.0.set(tick.0, ev.tick.events);
+                if ev.tick.events & ATTACK_BITFLAG != 0 {
+                    attack_writer.send(AttackEvent { seq_num: ev.seq_num, id: ev.id });
+                }
+                if ev.tick.events & SPAWN_BITFLAG != 0 {
+                    spawn_writer.send(SpawnEvent { id: ev.id });
+                }
+
             }
         }
     }

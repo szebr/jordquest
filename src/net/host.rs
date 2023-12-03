@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
-use crate::game::buffers::{EventBuffer, PosBuffer};
+use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
@@ -50,26 +50,29 @@ pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
     sock: Res<net::Socket>,
-    mut player_query: Query<(&PosBuffer, &Health, &Player, &EventBuffer)>,
-    mut enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
+    player_query: Query<(&PosBuffer, &Health, &Player, &EventBuffer, &DirBuffer, &Stats, &StoredPowerUps)>,
+    enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
     for conn in conns.0.iter() {
         if conn.is_none() { continue; }
         let conn = conn.unwrap();
-        for (lp_pb, _, lp_pl, _) in &player_query {
+        for (lp_pb, _, lp_pl, _, _, _, _) in &player_query {
             if conn.player_id == lp_pl.0 {
                 // for "this" player, add self, then calculate who is close and add them.
                 let lp_pos = *lp_pb.0.get(tick.0);
                 let mut players: Vec<PlayerTick> = Vec::new();
-                for (pb, hp, pl, eb) in &player_query {
+                for (pb, hp, pl, eb, db, stats, powerups) in &player_query {
                     let pos = *pb.0.get(tick.0);
                     players.push(PlayerTick {
                         id: pl.0,
                         pos,
+                        dir: *db.0.get(tick.0),
                         hp: hp.current,
-                        events: *eb.0.get(tick.0)
+                        events: *eb.0.get(tick.0),
+                        stats: stats.clone(),
+                        powerups: powerups.clone(),
                     });
                 }
                 let mut enemies: Vec<EnemyTick> = Vec::new();

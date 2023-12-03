@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{AppState, net};
 use crate::Atlas;
 use movement::correct_wall_collisions;
-use crate::game::buffers::{CircularBuffer, PosBuffer};
+use crate::game::buffers::*;
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
@@ -83,7 +83,6 @@ pub fn spawn_enemy(
     chance_drop_powerup: bool,
     is_special: bool,
 ) {
-    let pb = PosBuffer(CircularBuffer::new_from(pos));
     let mut pu: [u8; NUM_POWERUPS];
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
@@ -99,7 +98,9 @@ pub fn spawn_enemy(
 
     let enemy_entity = commands.spawn((
         Enemy(id),
-        pb,
+        (PosBuffer(CircularBuffer::new_from(pos)),
+        HpBuffer(CircularBuffer::new()),
+        EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
         Health {
             current: enemy_hp,

@@ -7,6 +7,7 @@ use crate::game::camp::setup_camps;
 use crate::game::components::{Camp, CampStatus, Grade, Health, Player};
 use crate::game::{player, player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_HP, MAX_PLAYERS}, PlayerId};
 use crate::game::buffers::EventBuffer;
+use crate::game::player::SpawnEvent;
 use crate::map;
 use crate::net::{IsHost, TickNum};
 
@@ -60,7 +61,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, startup)
             .add_systems(Update, game_update.after(movement::handle_move).run_if(in_state(AppState::Game)))
-            .add_systems(Update, respawn_update.run_if(player::local_player_dead))
+            .add_systems(Update, spawn_update.run_if(player::local_player_dead))
             .add_systems(Update, marker_follow_local_player.run_if(not(player::local_player_dead)))
             .add_systems(OnEnter(AppState::Game), spawn_minimap.after(setup_camps))
             .add_systems(Update, configure_map_on_event)
@@ -410,12 +411,10 @@ fn make_position_not_float(position: f32) -> f32 {
     return position as i32 as f32;
 }
 
-// Runs in Respawn state, waits for mouse click to get player's desired (re)spawn position
-fn respawn_update(
+fn spawn_update(
     mouse_button_inputs: Res<Input<MouseButton>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    mut app_state_next_state: ResMut<NextState<AppState>>,
-    mut local_player: Query<(&mut Transform, &mut Health, &mut EventBuffer), With<LocalPlayer>>,
+    mut local_player: Query<(&mut Transform, &mut Health, &mut EventBuffer, &mut Visibility), With<LocalPlayer>>,
     map: Res<map::WorldMap>,
     is_host: Res<IsHost>,
     minimap: Query<Entity, With<Minimap>>,
@@ -423,73 +422,54 @@ fn respawn_update(
     asset_server: Res<AssetServer>,
     local_player_marker: Query<Entity, With<LocalPlayerMarker>>,
     tick: Res<TickNum>,
+    mut lp_spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
+    mut spawn_writer: EventWriter<SpawnEvent>,
 ) {
-    // Get mouse position upon click
     if mouse_button_inputs.just_pressed(MouseButton::Left) {
         let window = window_query.get_single().unwrap();
         let cursor_position = window.cursor_position().unwrap();
 
-        // Validate mouse position
         let mut cursor_to_map: UVec2 = UVec2::new(0, 0);
-
-        // Ensure cursor within respawn map bounds
-        if (cursor_position.x < ((super::WIN_W / 2.) - MINIMAP_DIMENSIONS.x as f32)) ||
-            (cursor_position.x > ((super::WIN_W / 2.) + MINIMAP_DIMENSIONS.x as f32)) ||
-            (cursor_position.y < ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) ||
-            (cursor_position.y > ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
+        if (cursor_position.x > ((super::WIN_W / 2.) - MINIMAP_DIMENSIONS.x as f32)) &&
+            (cursor_position.x < ((super::WIN_W / 2.) + MINIMAP_DIMENSIONS.x as f32)) &&
+            (cursor_position.y > ((super::WIN_H / 2.) - MINIMAP_DIMENSIONS.y as f32)) &&
+            (cursor_position.y < ((super::WIN_H / 2.) + MINIMAP_DIMENSIONS.y as f32))
         {
-            // Outside map bounds, invalid position
-        } else {
-            // Within bounds, convert to map tile coordinate
             cursor_to_map.x = ((cursor_position.x as u32 - ((super::WIN_W / 2.) as u32 - MINIMAP_DIMENSIONS.x)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
             cursor_to_map.y = ((cursor_position.y as u32 - ((super::WIN_H / 2.) as u32 - MINIMAP_DIMENSIONS.y)) / 2).clamp(0, (map::MAPSIZE - 1) as u32);
-
-
-            // Check if coordinate is wall
             let tile = map.biome_map[cursor_to_map.y as usize][cursor_to_map.x as usize];
+            if tile != map::Biome::Wall {
+                let (mut lp_tf, mut lp_hp, mut lp_eb, mut lp_vis) = local_player.single_mut();
 
-            match tile {
-                map::Biome::Wall => {
-                    // In wall, invalid position
+                let events = lp_eb.0.get(tick.0).clone();
+                lp_eb.0.set(tick.0, events | player::SPAWN_BITFLAG);
+                if is_host.0 {
+                    lp_spawn_writer.send(LocalPlayerSpawnEvent);
+                    spawn_writer.send(SpawnEvent { id: 0 });
                 }
-                _ => {
-                    // Valid spawn tile
-                    app_state_next_state.set(AppState::Game);
+                lp_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
+                lp_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
 
-                    let (mut lp_tf, mut lp_hp, mut lp_eb) = local_player.single_mut();
-
-                    let events = lp_eb.0.get(tick.0).clone();
-                    lp_eb.0.set(tick.0, events | player::SPAWN_BITFLAG);
-                    if is_host.0 {
-                        lp_hp.current = PLAYER_DEFAULT_HP;
-                    }
-                    lp_tf.translation.x = (cursor_to_map.x as f32 - 128.) * 16.;
-                    lp_tf.translation.y = -(cursor_to_map.y as f32 - 128.) * 16.;
-
-                    // Spawn local player marker if necessary
-                    for _marker in &local_player_marker {
-                        return;
-                    }
-
-                    for minimap_entity in minimap.iter() {
-                        let local_player_marker_entity = commands.spawn((
-                            SpriteBundle {
-                                texture: asset_server.load("player_marker.png"),
-                                transform: Transform {
-                                    translation: Vec3 {
-                                        x: 0.,
-                                        y: 0.,
-                                        z: 3.
-                                    },
-                                    ..Default::default()
+                // Spawn local player marker if necessary
+                if local_player_marker.get_single().is_ok() { return }
+                for minimap_entity in minimap.iter() {
+                    let local_player_marker_entity = commands.spawn((
+                        SpriteBundle {
+                            texture: asset_server.load("player_marker.png"),
+                            transform: Transform {
+                                translation: Vec3 {
+                                    x: 0.,
+                                    y: 0.,
+                                    z: 3.
                                 },
                                 ..Default::default()
                             },
-                            LocalPlayerMarker,
-                        )).id();
-                    
-                        commands.entity(minimap_entity).add_child(local_player_marker_entity);
-                    }
+                            ..Default::default()
+                        },
+                        LocalPlayerMarker,
+                    )).id();
+
+                    commands.entity(minimap_entity).add_child(local_player_marker_entity);
                 }
             }
         }

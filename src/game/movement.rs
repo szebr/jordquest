@@ -1,10 +1,13 @@
 use std::ops::Sub;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 use crate::player::*;
 use bevy::sprite::collide_aabb::collide;
+use bevy::window::PrimaryWindow;
 use crate::map;
 use crate::components::*;
-use crate::game::buffers::PosBuffer;
+use crate::game::buffers::{DirBuffer, PosBuffer};
+use crate::game::camera::SpatialCameraBundle;
 use crate::game::map::Biome::Wall;
 use crate::game::map::{get_pos_in_tile, get_tile_at_pos, TILESIZE};
 use crate::net::TickNum;
@@ -147,10 +150,26 @@ pub fn correct_wall_collisions(
 
 pub fn update_buffer(
     tick: Res<TickNum>,
-    mut players: Query<(&mut PosBuffer, &Transform), With<LocalPlayer>>,
+    mut players: Query<(&Transform, &mut PosBuffer, &mut DirBuffer, &Transform), With<LocalPlayer>>,
+    cameras: Query<&Transform, With<SpatialCameraBundle>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (mut pos_buffer, current_pos) = player.unwrap();
-    pos_buffer.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+    let (tf, mut pb, mut db, current_pos) = player.unwrap();
+    pb.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+
+    let window = windows.single();
+    let camera = cameras.get_single();
+    if camera.is_err() { return }
+    let camera = camera.unwrap();
+    let cursor_position = window.cursor_position();
+    if cursor_position.is_none() { return }
+    let mut cursor_position = cursor_position.unwrap();
+    cursor_position.x = (cursor_position.x - window.width() / 2.0) / 2.0;
+    cursor_position.y = (window.height() / 2.0 - cursor_position.y) / 2.0;
+    cursor_position += camera.translation.xy();
+    let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
+    let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
+    db.0.set(tick.0, sword_angle);
 }

@@ -1,6 +1,7 @@
 use std::io::Result;
 use std::net::{SocketAddr, UdpSocket};
 use bevy::prelude::*;
+use crate::game::components::{Stats, StoredPowerUps};
 use crate::net::MAGIC_NUMBER;
 
 
@@ -33,7 +34,10 @@ pub struct PlayerTick {
     pub id: u8,
     pub pos: Vec2,
     pub hp: u8,
+    pub dir: f32,
     pub events: u8,
+    pub stats: Stats,
+    pub powerups: StoredPowerUps
 }
 
 /// sent by network module to disperse player information from the host
@@ -118,9 +122,40 @@ impl Packet for HostTick {
             i += 8;
             let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
+            let dir = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
             let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            players.push(PlayerTick { id, pos, hp, events });
+            let score = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let enemies_killed = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let players_killed = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let camps_captured = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let deaths = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let kd_ratio = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            let meat = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let damage_dealt_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let damage_reduction_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let attack_speed_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let move_speed_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            players.push(PlayerTick { id, pos, hp, dir, events, stats: Stats {
+                score,
+                enemies_killed,
+                players_killed,
+                camps_captured,
+                deaths,
+                kd_ratio,
+            }, powerups: StoredPowerUps { power_ups: [meat, damage_dealt_up, damage_reduction_up, attack_speed_up, move_speed_up] } });
         }
         return Ok(HostTick {
             seq_num,
@@ -151,7 +186,17 @@ impl Packet for HostTick {
             bytes.extend_from_slice(&player.pos.x.to_be_bytes());
             bytes.extend_from_slice(&player.pos.y.to_be_bytes());
             bytes.extend_from_slice(&player.hp.to_be_bytes());
+            bytes.extend_from_slice(&player.dir.to_be_bytes());
             bytes.extend_from_slice(&player.events.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.score.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.enemies_killed.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.players_killed.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.camps_captured.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.deaths.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.kd_ratio.to_be_bytes());
+            for b in &player.powerups.power_ups {
+                bytes.extend_from_slice(&b.to_be_bytes());
+            }
         }
     }
 }
