@@ -70,15 +70,24 @@ pub fn startup(mut commands: Commands) {
 
 pub fn increment_tick(
     mut tick: ResMut<TickNum>,
-    mut buffers: Query<(&mut PosBuffer, &mut EventBuffer, &mut DirBuffer, &mut HpBuffer)>
+    mut pos_buffers: Query(&mut PosBuffer),
+    mut event_buffers: Query(&mut EventBuffer),
+    mut dir_buffers: Query(&mut DirBuffer),
+    mut hp_buffers: Query(&mut HpBuffer),
 ) {
     tick.0 += 1;
-    for (mut pb, mut eb, mut db, mut hb) in &mut buffers {
+    for mut pb in &mut pos_buffers {
         let prev = pb.0.get(tick.0 - 1).clone();
         pb.0.set(tick.0, prev);
+    }
+    for mut eb in &mut event_buffers {
         eb.0.set(tick.0, 0);
+    }
+    for mut db in &mut dir_buffers {
         let prev = db.0.get(tick.0 - 1).clone();
         db.0.set(tick.0, prev);
+    }
+    for mut hb in &mut hp_buffers {
         let prev = hb.0.get(tick.0 - 1).clone();
         hb.0.set(tick.0, prev);
     }
