@@ -46,7 +46,7 @@ impl Plugin for NetPlugin {
                          host::fixed.run_if(is_host).after(enemy::fixed_move).after(movement::update_buffer),
                          lerp::resolve_collisions.run_if(is_host).run_if(in_state(AppState::Game)).after(enemy::fixed_resolve).before(increment_tick)))
             .add_systems(Update,
-                         (lerp::lerp_pos.after(host::update).after(player::handle_usercmd_events).after(host::fixed).before(increment_tick),
+                         (lerp::lerp_pos.after(host::update).after(player::handle_usercmd_events).before(increment_tick),
                          client::update.run_if(is_client),
                          host::update.run_if(is_host)))
             .add_systems(OnEnter(AppState::Game), host::connect.run_if(is_host))
