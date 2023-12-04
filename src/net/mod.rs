@@ -96,7 +96,7 @@ pub fn increment_tick(
         if eb.0.get(tick.0).is_none() {
             eb.0.set(tick.0, Some(0));
         }
-        eb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+        eb.0.set(tick.0 + 1, None);
     }
     for (mut db, lp) in &mut dir_buffers {
         if db.0.get(tick.0).is_none() {
@@ -106,7 +106,7 @@ pub fn increment_tick(
                 println!("setting dir {} to {:?}", tick.0, prev);
             }
         }
-        db.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+        db.0.set(tick.0 + 1, None);
     }
     for (mut hb, lp) in &mut hp_buffers {
         if hb.0.get(tick.0).is_none() {
@@ -116,7 +116,7 @@ pub fn increment_tick(
                 println!("setting hp {} to {:?}", tick.0, prev);
             }
         }
-        hb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+        hb.0.set(tick.0 + 1, None);
     }
 }
 
