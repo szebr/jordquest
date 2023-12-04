@@ -501,9 +501,10 @@ pub fn attack_draw(
 pub fn attack_simulate(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    tick: Res<TickNum>,
     mut attack_reader: EventReader<AttackEvent>,
     players: Query<(&Player, &Transform, &DirBuffer, &StoredPowerUps)>,
-    mut enemies: Query<(&Transform, &mut Health, &mut LastAttacker), With<Enemy>>,
+    mut enemies: Query<(&Transform, &mut HpBuffer, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     for ev in &mut attack_reader {
@@ -513,7 +514,7 @@ pub fn attack_simulate(
             if sword_angle.is_none() { println!("why is this broken?"); continue }
             let sword_angle = sword_angle.unwrap();
             let player_pos = tf.translation.truncate();
-            for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
+            for (enemy_tf, mut enemy_hb, mut last_attacker) in enemies.iter_mut() {
                 let enemy_pos = enemy_tf.translation.truncate();
                 if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
 
@@ -523,7 +524,11 @@ pub fn attack_simulate(
 
                 last_attacker.0 = Some(pl.0);
                 let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
-                enemy_hp.current = enemy_hp.current.saturating_sub(damage);
+                let hp = enemy_hb.0.get(tick.0).unwrap();
+                enemy_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
+                if pl.0 == 1 {
+                    println!("LMFAO");
+                }
                 commands.spawn(AudioBundle {
                     source: asset_server.load("hitHurt.ogg"),
                     ..default()
@@ -720,6 +725,7 @@ pub fn handle_player_ticks(
         for (pl, mut pb, mut hb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
+
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));

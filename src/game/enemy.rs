@@ -12,6 +12,7 @@ use crate::game::movement;
 use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_DEF, PLAYER_DEFAULT_HP, PlayerShield};
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
+use bevy::ecs::component::Tick;
 use crate::PowerupAtlas;
 
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -63,10 +64,12 @@ impl Plugin for EnemyPlugin{
                 fixed_move.after(fixed_aggro),
                 fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
                 update_enemies,
-                health_simulate,
                 handle_attack.after(update_enemies),
-                enemy_regen_health.after(update_enemies)).run_if(is_host)
-            )
+                enemy_regen_health.after(update_enemies)
+            ).run_if(is_host))
+            .add_systems(FixedUpdate, (
+                health_simulate.run_if(is_client),
+                ))
             .add_systems(Update, handle_packet.run_if(is_client))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
@@ -204,12 +207,16 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(&mut Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU, &mut Visibility), With<Enemy>>,
+    tick: Res<TickNum>,
+    mut enemies: Query<(&mut Health, &HpBuffer, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU, &mut Visibility), With<Enemy>>,
     mut player: Query<(&mut Stats, &Player)>,
     powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (mut hp, la, spu, mut sp, tf, ec_num, cdpu, mut vis) in enemies.iter_mut() {
+    for (mut hp, hb, la, spu, mut sp, tf, ec_num, cdpu, mut vis) in enemies.iter_mut() {
+        let next_hp = hb.0.get(tick.0);
+        if next_hp.is_none() { continue }
+        hp.current = next_hp.unwrap();
         if hp.current <= 0 && !hp.dead {
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
@@ -344,7 +351,7 @@ pub fn fixed_move(
                         ppbo = Some(ppb);
                     }
                 }
-                if ppbo.is_none() { break 'mov }
+                if ppbo.is_none() || ppbo.unwrap().0.get(tick.0.wrapping_sub(1)).is_none() { break 'mov }
                 let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1)).unwrap();
 
                 let displacement = player_pos - prev;
@@ -629,11 +636,11 @@ pub fn fixed_resolve(
 
 pub fn health_simulate(
     tick: Res<TickNum>,
-    mut enemies: Query<(&HpBuffer, &mut Health, &mut Visibility)>,
+    mut enemies: Query<(&HpBuffer, &mut Health, &mut TextureAtlasSprite, &mut Visibility), With<Enemy>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    for (hb, mut hp, mut vis) in &mut enemies {
+    for (hb, mut hp, mut sp, mut vis) in &mut enemies {
         let next_hp = hb.0.get(tick.0);
         if next_hp.is_none() { continue }
         hp.current = next_hp.unwrap();
@@ -650,6 +657,8 @@ pub fn health_simulate(
             hp.dead = true;
             *vis = Visibility::Hidden;
         }
+        let damage = hp.current as f32 / hp.max as f32;
+        sp.color = Color::Rgba {red: 1.0, green: damage, blue: damage, alpha: 1.0};
     }
 }
 
@@ -664,7 +673,7 @@ pub fn handle_packet(
         for (e, en, mut pb, mut hb, mut eb, is) in &mut enemy_query {
             if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
-                hb.0.set(ev.seq_num, Some(ev.tick.hp));
+                hb.0.set(tick.0, Some(ev.tick.hp));
                 eb.0.set(tick.0, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     let attack_radius;
