@@ -26,13 +26,13 @@ impl<T: Default + Copy> CircularBuffer<T> {
 }
 
 #[derive(Component)]
-pub struct PosBuffer(pub CircularBuffer<Vec2>);
+pub struct PosBuffer(pub CircularBuffer<Option<Vec2>>);
 
 #[derive(Component)]
-pub struct DirBuffer(pub CircularBuffer<f32>);
+pub struct DirBuffer(pub CircularBuffer<Option<f32>>);
 
 #[derive(Component)]
-pub struct EventBuffer(pub CircularBuffer<u8>);
+pub struct EventBuffer(pub CircularBuffer<Option<u8>>);
 
 #[derive(Component)]
-pub struct HpBuffer(pub CircularBuffer<u8>);
+pub struct HpBuffer(pub CircularBuffer<Option<u8>>);

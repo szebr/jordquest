@@ -157,7 +157,7 @@ pub fn update_buffer(
     let player = players.get_single_mut();
     if player.is_err() { return }
     let (tf, mut pb, mut db, current_pos) = player.unwrap();
-    pb.0.set(tick.0, Vec2::new(current_pos.translation.x, current_pos.translation.y));
+    pb.0.set(tick.0, Some(Vec2::new(current_pos.translation.x, current_pos.translation.y)));
 
     let window = windows.single();
     let camera = cameras.get_single();
@@ -171,5 +171,5 @@ pub fn update_buffer(
     cursor_position += camera.translation.xy();
     let cursor_vector = (cursor_position - tf.translation.xy()).normalize();
     let sword_angle = cursor_vector.y.atan2(cursor_vector.x);
-    db.0.set(tick.0, sword_angle);
+    db.0.set(tick.0, Some(sword_angle));
 }

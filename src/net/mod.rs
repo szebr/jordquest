@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
-use crate::game::buffers::{DirBuffer, EventBuffer, HpBuffer, PosBuffer};
+use crate::game::buffers::{BUFFER_LEN, DirBuffer, EventBuffer, HpBuffer, PosBuffer};
 use crate::game::player;
 
 
@@ -77,19 +77,31 @@ pub fn increment_tick(
 ) {
     tick.0 += 1;
     for mut pb in &mut pos_buffers {
-        let prev = pb.0.get(tick.0 - 1).clone();
-        pb.0.set(tick.0, prev);
+        if pb.0.get(tick.0).is_none() {
+            let prev = pb.0.get(tick.0 - 1).clone();
+            pb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+            pb.0.set(tick.0, prev);
+        }
     }
     for mut eb in &mut event_buffers {
-        eb.0.set(tick.0, 0);
+        if eb.0.get(tick.0).is_none() {
+            eb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+            eb.0.set(tick.0, Some(0));
+        }
     }
     for mut db in &mut dir_buffers {
-        let prev = db.0.get(tick.0 - 1).clone();
-        db.0.set(tick.0, prev);
+        if db.0.get(tick.0).is_none() {
+            let prev = db.0.get(tick.0 - 1).clone();
+            db.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+            db.0.set(tick.0, prev);
+        }
     }
     for mut hb in &mut hp_buffers {
-        let prev = hb.0.get(tick.0 - 1).clone();
-        hb.0.set(tick.0, prev);
+        if hb.0.get(tick.0).is_none() {
+            let prev = hb.0.get(tick.0 - 1).clone();
+            hb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+            hb.0.set(tick.0, prev);
+        }
     }
 }
 

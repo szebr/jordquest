@@ -442,7 +442,13 @@ fn spawn_update(
                 let (mut lp_tf, mut lp_hp, mut lp_eb, mut lp_vis) = local_player.single_mut();
 
                 let events = lp_eb.0.get(tick.0).clone();
-                lp_eb.0.set(tick.0, events | player::SPAWN_BITFLAG);
+                if events.is_none() {
+                    lp_eb.0.set(tick.0, Some(player::SPAWN_BITFLAG));
+                }
+                else {
+                    let events = events.unwrap();
+                    lp_eb.0.set(tick.0, Some(events | player::SPAWN_BITFLAG));
+                }
                 if is_host.0 {
                     lp_spawn_writer.send(LocalPlayerSpawnEvent);
                     spawn_writer.send(SpawnEvent { id: 0 });

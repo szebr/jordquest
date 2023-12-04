@@ -98,7 +98,7 @@ pub fn spawn_enemy(
 
     let enemy_entity = commands.spawn((
         Enemy(id),
-        (PosBuffer(CircularBuffer::new_from(pos)),
+        (PosBuffer(CircularBuffer::new_from(Some(pos))),
         HpBuffer(CircularBuffer::new()),
         EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
@@ -275,7 +275,10 @@ pub fn fixed_aggro(
         let mut best_distance = f32::MAX;
         for (pl, ppb, hp) in &players {
             if hp.dead { continue }
-            let dist = ppb.0.get(tick.0).distance(*prev);
+            let next = ppb.0.get(tick.0);
+            if next.is_none() { continue }
+            let next = next.unwrap();
+            let dist = next.distance(prev.unwrap());
             if dist < best_distance {
                 best_distance = dist;
                 closest_player = Some(pl);
@@ -318,16 +321,16 @@ pub fn fixed_move(
     map: Res<WorldMap>
 ) {
     for (mut epb, aggro, spawn_pos) in &mut enemies {
-        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        let prev = epb.0.get(tick.0.wrapping_sub(1)).unwrap();
         let mut next = prev.clone();
 
         'mov: {
             if aggro.0.is_none() {
                 // move the enemy to their spawn position
-                let displacement = spawn_pos.0 - *prev;
+                let displacement = spawn_pos.0 - prev;
                 if !(displacement.length() < CIRCLE_RADIUS) {
-                    let posit = find_next(&map.biome_map, *prev, spawn_pos.0);
-                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    let posit = find_next(&map.biome_map, prev, spawn_pos.0);
+                    let movement = (posit - prev).normalize() * ENEMY_SPEED;
                     next += movement;
                 }
             } else {
@@ -339,17 +342,17 @@ pub fn fixed_move(
                     }
                 }
                 if ppbo.is_none() { break 'mov }
-                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
+                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1)).unwrap();
 
-                let displacement = *player_pos - *prev;
+                let displacement = player_pos - prev;
                 if !(displacement.length() < CIRCLE_RADIUS) {
-                    let posit = find_next(&map.biome_map, *prev, *player_pos);
-                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    let posit = find_next(&map.biome_map, prev, player_pos);
+                    let movement = (posit - prev).normalize() * ENEMY_SPEED;
                     next += movement;
                 }
             }
         }
-        epb.0.set(tick.0, next);
+        epb.0.set(tick.0, Some(next));
     }
 }
 
@@ -586,10 +589,10 @@ pub fn enemy_regen_health(
     mut enemies: Query<(&mut PosBuffer, &mut Health, &mut TextureAtlasSprite, &Aggro, &SpawnPosition, &mut EnemyRegenTimer), With<Enemy>>,
 ) {
     for (epb, mut hp, mut sprite, aggro, sp, mut timer) in enemies.iter_mut() {
-        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        let prev = epb.0.get(tick.0.wrapping_sub(1)).unwrap();
         if aggro.0.is_none() {
             // move the enemy to their spawn position
-            let displacement = sp.0 - *prev;
+            let displacement = sp.0 - prev;
             if displacement.length() < CIRCLE_RADIUS {
                 timer.0.tick(time.delta());
                 if timer.0.finished() {
@@ -612,10 +615,10 @@ pub fn fixed_resolve(
 ) {
     for (enemy_pos_buffer, collider) in &mut enemies {
         let pos_buffer = enemy_pos_buffer.into_inner();
-        let pos = pos_buffer.0.get(tick.0);
+        let pos = pos_buffer.0.get(tick.0).unwrap();
         let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
         pos3 = correct_wall_collisions(&pos3, &collider.0, &map.biome_map);
-        pos_buffer.0.set(tick.0, pos3.xy());
+        pos_buffer.0.set(tick.0, Some(pos3.xy()));
     }
 }
 
@@ -628,7 +631,7 @@ pub fn handle_packet(
     for ev in enemy_reader.iter() {
         for (e, en, mut pb, mut hp, mut vis, is) in &mut enemy_query {
             if en.0 == ev.tick.id {
-                pb.0.set(ev.seq_num, ev.tick.pos);
+                pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hp.current = ev.tick.hp;
                 if hp.current <= 0 && !hp.dead {
                     hp.dead = true;

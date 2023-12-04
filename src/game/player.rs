@@ -1,3 +1,4 @@
+use std::thread::current;
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -432,7 +433,13 @@ pub fn attack_input(
         return;
     }
     let events = eb.0.get(tick.0).clone();
-    eb.0.set(tick.0, events | ATTACK_BITFLAG);
+    if events.is_none() {
+        eb.0.set(tick.0, Some(ATTACK_BITFLAG));
+    }
+    else {
+        let events = events.unwrap();
+        eb.0.set(tick.0, Some(events | ATTACK_BITFLAG));
+    }
     c.0.reset();
 }
 
@@ -444,7 +451,9 @@ pub fn attack_host(
     let player = players.get_single();
     if player.is_err() { return }
     let eb = player.unwrap();
-    if eb.0.get(tick.0) & ATTACK_BITFLAG != 0 {
+    let events = eb.0.get(tick.0);
+    if events.is_none() { return }
+    if events.unwrap() & ATTACK_BITFLAG != 0 {
         attack_writer.send(AttackEvent {
             seq_num: tick.0,
             id: 0
@@ -460,9 +469,17 @@ pub fn attack_draw(
 ) {
     for (e, eb, db, lp) in &players {
         let tick = if lp.is_some() { tick.0 } else { tick.0.saturating_sub(net::DELAY) };
-        if eb.0.get(tick) & ATTACK_BITFLAG != 0 {
+        let events = eb.0.get(tick);
+        if events.is_none() { continue }
+        if events.unwrap() & ATTACK_BITFLAG != 0 {
             let dir = db.0.get(tick);
+            if dir.is_none() { println!(" how bro"); continue }
+            let dir = dir.unwrap();
             let cursor_vector = Vec2 { x: dir.cos(), y: dir.sin() };
+            commands.spawn(AudioBundle {
+                source: asset_server.load("player-swing.ogg"),
+                ..default()
+            });
             commands.entity(e).with_children(|parent| {
                 parent.spawn((
                     SpriteBundle {
@@ -495,6 +512,8 @@ pub fn attack_simulate(
         for (pl, tf, db, spu) in &players {
             if pl.0 != ev.id { continue }
             let sword_angle = db.0.get(ev.seq_num);
+            if sword_angle.is_none() { println!("why is this broken?"); continue }
+            let sword_angle = sword_angle.unwrap();
             let player_pos = tf.translation.truncate();
             for (enemy_tf, mut enemy_hp, mut last_attacker) in enemies.iter_mut() {
                 let enemy_pos = enemy_tf.translation.truncate();
@@ -528,10 +547,6 @@ pub fn attack_simulate(
                     });
                 }
             }
-            commands.spawn(AudioBundle {
-                source: asset_server.load("player-swing.ogg"),
-                ..default()
-            });
         }
     }
 }
@@ -632,7 +647,7 @@ pub fn spawn_simulate(
     for ev in &mut spawn_reader {
         for (pl, mut hb) in &mut players {
             if pl.0 != ev.id { continue }
-            hb.0.set(tick.0, PLAYER_DEFAULT_HP);
+            hb.0.set(tick.0, Some(PLAYER_DEFAULT_HP));
         }
     }
     spawn_reader.clear();
@@ -647,7 +662,9 @@ pub fn health_simulate(
     mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
 ) {
     for (hb, mut hp, mut vis, mut stats, lp) in &mut players {
-        hp.current = *hb.0.get(tick.0);
+        let next_hp = hb.0.get(tick.0);
+        if next_hp.is_none() { continue }
+        hp.current = next_hp.unwrap();
         hp.max = PLAYER_DEFAULT_HP;
         if hp.current > 0 && hp.dead {
             hp.dead = false;
@@ -701,8 +718,11 @@ pub fn handle_player_ticks(
     for ev in player_reader.iter() {
         for (pl, mut pb, mut hb) in &mut player_query {
             if pl.0 == ev.tick.id {
-                pb.0.set(ev.seq_num, ev.tick.pos);
-                hb.0.set(tick.0, ev.tick.hp);
+                pb.0.set(ev.seq_num, Some(ev.tick.pos));
+                hb.0.set(tick.0, Some(ev.tick.hp));
+                if ev.tick.events & ATTACK_BITFLAG != 0 {
+                    println!("okuur!!! tick.0 = {} seq_num = {} id = {}", tick.0, ev.seq_num, ev.tick.id)
+                }
             }
         }
     }
@@ -730,8 +750,8 @@ pub fn handle_usercmd_events(
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut eb) in &mut player_query {
             if pl.0 == ev.id {
-                pb.0.set(ev.seq_num, ev.tick.pos);
-                eb.0.set(tick.0, ev.tick.events);
+                pb.0.set(ev.seq_num, Some(ev.tick.pos));
+                eb.0.set(tick.0, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     attack_writer.send(AttackEvent { seq_num: ev.seq_num, id: ev.id });
                 }

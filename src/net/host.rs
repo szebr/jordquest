@@ -61,30 +61,40 @@ pub fn fixed(
         for (lp_pb, _, lp_pl, _, _, _, _) in &player_query {
             if conn.player_id == lp_pl.0 {
                 // for "this" player, add self, then calculate who is close and add them.
-                let lp_pos = *lp_pb.0.get(tick.0);
+                let lp_pos = lp_pb.0.get(tick.0);
                 let mut players: Vec<PlayerTick> = Vec::new();
                 for (pb, hp, pl, eb, db, stats, powerups) in &player_query {
-                    let pos = *pb.0.get(tick.0);
+                    let pos = pb.0.get(tick.0);
+                    let dir = db.0.get(tick.0);
+                    let events = eb.0.get(tick.0);
+                    if pos.is_none() || dir.is_none() || events.is_none() {
+                        println!("???"); continue }
+                    let pos = pos.unwrap();
+                    let dir = dir.unwrap();
+                    let events = events.unwrap();
                     players.push(PlayerTick {
                         id: pl.0,
                         pos,
-                        dir: *db.0.get(tick.0),
+                        dir,
                         hp: hp.current,
-                        events: *eb.0.get(tick.0),
+                        events,
                         stats: stats.clone(),
                         powerups: powerups.clone(),
                     });
                 }
                 let mut enemies: Vec<EnemyTick> = Vec::new();
-                for (pb, hp, en, eb) in &enemy_query {
-                    let pos = *pb.0.get(tick.0);
-                    if pos.distance(lp_pos) < RENDER_DISTANCE {
-                        enemies.push(EnemyTick {
-                            id: en.0,
-                            pos,
-                            hp: hp.current,
-                            events: *eb.0.get(tick.0)
-                        });
+                if lp_pos.is_some() {
+                    let lp_pos = lp_pos.unwrap();
+                    for (pb, hp, en, eb) in &enemy_query {
+                        let pos = pb.0.get(tick.0).unwrap();
+                        if pos.distance(lp_pos) < RENDER_DISTANCE {
+                            enemies.push(EnemyTick {
+                                id: en.0,
+                                pos,
+                                hp: hp.current,
+                                events: eb.0.get(tick.0).unwrap(),
+                            });
+                        }
                     }
                 }
                 let packet = HostTick {

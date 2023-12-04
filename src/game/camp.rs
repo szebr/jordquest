@@ -157,7 +157,7 @@ pub fn setup_chests(
     for chest in chest_coords.0.iter(){
         let chest_pos: Vec2 = get_spawn_vec(chest.x, chest.y);
 
-        let pb = PosBuffer(CircularBuffer::new_from(chest_pos));
+        let pb = PosBuffer(CircularBuffer::new_from(Some(chest_pos)));
         commands.spawn((
             ItemChest{
                 id: i,

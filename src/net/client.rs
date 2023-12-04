@@ -41,15 +41,17 @@ pub fn fixed(
     let player = players.get_single();
     if player.is_err() { return }
     let (pb, eb) = player.unwrap();
-    let pos = pb.0.get(tick.0);
+    let pos = pb.0.get(tick.0).unwrap();
+    let events = eb.0.get(tick.0);
+    let events = if events.is_none() { 0 } else { events.unwrap() };
     let packet = ClientTick {
         seq_num: tick.0,
         rmt_num: ack.rmt_num,
         ack: ack.bitfield,
         tick: UserCmd {
-            pos: *pos,
+            pos,
             dir: 0.0,
-            events: *eb.0.get(tick.0),
+            events,
         },
     };
     let mut bytes: Vec<u8> = Vec::new();
