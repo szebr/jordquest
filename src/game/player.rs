@@ -464,15 +464,12 @@ pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
-    players: Query<(Entity, &Player, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
+    players: Query<(Entity, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
 ) {
-    for (e, pl, eb, db, lp) in &players {
+    for (e, eb, db, lp) in &players {
         let tick = if lp.is_some() { tick.0 } else { tick.0.saturating_sub(net::DELAY) };
         let events = eb.0.get(tick);
         if events.is_none() { continue }
-        if pl.0 == 0 {
-            println!("draw on tick {} is {:?}", tick, events);
-        }
         if events.unwrap() & ATTACK_BITFLAG != 0 {
             let dir = db.0.get(tick);
             if dir.is_none() { println!(" how bro"); continue }

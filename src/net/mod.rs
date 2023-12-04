@@ -82,7 +82,7 @@ pub fn increment_tick(
     for mut pb in &mut pos_buffers {
         if pb.0.get(tick.0).is_none() {
             let mut prev = None;
-            for i in 1..BUFFER_LEN {
+            for i in 1..(BUFFER_LEN/2) {
                 if pb.0.get(tick.0.saturating_sub(i as u16)).is_some() {
                     prev = pb.0.get(tick.0 - i as u16).clone();
                     break;
@@ -113,7 +113,7 @@ pub fn increment_tick(
             let prev = hb.0.get(tick.0 - 1).clone();
             hb.0.set(tick.0, prev);
             if lp.is_some() {
-                println!("setting pos {} to {:?}", tick.0, prev);
+                println!("setting hp {} to {:?}", tick.0, prev);
             }
         }
         hb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);

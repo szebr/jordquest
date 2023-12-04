@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::game::player;
 use crate::{menus, net};
-use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
+use crate::game::buffers::{DirBuffer, EventBuffer, HpBuffer, PosBuffer};
 use crate::components::*;
 use crate::game::map::MapSeed;
 use crate::net::packets::*;
@@ -50,7 +50,7 @@ pub fn fixed(
     tick: Res<net::TickNum>,
     conns: Res<Connections>,
     sock: Res<net::Socket>,
-    player_query: Query<(&PosBuffer, &Health, &Player, &EventBuffer, &DirBuffer, &Stats, &StoredPowerUps)>,
+    player_query: Query<(&PosBuffer, &HpBuffer, &Player, &EventBuffer, &DirBuffer, &Stats, &StoredPowerUps)>,
     enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
 ) {
     if sock.0.is_none() { return }
@@ -63,19 +63,21 @@ pub fn fixed(
                 // for "this" player, add self, then calculate who is close and add them.
                 let lp_pos = lp_pb.0.get(tick.0);
                 let mut players: Vec<PlayerTick> = Vec::new();
-                for (pb, hp, pl, eb, db, stats, powerups) in &player_query {
+                for (pb, hb, pl, eb, db, stats, powerups) in &player_query {
                     let pos = pb.0.get(tick.0);
+                    let hp = hb.0.get(tick.0);
                     let dir = db.0.get(tick.0);
                     let events = eb.0.get(tick.0);
-                    if pos.is_none() || dir.is_none() || events.is_none() { continue }
+                    if pos.is_none() || hp.is_none() || dir.is_none() || events.is_none() { continue }
                     let pos = pos.unwrap();
+                    let hp = hp.unwrap();
                     let dir = dir.unwrap();
                     let events = events.unwrap();
                     players.push(PlayerTick {
                         id: pl.0,
                         pos,
                         dir,
-                        hp: hp.current,
+                        hp,
                         events,
                         stats: stats.clone(),
                         powerups: powerups.clone(),
