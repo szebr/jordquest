@@ -90,7 +90,7 @@ pub fn increment_tick(
             }
             pb.0.set(tick.0, prev);
         }
-        pb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
+        pb.0.set(tick.0 + 1, None);
     }
     for mut eb in &mut event_buffers {
         if eb.0.get(tick.0).is_none() {
