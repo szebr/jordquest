@@ -68,12 +68,7 @@ pub fn fixed(
                     let hp = hb.0.get(tick.0);
                     let dir = db.0.get(tick.0);
                     let events = eb.0.get(tick.0);
-                    if pos.is_none() || hp.is_none() || dir.is_none() || events.is_none() {
-                        if pl.0 == 1 {
-                            println!("grogu pos {:?} hp {:?} dir {:?} events {:?}", pos, hp, dir, events);
-                        }
-                        continue
-                    }
+                    if pos.is_none() || hp.is_none() || dir.is_none() || events.is_none() { continue }
                     let pos = pos.unwrap();
                     let hp = hp.unwrap();
                     let dir = dir.unwrap();

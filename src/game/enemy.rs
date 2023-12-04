@@ -9,7 +9,7 @@ use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, TILESIZE, MAPSIZE, WorldMap};
 use crate::game::movement;
-use crate::game::player::{PLAYER_DEFAULT_DEF, PlayerShield};
+use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_DEF, PLAYER_DEFAULT_HP, PlayerShield};
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
 use crate::PowerupAtlas;
@@ -63,6 +63,7 @@ impl Plugin for EnemyPlugin{
                 fixed_move.after(fixed_aggro),
                 fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
                 update_enemies,
+                health_simulate,
                 handle_attack.after(update_enemies),
                 enemy_regen_health.after(update_enemies)).run_if(is_host)
             )
@@ -100,7 +101,7 @@ pub fn spawn_enemy(
         Enemy(id),
         (PosBuffer(CircularBuffer::new_from(Some(pos))),
         HpBuffer(CircularBuffer::new_from(Some(ENEMY_MAX_HP))),
-        EventBuffer(CircularBuffer::new_from(Some(0)))),
+        EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
         Health {
             current: enemy_hp,
@@ -626,25 +627,45 @@ pub fn fixed_resolve(
     }
 }
 
+pub fn health_simulate(
+    tick: Res<TickNum>,
+    mut enemies: Query<(&HpBuffer, &mut Health, &mut Visibility)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    for (hb, mut hp, mut vis) in &mut enemies {
+        let next_hp = hb.0.get(tick.0);
+        if next_hp.is_none() { continue }
+        hp.current = next_hp.unwrap();
+        hp.max = ENEMY_MAX_HP;
+        if hp.current > 0 && hp.dead {
+            hp.dead = false;
+            *vis = Visibility::Visible;
+        }
+        else if hp.current == 0 && !hp.dead {
+            commands.spawn(AudioBundle {
+                source: asset_server.load("Horse.m4a"),
+                ..default()
+            });
+            hp.dead = true;
+            *vis = Visibility::Hidden;
+        }
+    }
+}
+
 pub fn handle_packet(
+    tick: Res<TickNum>,
     mut enemy_reader: EventReader<net::packets::EnemyTickEvent>,
-    mut enemy_query: Query<(Entity, &Enemy, &mut PosBuffer, &mut Health, &mut Visibility, &IsSpecial)>,
+    mut enemy_query: Query<(Entity, &Enemy, &mut PosBuffer, &mut HpBuffer, &mut EventBuffer, &IsSpecial)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
     for ev in enemy_reader.iter() {
-        for (e, en, mut pb, mut hp, mut vis, is) in &mut enemy_query {
+        for (e, en, mut pb, mut hb, mut eb, is) in &mut enemy_query {
             if en.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
-                hp.current = ev.tick.hp;
-                if hp.current <= 0 && !hp.dead {
-                    hp.dead = true;
-                    *vis = Visibility::Hidden;
-                }
-                else if hp.current > 0 && hp.dead {
-                    hp.dead = false;
-                    *vis = Visibility::Visible;
-                }
+                hb.0.set(ev.seq_num, Some(ev.tick.hp));
+                eb.0.set(tick.0, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     let attack_radius;
                     if is.0 {
