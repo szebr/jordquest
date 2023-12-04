@@ -1,4 +1,3 @@
-use std::thread::current;
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -465,12 +464,15 @@ pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
-    players: Query<(Entity, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
+    players: Query<(Entity, &Player, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
 ) {
-    for (e, eb, db, lp) in &players {
+    for (e, pl, eb, db, lp) in &players {
         let tick = if lp.is_some() { tick.0 } else { tick.0.saturating_sub(net::DELAY) };
         let events = eb.0.get(tick);
         if events.is_none() { continue }
+        if pl.0 == 0 {
+            println!("draw on tick {} is {:?}", tick, events);
+        }
         if events.unwrap() & ATTACK_BITFLAG != 0 {
             let dir = db.0.get(tick);
             if dir.is_none() { println!(" how bro"); continue }
@@ -497,7 +499,6 @@ pub fn attack_draw(
             });
         }
     }
-
 }
 
 pub fn attack_simulate(
@@ -716,15 +717,17 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
+                db.0.set(ev.seq_num, Some(ev.tick.dir));
+                eb.0.set(ev.seq_num, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
-                    println!("okuur!!! tick.0 = {} seq_num = {} id = {}", tick.0, ev.seq_num, ev.tick.id)
+                    println!("okuur!!! tick.0 = {} seq_num = {} id = {}", tick.0, ev.seq_num, ev.tick.id);
                 }
             }
         }
@@ -762,7 +765,6 @@ pub fn handle_usercmd_events(
                 if ev.tick.events & SPAWN_BITFLAG != 0 {
                     spawn_writer.send(SpawnEvent { id: ev.id });
                 }
-
             }
         }
     }
