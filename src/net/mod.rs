@@ -9,7 +9,7 @@ use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
 use crate::game::buffers::{BUFFER_LEN, DirBuffer, EventBuffer, HpBuffer, PosBuffer};
-use crate::game::components::Enemy;
+use crate::game::components::{Enemy, Player};
 use crate::game::player;
 use crate::game::player::LocalPlayer;
 
@@ -72,14 +72,14 @@ pub fn startup(mut commands: Commands) {
 
 pub fn increment_tick(
     mut tick: ResMut<TickNum>,
-    mut pos_buffers: Query<&mut PosBuffer>,
+    mut pos_buffers: Query<(&mut PosBuffer, &Player)>,
     mut event_buffers: Query<&mut EventBuffer>,
-    mut dir_buffers: Query<(&mut DirBuffer, Option<&LocalPlayer>)>,
-    mut hp_buffers: Query<(&mut HpBuffer, Option<&LocalPlayer>)>,
+    mut dir_buffers: Query<(&mut DirBuffer)>,
+    mut hp_buffers: Query<(&mut HpBuffer)>,
 ) {
     tick.0 += 1;
     println!("now on tick {}", tick.0);
-    for mut pb in &mut pos_buffers {
+    for (mut pb, pl) in &mut pos_buffers {
         if pb.0.get(tick.0).is_none() {
             let mut prev = None;
             for i in 1..(BUFFER_LEN/2) {
@@ -87,6 +87,9 @@ pub fn increment_tick(
                     prev = pb.0.get(tick.0 - i as u16).clone();
                     break;
                 }
+            }
+            if pl.0 == 1 {
+                println!("XXX {} is {:?}", tick.0, prev);
             }
             pb.0.set(tick.0, prev);
         }
@@ -98,7 +101,7 @@ pub fn increment_tick(
         }
         eb.0.set(tick.0 + 1, None);
     }
-    for (mut db, lp) in &mut dir_buffers {
+    for mut db in &mut dir_buffers {
         if db.0.get(tick.0).is_none() {
             let mut prev = None;
             for i in 1..(BUFFER_LEN/2) {
@@ -111,13 +114,10 @@ pub fn increment_tick(
         }
         db.0.set(tick.0 + 1, None);
     }
-    for (mut hb, lp) in &mut hp_buffers {
+    for mut hb in &mut hp_buffers {
         if hb.0.get(tick.0).is_none() {
             let prev = hb.0.get(tick.0 - 1).clone();
             hb.0.set(tick.0, prev);
-            if lp.is_some() {
-                println!("setting hp {} to {:?}", tick.0, prev);
-            }
         }
         hb.0.set(tick.0 + 1, None);
     }
