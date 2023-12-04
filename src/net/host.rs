@@ -65,10 +65,18 @@ pub fn fixed(
                 let mut players: Vec<PlayerTick> = Vec::new();
                 for (pb, hp, pl, eb, db, stats, powerups) in &player_query {
                     let pos = pb.0.get(tick.0);
+                    if pos.is_none() && pl.0 == 1{
+                        println!("it's pos");
+                    }
                     let dir = db.0.get(tick.0);
+                    if dir.is_none() && pl.0 == 1{
+                        println!("it's dir");
+                    }
                     let events = eb.0.get(tick.0);
-                    if pos.is_none() || dir.is_none() || events.is_none() {
-                        println!("???"); continue }
+                    if events.is_none() && pl.0 == 1{
+                        println!("it's events");
+                    }
+                    if pos.is_none() || dir.is_none() || events.is_none() { continue }
                     let pos = pos.unwrap();
                     let dir = dir.unwrap();
                     let events = events.unwrap();

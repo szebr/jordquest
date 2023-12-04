@@ -99,8 +99,8 @@ pub fn spawn_enemy(
     let enemy_entity = commands.spawn((
         Enemy(id),
         (PosBuffer(CircularBuffer::new_from(Some(pos))),
-        HpBuffer(CircularBuffer::new()),
-        EventBuffer(CircularBuffer::new())),
+        HpBuffer(CircularBuffer::new_from(Some(ENEMY_MAX_HP))),
+        EventBuffer(CircularBuffer::new_from(Some(0)))),
         SpawnPosition(pos),
         Health {
             current: enemy_hp,
@@ -321,7 +321,9 @@ pub fn fixed_move(
     map: Res<WorldMap>
 ) {
     for (mut epb, aggro, spawn_pos) in &mut enemies {
-        let prev = epb.0.get(tick.0.wrapping_sub(1)).unwrap();
+        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        if prev.is_none() { continue }
+        let prev = prev.unwrap();
         let mut next = prev.clone();
 
         'mov: {
@@ -589,7 +591,9 @@ pub fn enemy_regen_health(
     mut enemies: Query<(&mut PosBuffer, &mut Health, &mut TextureAtlasSprite, &Aggro, &SpawnPosition, &mut EnemyRegenTimer), With<Enemy>>,
 ) {
     for (epb, mut hp, mut sprite, aggro, sp, mut timer) in enemies.iter_mut() {
-        let prev = epb.0.get(tick.0.wrapping_sub(1)).unwrap();
+        let prev = epb.0.get(tick.0.saturating_sub(1));
+        if prev.is_none() { continue }
+        let prev = prev.unwrap();
         if aggro.0.is_none() {
             // move the enemy to their spawn position
             let displacement = sp.0 - prev;

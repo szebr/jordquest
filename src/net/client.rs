@@ -2,7 +2,7 @@ use std::net::*;
 use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
-use crate::game::buffers::{EventBuffer, PosBuffer};
+use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
 use crate::game::map::MapSeed;
 use crate::game::player::{LocalPlayer, SetIdEvent};
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
@@ -33,15 +33,17 @@ pub fn disconnect(mut sock: ResMut<net::Socket>) {
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
-    players: Query<(&PosBuffer, &EventBuffer), With<LocalPlayer>>,
+    players: Query<(&PosBuffer, &EventBuffer, &DirBuffer), With<LocalPlayer>>,
     ack: Res<net::Ack>,
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     let player = players.get_single();
-    if player.is_err() { return }
-    let (pb, eb) = player.unwrap();
+    if player.is_err() {
+    println!("lmafao"); return }
+    let (pb, eb, db) = player.unwrap();
     let pos = pb.0.get(tick.0).unwrap();
+    let dir = if db.0.get(tick.0).is_none() { 0.0 } else {db.0.get(tick.0).unwrap()};
     let events = eb.0.get(tick.0);
     let events = if events.is_none() { 0 } else { events.unwrap() };
     let packet = ClientTick {
@@ -50,7 +52,7 @@ pub fn fixed(
         ack: ack.bitfield,
         tick: UserCmd {
             pos,
-            dir: 0.0,
+            dir,
             events,
         },
     };

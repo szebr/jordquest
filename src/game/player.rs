@@ -642,12 +642,15 @@ pub fn despawn_shield_on_right_click_release(
 pub fn spawn_simulate(
     tick: Res<TickNum>,
     mut spawn_reader: EventReader<SpawnEvent>,
-    mut players: Query<(&Player, &mut HpBuffer)>
+    mut players: Query<(&Player, &mut HpBuffer, Option<&LocalPlayer>)>
 ) {
     for ev in &mut spawn_reader {
-        for (pl, mut hb) in &mut players {
+        for (pl, mut hb, lp) in &mut players {
             if pl.0 != ev.id { continue }
             hb.0.set(tick.0, Some(PLAYER_DEFAULT_HP));
+            if lp.is_some() {
+                println!("setting {} to {} by spawn", tick.0, PLAYER_DEFAULT_HP);
+            }
         }
     }
     spawn_reader.clear();
@@ -743,14 +746,15 @@ pub fn handle_id_events(
 pub fn handle_usercmd_events(
     tick: Res<TickNum>,
     mut usercmd_reader: EventReader<UserCmdEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut EventBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut DirBuffer, &mut EventBuffer)>,
     mut attack_writer: EventWriter<AttackEvent>,
     mut spawn_writer: EventWriter<SpawnEvent>,
 ) {
     for ev in usercmd_reader.iter() {
-        for (pl, mut pb, mut eb) in &mut player_query {
+        for (pl, mut pb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
+                db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(tick.0, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     attack_writer.send(AttackEvent { seq_num: ev.seq_num, id: ev.id });

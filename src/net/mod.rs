@@ -9,7 +9,9 @@ use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
 use crate::game::buffers::{BUFFER_LEN, DirBuffer, EventBuffer, HpBuffer, PosBuffer};
+use crate::game::components::Enemy;
 use crate::game::player;
+use crate::game::player::LocalPlayer;
 
 
 pub const TICKRATE: u8 = 10;
@@ -72,36 +74,43 @@ pub fn increment_tick(
     mut tick: ResMut<TickNum>,
     mut pos_buffers: Query<&mut PosBuffer>,
     mut event_buffers: Query<&mut EventBuffer>,
-    mut dir_buffers: Query<&mut DirBuffer>,
-    mut hp_buffers: Query<&mut HpBuffer>,
+    mut dir_buffers: Query<(&mut DirBuffer, Option<&LocalPlayer>)>,
+    mut hp_buffers: Query<(&mut HpBuffer, Option<&LocalPlayer>)>,
 ) {
     tick.0 += 1;
+    println!("now on tick {}", tick.0);
     for mut pb in &mut pos_buffers {
         if pb.0.get(tick.0).is_none() {
             let prev = pb.0.get(tick.0 - 1).clone();
-            pb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
             pb.0.set(tick.0, prev);
         }
+        pb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
     }
     for mut eb in &mut event_buffers {
         if eb.0.get(tick.0).is_none() {
-            eb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
             eb.0.set(tick.0, Some(0));
         }
+        eb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
     }
-    for mut db in &mut dir_buffers {
+    for (mut db, lp) in &mut dir_buffers {
         if db.0.get(tick.0).is_none() {
             let prev = db.0.get(tick.0 - 1).clone();
-            db.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
             db.0.set(tick.0, prev);
+            if lp.is_some() {
+                println!("setting dir {} to {:?}", tick.0, prev);
+            }
         }
+        db.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
     }
-    for mut hb in &mut hp_buffers {
+    for (mut hb, lp) in &mut hp_buffers {
         if hb.0.get(tick.0).is_none() {
             let prev = hb.0.get(tick.0 - 1).clone();
-            hb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
             hb.0.set(tick.0, prev);
+            if lp.is_some() {
+                println!("setting pos {} to {:?}", tick.0, prev);
+            }
         }
+        hb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
     }
 }
 
