@@ -110,7 +110,7 @@ pub fn update(
                 }
                 if tick_num.0.abs_diff(packet.seq_num) > 1 {
                     println!("re-syncing");
-                    tick_num.0 = packet.seq_num;
+                    tick_num.0 = packet.seq_num - 1;
                 }
             },
             pt if pt == PacketType::ServerFull as u8 => {
