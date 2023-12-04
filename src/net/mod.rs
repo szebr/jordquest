@@ -83,7 +83,7 @@ pub fn increment_tick(
         if pb.0.get(tick.0).is_none() {
             let mut prev = None;
             let mut latest_date: u16 = 0;
-            for i in 1..(BUFFER_LEN/2) {
+            for i in 0..(BUFFER_LEN/2) {
                 if pb.0.get(tick.0.saturating_sub(i as u16)).is_some() {
                     let (p, d) = pb.0.get_both(tick.0.saturating_sub(i as u16));
                     if d > latest_date {
