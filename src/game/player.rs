@@ -719,9 +719,6 @@ pub fn handle_player_ticks(
     for ev in player_reader.iter() {
         for (pl, mut pb, mut hb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.tick.id {
-                if pl.0 == 1 {
-                    println!("ZZZ {} is {}", ev.seq_num, ev.tick.pos);
-                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
@@ -753,12 +750,10 @@ pub fn handle_usercmd_events(
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.id {
-                if pl.0 == 1 {
-                    println!("YYY {} is {}", ev.seq_num, ev.tick.pos);
-                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
-                eb.0.set(tick.0, Some(ev.tick.events));
+                //eb.0.set(tick.0, Some(ev.tick.events));
+                eb.0.set(ev.seq_num, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     attack_writer.send(AttackEvent { seq_num: ev.seq_num, id: ev.id });
                 }

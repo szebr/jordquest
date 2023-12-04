@@ -88,9 +88,6 @@ pub fn increment_tick(
                     break;
                 }
             }
-            if pl.0 == 1 {
-                println!("XXX {} is {:?}", tick.0, prev);
-            }
             pb.0.set(tick.0, prev);
         }
         pb.0.set(tick.0 + 1, None);
