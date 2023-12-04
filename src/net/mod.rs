@@ -81,7 +81,13 @@ pub fn increment_tick(
     println!("now on tick {}", tick.0);
     for mut pb in &mut pos_buffers {
         if pb.0.get(tick.0).is_none() {
-            let prev = pb.0.get(tick.0 - 1).clone();
+            let mut prev = None;
+            for i in 1..BUFFER_LEN {
+                if pb.0.get(tick.0.saturating_sub(i as u16)).is_some() {
+                    prev = pb.0.get(tick.0 - i as u16).clone();
+                    break;
+                }
+            }
             pb.0.set(tick.0, prev);
         }
         pb.0.set(tick.0.saturating_sub((BUFFER_LEN / 2) as u16), None);
