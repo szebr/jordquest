@@ -39,8 +39,7 @@ pub fn fixed(
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
     let player = players.get_single();
-    if player.is_err() {
-    println!("lmafao"); return }
+    if player.is_err() { return }
     let (pb, eb, db) = player.unwrap();
     let pos = pb.0.get(tick.0).unwrap();
     let dir = if db.0.get(tick.0).is_none() { 0.0 } else {db.0.get(tick.0).unwrap()};

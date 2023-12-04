@@ -726,9 +726,6 @@ pub fn handle_player_ticks(
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));
-                if ev.tick.events & ATTACK_BITFLAG != 0 {
-                    println!("okuur!!! tick.0 = {} seq_num = {} id = {}", tick.0, ev.seq_num, ev.tick.id);
-                }
             }
         }
     }

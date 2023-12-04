@@ -94,7 +94,7 @@ pub fn increment_tick(
     }
     for (mut db, lp) in &mut dir_buffers {
         if db.0.get(tick.0).is_none() {
-            let prev = db.0.get(tick.0 - 1).clone();
+            let prev = db.0.get(tick.0- 1).clone();
             db.0.set(tick.0, prev);
             if lp.is_some() {
                 println!("setting dir {} to {:?}", tick.0, prev);
