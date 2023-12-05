@@ -103,7 +103,7 @@ pub fn spawn_enemy(
     let enemy_entity = commands.spawn((
         Enemy(id),
         (PosBuffer(CircularBuffer::new_from(Some(pos))),
-        HpBuffer(CircularBuffer::new_from(Some(ENEMY_MAX_HP))),
+        HpBuffer(CircularBuffer::new_from(Some(enemy_hp))),
         EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
         Health {
