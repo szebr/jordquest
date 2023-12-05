@@ -78,7 +78,6 @@ pub fn increment_tick(
     mut hp_buffers: Query<(&mut HpBuffer)>,
 ) {
     tick.0 += 1;
-    println!("now on tick {}", tick.0);
     for (mut pb, pl) in &mut pos_buffers {
         if pb.0.get(tick.0).is_none() {
             let mut prev = None;
