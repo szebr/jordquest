@@ -131,7 +131,6 @@ host::fixed
 host::update
   receive ClientTick and send events to other systems to fill out info
 
-DONE
 attack_input (update, all)
   if left clicking and cooldown is up, set event.attack to true
 
@@ -795,10 +794,12 @@ pub fn handle_player_ticks(
     mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>, &mut Transform)>,
 ) {
     for ev in player_reader.iter() {
+        println!("got playertick");
         for (pl, mut pb, mut hb, mut db, mut eb, local, mut pt) in &mut player_query {
             if pl.0 == ev.tick.id {
                 if local.is_some() {
                     let last = pb.0.get(ev.seq_num);
+                    println!("pos received {:?}", ev.tick.pos);
                     if last.is_some() {
                         let diff = last.unwrap().sub(ev.tick.pos);
                         println!("recv tick {} from server: pos diff {} {}", ev.seq_num, diff.x, diff.y);

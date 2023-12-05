@@ -9,16 +9,14 @@ use crate::AppState;
 use crate::game::{enemy, movement};
 use packets::{PlayerTickEvent, EnemyTickEvent, UserCmdEvent};
 use crate::game::buffers::{BUFFER_LEN, DirBuffer, EventBuffer, HpBuffer, PosBuffer};
-use crate::game::components::{Enemy, Player};
+use crate::game::components::Player;
 use crate::game::player;
-use crate::game::player::LocalPlayer;
 
 
 pub const TICKRATE: u8 = 10;
 pub const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
-//pub const TIMEOUT: u16 = TICKRATE as u16 * 10;  // 10 seconds to timeout
 pub const MAX_DATAGRAM_SIZE: usize = 1024;
 
 #[derive(Resource)]

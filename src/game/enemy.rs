@@ -218,6 +218,7 @@ pub fn update_enemies(
         if next_hp.is_none() { continue }
         hp.current = next_hp.unwrap();
         if hp.current <= 0 && !hp.dead {
+            //TODO drop powerups
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
                 // and spawning the appropriate one
@@ -636,11 +637,10 @@ pub fn fixed_resolve(
 
 pub fn health_simulate(
     tick: Res<TickNum>,
-    mut enemies: Query<(&HpBuffer, &mut Health, &mut TextureAtlasSprite, &mut Visibility), With<Enemy>>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
+    mut enemies: Query<(&mut Health, &HpBuffer, &mut TextureAtlasSprite, &EnemyCamp, &mut Visibility), With<Enemy>>,
+    mut camp_query: Query<(&Camp, &mut CampEnemies), With<Camp>>,
 ) {
-    for (hb, mut hp, mut sp, mut vis) in &mut enemies {
+    for (mut hp, hb, mut sp, ec_num, mut vis) in &mut enemies {
         let next_hp = hb.0.get(tick.0);
         if next_hp.is_none() { continue }
         hp.current = next_hp.unwrap();
@@ -650,12 +650,13 @@ pub fn health_simulate(
             *vis = Visibility::Visible;
         }
         else if hp.current == 0 && !hp.dead {
-            /*commands.spawn(AudioBundle {
-                source: asset_server.load("Horse.m4a"),
-                ..default()
-            });*/
             hp.dead = true;
             *vis = Visibility::Hidden;
+            for (camp_num, mut enemies_in_camp) in camp_query.iter_mut() {
+                if camp_num.0 == ec_num.0 {
+                    enemies_in_camp.current_enemies = enemies_in_camp.current_enemies.saturating_sub(1);
+                }
+            }
         }
         let damage = hp.current as f32 / hp.max as f32;
         sp.color = Color::Rgba {red: 1.0, green: damage, blue: damage, alpha: 1.0};
