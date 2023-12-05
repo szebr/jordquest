@@ -97,7 +97,7 @@ impl Plugin for PlayerPlugin{
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
             .add_event::<SetIdEvent>()
-            .add_event::<AttackEvent>()
+            .init_resource::<Events<AttackEvent>>()
             .init_resource::<Events<SpawnEvent>>()
             .add_event::<PlayerTickEvent>()
             .add_event::<UserCmdEvent>()
@@ -719,16 +719,23 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, lp) in &mut player_query {
             if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
 
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
-                eb.0.set(ev.seq_num, Some(ev.tick.events));
+                /*if lp.is_some() {
+                    if eb.0.get(ev.seq_num) != ev.tick.events {
+
+                    }
+                }*/
+                if lp.is_none() {
+                    eb.0.set(ev.seq_num, Some(ev.tick.events));
+                }
             }
         }
     }
