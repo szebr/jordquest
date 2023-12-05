@@ -650,10 +650,10 @@ pub fn health_simulate(
             *vis = Visibility::Visible;
         }
         else if hp.current == 0 && !hp.dead {
-            commands.spawn(AudioBundle {
+            /*commands.spawn(AudioBundle {
                 source: asset_server.load("Horse.m4a"),
                 ..default()
-            });
+            });*/
             hp.dead = true;
             *vis = Visibility::Hidden;
         }

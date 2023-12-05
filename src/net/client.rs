@@ -41,7 +41,9 @@ pub fn fixed(
     let player = players.get_single();
     if player.is_err() { return }
     let (pb, eb, db) = player.unwrap();
-    let pos = pb.0.get(tick.0).unwrap();
+    let pos = pb.0.get(tick.0);
+    if pos.is_none() { println!("client::fixed:posnone"); return }
+    let pos = pos.unwrap();
     let dir = if db.0.get(tick.0).is_none() { 0.0 } else {db.0.get(tick.0).unwrap()};
     let events = eb.0.get(tick.0);
     let events = if events.is_none() { 0 } else { events.unwrap() };

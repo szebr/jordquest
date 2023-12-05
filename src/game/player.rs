@@ -22,6 +22,7 @@ pub const SWORD_DEGREES: f32 = 70.0;
 const DEFAULT_COOLDOWN: f32 = 0.8;
 pub const ATTACK_BITFLAG: u8 = 1;
 pub const SPAWN_BITFLAG: u8 = 2;
+pub const SHIELD_BITFLAG: u8 = 4;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
@@ -85,12 +86,12 @@ impl Plugin for PlayerPlugin{
                 handle_player_ticks.run_if(is_client),
                 ).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, (
-                update_buffer.before(attack_host),
                 attack_host.before(attack_simulate),
                 attack_simulate.after(enemy::fixed_move),
                 spawn_simulate,
             ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(FixedUpdate, (
+                update_buffer.before(attack_host),
                 attack_draw.after(attack_host),
                 health_simulate.after(spawn_simulate),
                 health_draw.after(health_simulate),
@@ -639,6 +640,30 @@ pub fn animate_sword(
             *vis = Visibility::Hidden;
         }
     }
+}
+
+pub fn shield_input(
+    tick: Res<TickNum>,
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    mut players: Query<&mut EventBuffer, With<Player>>
+) {
+    for mut eb in &mut players {
+        let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
+        if mouse_button_inputs.just_pressed(MouseButton::Right) {
+            eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
+        }
+        else if mouse_button_inputs.just_released(MouseButton::Right) {
+            eb.0.set(tick.0, Some(events & !SHIELD_BITFLAG));
+        }
+    }
+}
+
+pub fn shield_draw(
+    tick: Res<TickNum>,
+    //players: Query<>
+
+) {
+
 }
 
 /*
