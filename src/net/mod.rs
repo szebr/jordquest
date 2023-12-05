@@ -104,17 +104,13 @@ pub fn increment_tick(
     for mut db in &mut dir_buffers {
         if db.0.get(tick.0).is_none() {
             let mut prev = None;
-            let mut latest_date: u16 = 0;
-            for i in 0..(BUFFER_LEN/2) {
+            for i in 1..(BUFFER_LEN/2) {
                 if db.0.get(tick.0.saturating_sub(i as u16)).is_some() {
-                    let (p, d) = db.0.get_both(tick.0.saturating_sub(i as u16));
-                    if d > latest_date {
-                        latest_date = d;
-                        prev = p.clone();
-                    }
+                    prev = db.0.get(tick.0 - i as u16).clone();
+                    break;
                 }
             }
-            db.0.set_with_time(tick.0, prev, latest_date);
+            db.0.set(tick.0, prev);
         }
         db.0.set(tick.0 + 1, None);
     }

@@ -92,18 +92,18 @@ impl Plugin for PlayerPlugin{
             ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(FixedUpdate, (
                 update_buffer.before(attack_host),
-                attack_draw.after(attack_host),
+                attack_draw.after(attack_simulate),
                 health_simulate.after(spawn_simulate),
                 health_draw.after(health_simulate),
                 ).run_if(in_state(AppState::Game)).before(net::client::fixed).before(net::host::fixed))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
-            .init_resource::<Events<SetIdEvent>>()
+            .add_event::<SetIdEvent>()
             .init_resource::<Events<AttackEvent>>()
             .init_resource::<Events<SpawnEvent>>()
-            .init_resource::<Events<PlayerTickEvent>>()
-            .init_resource::<Events<UserCmdEvent>>()
+            .add_event::<PlayerTickEvent>()
+            .add_event::<UserCmdEvent>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -805,7 +805,6 @@ pub fn handle_player_ticks(
             }
         }
     }
-    player_reader.clear();
 }
 
 /// This is for assigning IDs to players during the connection phase
@@ -818,7 +817,6 @@ pub fn handle_id_events(
         res_id.0 = ev.0;
         app_state_next_state.set(AppState::Game);
     }
-    id_reader.clear();
 }
 
 pub fn handle_usercmd_events(
@@ -842,7 +840,6 @@ pub fn handle_usercmd_events(
             }
         }
     }
-    usercmd_reader.clear();
 }
 
 // RUN CONDITIONS
