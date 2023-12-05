@@ -727,9 +727,11 @@ pub fn handle_player_ticks(
             if pl.0 == ev.tick.id {
                 if local.is_some() {
                     let last = pb.0.get(ev.seq_num);
-                    let diff = last.unwrap().sub(ev.tick.pos);
-                    let diff3 = Vec3::new(diff.x, diff.y, 0.0);
-                    pt.translation.add_assign(diff3);
+                    if last.is_some() {
+                        let diff = last.unwrap().sub(ev.tick.pos);
+                        let diff3 = Vec3::new(diff.x, diff.y, 0.0);
+                        pt.translation.add_assign(diff3);
+                    }
                 }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
