@@ -110,8 +110,8 @@ pub fn update(
                         tick
                     })
                 }
-                if tick_num.0.abs_diff(packet.seq_num) > net::DELAY {
-                    println!("re-syncing: diff {}", tick_num.0.abs_diff(packet.seq_num));
+                if packet.seq_num.saturating_sub(tick_num.0) > 0 {
+                    println!("re-syncing: changing tick from {} to {}", tick_num.0, packet.seq_num);
                     tick_num.0 = packet.seq_num;
                 }
             },
