@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -731,7 +731,7 @@ pub fn handle_player_ticks(
                         let diff = last.unwrap().sub(ev.tick.pos);
                         println!("recv tick {} from server: pos diff {} {}", ev.seq_num, diff.x, diff.y);
                         let diff3 = Vec3::new(diff.x, diff.y, 0.0);
-                        pt.translation.add_assign(diff3);
+                        pt.translation.sub_assign(diff3);
                     }
                 }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
