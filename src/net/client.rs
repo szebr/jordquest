@@ -108,7 +108,7 @@ pub fn update(
                         tick
                     })
                 }
-                if tick_num.0.abs_diff(packet.seq_num) > 1 {
+                if tick_num.0.abs_diff(packet.seq_num) > net::DELAY {
                     println!("re-syncing: diff {}", tick_num.0.abs_diff(packet.seq_num));
                     tick_num.0 = packet.seq_num;
                 }
