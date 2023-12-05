@@ -18,9 +18,12 @@ pub const PLAYER_DEFAULT_DEF: f32 = 1.;
 pub const PLAYER_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
 pub const MAX_PLAYERS: usize = 4;
 pub const SWORD_DAMAGE: u8 = 40;
+pub const SWORD_LENGTH: f32 = 90.0;
+pub const SWORD_DEGREES: f32 = 70.0;
 const DEFAULT_COOLDOWN: f32 = 0.8;
 pub const ATTACK_BITFLAG: u8 = 1;
 pub const SPAWN_BITFLAG: u8 = 2;
+pub const SHIELD_BITFLAG: u8 = 4;
 
 #[derive(Event)]
 pub struct SetIdEvent(pub u8);
@@ -74,8 +77,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin{
     fn build(&self, app: &mut App){
-        app.add_systems(FixedUpdate, update_buffer.before(net::client::fixed).before(enemy::fixed_move))
-            .add_systems(Update, (
+        app.add_systems(Update, (
                 handle_usercmd_events,
                 ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(Update, (
@@ -86,22 +88,23 @@ impl Plugin for PlayerPlugin{
                 ).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, (
                 attack_host.before(attack_simulate),
-                attack_simulate,
+                attack_simulate.after(enemy::fixed_move),
                 spawn_simulate,
             ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(FixedUpdate, (
-                attack_draw.after(attack_simulate),
+                update_buffer.before(attack_host),
+                attack_draw.after(attack_host),
                 health_simulate.after(spawn_simulate),
                 health_draw.after(health_simulate),
-                ).before(net::client::fixed).before(net::host::fixed))
+                ).run_if(in_state(AppState::Game)).before(net::client::fixed).before(net::host::fixed))
             .add_systems(Update, handle_id_events.run_if(is_client).run_if(in_state(AppState::Connecting)))
             .add_systems(OnEnter(AppState::Game), (spawn_players, reset_cooldowns))
             .add_systems(OnEnter(AppState::GameOver), remove_players.after(toggle_leaderboard).after(update_leaderboard))
-            .add_event::<SetIdEvent>()
-            .add_event::<AttackEvent>()
+            .init_resource::<Events<SetIdEvent>>()
+            .init_resource::<Events<AttackEvent>>()
             .init_resource::<Events<SpawnEvent>>()
-            .add_event::<PlayerTickEvent>()
-            .add_event::<UserCmdEvent>()
+            .init_resource::<Events<PlayerTickEvent>>()
+            .init_resource::<Events<UserCmdEvent>>()
             .add_event::<LocalPlayerDeathEvent>()
             .add_event::<LocalPlayerSpawnEvent>();
     }
@@ -473,7 +476,7 @@ pub fn attack_draw(
         if events.is_none() { continue }
         if events.unwrap() & ATTACK_BITFLAG != 0 {
             let dir = db.0.get(tick);
-            if dir.is_none() { println!(" how bro"); continue }
+            if dir.is_none() { continue }
             let dir = dir.unwrap();
             let cursor_vector = Vec2 { x: dir.cos(), y: dir.sin() };
             commands.spawn(AudioBundle {
@@ -504,32 +507,33 @@ pub fn attack_simulate(
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
     mut attack_reader: EventReader<AttackEvent>,
-    players: Query<(&Player, &Transform, &DirBuffer, &StoredPowerUps)>,
-    mut enemies: Query<(&Transform, &mut HpBuffer, &mut LastAttacker), With<Enemy>>,
+    mut players: Query<(&Player, &PosBuffer, &DirBuffer, &mut HpBuffer, &StoredPowerUps), (Without<ItemChest>, Without<Enemy>)>,
+    mut enemies: Query<(&PosBuffer, &mut HpBuffer, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     for ev in &mut attack_reader {
-        for (pl, tf, db, spu) in &players {
+        for (pl, pb, db, _, spu) in &players {
             if pl.0 != ev.id { continue }
             let sword_angle = db.0.get(ev.seq_num);
-            if sword_angle.is_none() { println!("why is this broken?"); continue }
+            let player_pos = pb.0.get(ev.seq_num);
+            if sword_angle.is_none() || player_pos.is_none() { println!("attack_simulate:none"); continue }
             let sword_angle = sword_angle.unwrap();
-            let player_pos = tf.translation.truncate();
-            for (enemy_tf, mut enemy_hb, mut last_attacker) in enemies.iter_mut() {
-                let enemy_pos = enemy_tf.translation.truncate();
-                if player_pos.distance(enemy_pos) > 32.0 + 50.0 { continue; } // enemy too far
+            let player_pos = player_pos.unwrap();
+            for (enemy_pb, mut enemy_hb, mut last_attacker) in enemies.iter_mut() {
+                let enemy_pos = enemy_pb.0.get(ev.seq_num);
+                if enemy_pos.is_none() { println!("attack_simulate:enemynone"); continue }
+                let enemy_pos = enemy_pos.unwrap();
+                let hp = enemy_hb.0.get(tick.0).unwrap();
+                if hp <= 0 { continue }
 
                 let combat_angle = (enemy_pos - player_pos).y.atan2((enemy_pos - player_pos).x);
                 let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // enemy not in sector
-
+                let angle_diff = angle_diff.sin().atan2(angle_diff.cos());
+                if player_pos.distance(enemy_pos) > SWORD_LENGTH { continue; } // enemy too far
+                if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // enemy not in sector
                 last_attacker.0 = Some(pl.0);
                 let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
-                let hp = enemy_hb.0.get(tick.0).unwrap();
                 enemy_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
-                if pl.0 == 1 {
-                    println!("LMFAO");
-                }
                 commands.spawn(AudioBundle {
                     source: asset_server.load("hitHurt.ogg"),
                     ..default()
@@ -537,20 +541,67 @@ pub fn attack_simulate(
             }
             for (chest_tf, mut chest_hp) in chest.iter_mut() {
                 let chest_pos = chest_tf.translation.truncate();
-                if player_pos.distance(chest_pos) > 32.0 + 50.0 { continue; } // chest too far
+                if player_pos.distance(chest_pos) > SWORD_LENGTH { continue; } // chest too far
 
                 let combat_angle = (chest_pos - player_pos).y.atan2((chest_pos - player_pos).x);
                 let angle_diff = sword_angle - combat_angle;
-                if angle_diff.abs() > std::f32::consts::PI * 0.375 { continue; } // chest not in sector
+                let angle_diff = angle_diff.sin().atan2(angle_diff.cos());
+                if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // chest not in sector
 
-                if chest_hp.current != 0 {
-                    chest_hp.current = 0;
-                    commands.spawn(AudioBundle {
-                        source: asset_server.load("chest.ogg"),
-                        ..default()
-                    });
-                }
+                chest_hp.current = 0;
+                /*
+                TODO this only spawns on host?
+                commands.spawn(AudioBundle {
+                    source: asset_server.load("chest.ogg"),
+                    ..default()
+                });*/
             }
+        }
+        let mut combinations = players.iter_combinations_mut();
+        while let Some([(pl, pb, db, _, spu), (target_pl, target_pb, _, mut target_hb, target_spu)]) = combinations.fetch_next() {
+            if pl.0 != ev.id { continue }
+            let sword_angle = db.0.get(ev.seq_num);
+            let player_pos = pb.0.get(ev.seq_num);
+            if sword_angle.is_none() || player_pos.is_none() { continue }
+            let sword_angle = sword_angle.unwrap();
+            let player_pos = player_pos.unwrap();
+            if target_pl.0 == ev.id { continue }
+            let target_pos = target_pb.0.get(ev.seq_num);
+            if target_pos.is_none() { continue }
+            let target_pos = target_pos.unwrap();
+            if player_pos.distance(target_pos) > SWORD_LENGTH { continue; } // target too far
+
+            let combat_angle = (target_pos - player_pos).y.atan2((target_pos - player_pos).x);
+            let angle_diff = sword_angle - combat_angle;
+            let angle_diff = angle_diff.sin().atan2(angle_diff.cos());
+            if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // target not in sector
+
+            let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
+            let hp = target_hb.0.get(tick.0).unwrap();
+            target_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
+        }
+        let mut combinations = players.iter_combinations_mut();
+        while let Some([(target_pl, target_pb, _, mut target_hb, target_spu), (pl, pb, db, _, spu)]) = combinations.fetch_next() {
+            if pl.0 != ev.id { continue }
+            let sword_angle = db.0.get(ev.seq_num);
+            let player_pos = pb.0.get(ev.seq_num);
+            if sword_angle.is_none() || player_pos.is_none() { continue }
+            let sword_angle = sword_angle.unwrap();
+            let player_pos = player_pos.unwrap();
+            if target_pl.0 == ev.id { continue }
+            let target_pos = target_pb.0.get(ev.seq_num);
+            if target_pos.is_none() { continue }
+            let target_pos = target_pos.unwrap();
+            if player_pos.distance(target_pos) > SWORD_LENGTH { continue; } // target too far
+
+            let combat_angle = (target_pos - player_pos).y.atan2((target_pos - player_pos).x);
+            let angle_diff = sword_angle - combat_angle;
+            let angle_diff = angle_diff.sin().atan2(angle_diff.cos());
+            if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // target not in sector
+
+            let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
+            let hp = target_hb.0.get(tick.0).unwrap();
+            target_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
         }
     }
 }
@@ -566,9 +617,9 @@ pub fn animate_sword(
         let cursor_angle = anim.cursor_vector.y.atan2(anim.cursor_vector.x);
         let sword_translation_angle;
         if anim.cursor_vector.x > 0.0 {
-            sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 - cursor_angle;
+            sword_translation_angle = current_step * SWORD_DEGREES.to_radians() * 2.0 - SWORD_DEGREES.to_radians() - cursor_angle;
         } else {
-            sword_translation_angle = current_step * std::f32::consts::PI * 0.75 - std::f32::consts::PI * 0.375 + cursor_angle;
+            sword_translation_angle = current_step * SWORD_DEGREES.to_radians() * 2.0 - SWORD_DEGREES.to_radians() + cursor_angle;
         }
         let sword_rotation_vector = Vec3::new(sword_translation_angle.cos(), sword_translation_angle.sin(), 0.0);
         let sword_rotation_angle = sword_rotation_vector.y.atan2(sword_rotation_vector.x);
@@ -590,6 +641,30 @@ pub fn animate_sword(
             *vis = Visibility::Hidden;
         }
     }
+}
+
+pub fn shield_input(
+    tick: Res<TickNum>,
+    mouse_button_inputs: Res<Input<MouseButton>>,
+    mut players: Query<&mut EventBuffer, With<Player>>
+) {
+    for mut eb in &mut players {
+        let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
+        if mouse_button_inputs.just_pressed(MouseButton::Right) {
+            eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
+        }
+        else if mouse_button_inputs.just_released(MouseButton::Right) {
+            eb.0.set(tick.0, Some(events & !SHIELD_BITFLAG));
+        }
+    }
+}
+
+pub fn shield_draw(
+    tick: Res<TickNum>,
+    //players: Query<>
+
+) {
+
 }
 
 /*
@@ -652,9 +727,6 @@ pub fn spawn_simulate(
         for (pl, mut hb, lp) in &mut players {
             if pl.0 != ev.id { continue }
             hb.0.set(tick.0, Some(PLAYER_DEFAULT_HP));
-            if lp.is_some() {
-                println!("setting {} to {} by spawn", tick.0, PLAYER_DEFAULT_HP);
-            }
         }
     }
     spawn_reader.clear();
@@ -737,10 +809,13 @@ pub fn handle_player_ticks(
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
-                eb.0.set(ev.seq_num, Some(ev.tick.events));
+                if local.is_none() {
+                    eb.0.set(ev.seq_num, Some(ev.tick.events));
+                }
             }
         }
     }
+    player_reader.clear();
 }
 
 /// This is for assigning IDs to players during the connection phase
@@ -753,10 +828,10 @@ pub fn handle_id_events(
         res_id.0 = ev.0;
         app_state_next_state.set(AppState::Game);
     }
+    id_reader.clear();
 }
 
 pub fn handle_usercmd_events(
-    tick: Res<TickNum>,
     mut usercmd_reader: EventReader<UserCmdEvent>,
     mut player_query: Query<(&Player, &mut PosBuffer, &mut DirBuffer, &mut EventBuffer)>,
     mut attack_writer: EventWriter<AttackEvent>,
@@ -770,7 +845,6 @@ pub fn handle_usercmd_events(
                 }
                 pb.0.set_with_time(ev.seq_num, Some(ev.tick.pos), ev.seq_num);
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
-                //eb.0.set(tick.0, Some(ev.tick.events));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));
                 if ev.tick.events & ATTACK_BITFLAG != 0 {
                     attack_writer.send(AttackEvent { seq_num: ev.seq_num, id: ev.id });
@@ -781,6 +855,7 @@ pub fn handle_usercmd_events(
             }
         }
     }
+    usercmd_reader.clear();
 }
 
 // RUN CONDITIONS

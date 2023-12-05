@@ -103,7 +103,7 @@ pub fn spawn_enemy(
     let enemy_entity = commands.spawn((
         Enemy(id),
         (PosBuffer(CircularBuffer::new_from(Some(pos))),
-        HpBuffer(CircularBuffer::new_from(Some(ENEMY_MAX_HP))),
+        HpBuffer(CircularBuffer::new_from(Some(enemy_hp))),
         EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
         Health {
@@ -650,10 +650,10 @@ pub fn health_simulate(
             *vis = Visibility::Visible;
         }
         else if hp.current == 0 && !hp.dead {
-            commands.spawn(AudioBundle {
+            /*commands.spawn(AudioBundle {
                 source: asset_server.load("Horse.m4a"),
                 ..default()
-            });
+            });*/
             hp.dead = true;
             *vis = Visibility::Hidden;
         }
