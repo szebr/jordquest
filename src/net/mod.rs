@@ -14,7 +14,7 @@ use crate::game::player;
 use crate::game::player::LocalPlayer;
 
 
-pub const TICKRATE: u8 = 10;
+pub const TICKRATE: u8 = 32;
 pub const TICKLEN_S: f32 = 1. / TICKRATE as f32;
 pub const DELAY: u16 = 2;
 pub const MAGIC_NUMBER: u16 = 24835; // 8008135 % 69420
