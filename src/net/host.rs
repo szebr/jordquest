@@ -93,7 +93,7 @@ pub fn fixed(
                                 id: en.0,
                                 pos,
                                 hp: hp.current,
-                                events: eb.0.get(tick.0).unwrap(),
+                                events: eb.0.get(tick.0).unwrap_or(0),
                             });
                         }
                     }
