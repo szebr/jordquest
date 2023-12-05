@@ -1,3 +1,4 @@
+use bevy::audio::PlaybackMode;
 use bevy::prelude::*;
 pub(crate) mod layout;
 mod interactions;
@@ -8,6 +9,10 @@ use layout::*;
 use interactions::*;
 use crate::menus::components::*;
 use crate::game::player::{spawn_players, remove_players};
+
+#[derive(Component)]
+struct InGameAmbientAudio;
+
 
 #[derive(Resource)]
 pub struct NetworkAddresses {
@@ -41,6 +46,8 @@ impl Plugin for MainMenuPlugin{
         .add_systems(OnEnter(AppState::GameOver), toggle_leaderboard.before(remove_players))
         .add_systems(OnExit(AppState::GameOver), despawn_leaderboard_ui)
         .add_systems(OnEnter(AppState::Quitting), exit_system)
+        .add_systems(OnEnter(AppState::Game), play_ambient)
+        .add_systems(OnExit(AppState::Game), despawn_ambient_audio)
         .add_systems(Update, interact_with_button::<HostButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<JoinButtonType>.run_if(in_state(AppState::MainMenu)))
         .add_systems(Update, interact_with_button::<ControlsButtonType>.run_if(in_state(AppState::MainMenu)))
@@ -89,4 +96,27 @@ pub fn startup(mut commands: Commands) {
     commands.insert_resource( NetworkAddresses {
         host_port: String::new(), client_port: String::new(), ip: String::new(),
     });
+}
+
+fn play_ambient(
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("InGameAmbient.ogg"),
+        settings: PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            ..Default::default()
+        },
+    })
+    .insert(InGameAmbientAudio);
+}
+
+fn despawn_ambient_audio(
+    mut commands: Commands,
+    query: Query<Entity, With<InGameAmbientAudio>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
 }
