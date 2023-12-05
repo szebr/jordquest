@@ -64,12 +64,15 @@ impl Plugin for EnemyPlugin{
                 fixed_move.after(fixed_aggro),
                 fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
                 update_enemies,
-                handle_attack.after(update_enemies),
+                attack_simulate.after(update_enemies),
+                attack_draw,
                 enemy_regen_health.after(update_enemies)
             ).run_if(is_host))
             .add_systems(FixedUpdate, (
                 health_simulate.run_if(is_client),
+                attack_draw,
                 ))
+            .add_systems(Update, attack_timer_tick.run_if(is_host))
             .add_systems(Update, handle_packet.run_if(is_client))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
@@ -127,7 +130,7 @@ pub fn spawn_enemy(
         },
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
-        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Once)),//add a timer to spawn the enemy attack very 4 seconds
         EnemyRegenTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         IsSpecial(is_special),
     )).id();
@@ -147,38 +150,66 @@ pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>
     }
 }
 
-// try to attack the player if they are aggroed
-pub fn handle_attack(
+pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Health, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
-    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
+    tick: Res<TickNum>,
+    mut enemies: Query<(Entity, &Health, &EventBuffer, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
+    mut players: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_hp, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
+    for (enemy_entity, enemy_hp, enemy_eb, enemy_transform, mut spawn_timer, aggro, is_special) in &mut enemies {
+        if enemy_eb.0.get(tick.0.saturating_sub(net::DELAY)).unwrap_or(0) & ATTACK_BITFLAG == 0 { continue }
+        let attack_radius;
+        if is_special.0 {
+            attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+        } else {
+            attack_radius = 1.0;
+        }
+        let attack = commands.spawn(
+            (SpriteBundle {
+            texture: asset_server.load("EnemyAttack01.png").into(),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 5.0),
+                scale: Vec3::new(attack_radius, attack_radius, 1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+            },
+             EnemyWeapon,
+             Fade {current: 1.0, max: 1.0})).id();
+        let enemy_entity = commands.get_entity(enemy_entity);
+        if enemy_entity.is_none() {continue}
+        let mut enemy_entity = enemy_entity.unwrap();
+        enemy_entity.add_child(attack);
+    }
+}
+
+pub fn attack_timer_tick(
+    time: Res<Time>,
+    mut enemies: Query<&mut SpawnEnemyWeaponTimer, With<Enemy>>,
+) {
+    for mut sewt in &mut enemies {
+        sewt.0.tick(time.delta());
+    }
+
+}
+
+// try to attack the player if they are aggroed
+pub fn attack_simulate(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    tick: Res<TickNum>,
+    mut query_enemies: Query<(Entity, &Health, &mut EventBuffer, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
+    mut player_query: Query<(&Transform, &mut HpBuffer, &StoredPowerUps, &PlayerShield), With<Player>>
+) {
+    for (enemy_entity, enemy_hp, mut enemy_eb, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
         if enemy_hp.current <= 0 || aggro.0 == None { continue; }
-        spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
-            let attack_radius;
-            if is_special.0 {
-                attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
-            } else {
-                attack_radius = 1.0;
-            }
-            let attack = commands.spawn((SpriteBundle {
-                texture: asset_server.load("EnemyAttack01.png").into(),
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, 5.0),
-                    scale: Vec3::new(attack_radius, attack_radius, 1.0),
-                    ..Default::default()
-                },
-                ..Default::default() },
-                EnemyWeapon,
-                Fade {current: 1.0, max: 1.0})).id();
-            let enemy_entity = commands.get_entity(enemy_entity);
-            if enemy_entity.is_none() {continue}
-            let mut enemy_entity = enemy_entity.unwrap();
-            enemy_entity.add_child(attack);
+            spawn_timer.0.reset();
+            let events = enemy_eb.0.get(tick.0).unwrap_or(0);
+            enemy_eb.0.set(tick.0, Some(events | ATTACK_BITFLAG));
             for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
                 let circle_radius;
                 if is_special.0 {
@@ -191,9 +222,9 @@ pub fn handle_attack(
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
                     let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
-                    if dmg > 0
-                    {
-                        player_hp.current = player_hp.current.saturating_sub(dmg);
+                    if dmg > 0 {
+                        let hp = player_hp.0.get(tick.0).unwrap().saturating_sub(dmg);
+                        player_hp.0.set(tick.0, Some(hp));
                     }
                     commands.spawn(AudioBundle {
                         source: asset_server.load("playerHurt.ogg"),
