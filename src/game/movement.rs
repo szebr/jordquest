@@ -6,6 +6,7 @@ use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
 use crate::map;
 use crate::components::*;
+use crate::game::buffers;
 use crate::game::buffers::{DirBuffer, PosBuffer};
 use crate::game::camera::SpatialCameraBundle;
 use crate::game::map::Biome::Wall;
@@ -58,8 +59,9 @@ pub const MOVE_VECTORS: [Vec2; 16] = [
 
 /// Player movement function. Runs on Update schedule.
 pub fn handle_move(
+    tick: Res<TickNum>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut players: Query<(&Player, &mut Transform, &mut Health, &Collider, &StoredPowerUps, &PlayerShield), With<LocalPlayer>>,
+    mut players: Query<(&Player, &mut Transform, &mut Health, &Collider, &StoredPowerUps, &PlayerShield, &mut buffers::HpBuffer), With<LocalPlayer>>,
     other_colliders: Query<(&Transform, &Collider, Option<&Health>), Without<LocalPlayer>>,
     map: Res<map::WorldMap>,
     time: Res<Time>,
@@ -68,7 +70,7 @@ pub fn handle_move(
     // should only be a single entry in this query (with localplayer)
     let player = players.get_single_mut();
     if player.is_err() { return; }
-    let (_, mut pos, mut hp, collider, spu, shield) = player.unwrap();
+    let (_, mut pos, mut hp, collider, spu, shield, mut hb) = player.unwrap();
 
     if hp.dead || shield.active { return }
 
@@ -109,7 +111,9 @@ pub fn handle_move(
 
     pos.translation = correct_wall_collisions(&pos.translation, &collider.0, &map.biome_map);
     if get_tile_at_pos(&pos.translation, &map.biome_map) == Wall {
-        hp.current = hp.current.saturating_sub(WALL_DAMAGE);
+        let mut curhp = hb.0.get(tick.0).unwrap_or(0);
+        curhp = curhp.saturating_sub(WALL_DAMAGE);
+        hb.0.set(tick.0, Some(curhp));
     }
 }
 

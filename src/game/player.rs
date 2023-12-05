@@ -1,3 +1,4 @@
+use std::ops::Sub;
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -791,15 +792,24 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>, &mut Transform)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb, lp) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, local, mut pt) in &mut player_query {
             if pl.0 == ev.tick.id {
+                if local.is_some() {
+                    let last = pb.0.get(ev.seq_num);
+                    if last.is_some() {
+                        let diff = last.unwrap().sub(ev.tick.pos);
+                        println!("recv tick {} from server: pos diff {} {}", ev.seq_num, diff.x, diff.y);
+                        let diff3 = Vec3::new(diff.x, diff.y, 0.0);
+                        //pt.translation.sub_assign(diff3);
+                    }
+                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
-                if lp.is_none() {
+                if local.is_none() {
                     eb.0.set(ev.seq_num, Some(ev.tick.events));
                 }
             }
@@ -828,6 +838,9 @@ pub fn handle_usercmd_events(
     for ev in usercmd_reader.iter() {
         for (pl, mut pb, mut db, mut eb) in &mut player_query {
             if pl.0 == ev.id {
+                if ev.id == 1 {
+                    println!("recv player 1 tick {} pos to {} {}", ev.seq_num, ev.tick.pos.x, ev.tick.pos.y);
+                }
                 pb.0.set_with_time(ev.seq_num, Some(ev.tick.pos), ev.seq_num);
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));

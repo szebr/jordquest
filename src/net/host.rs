@@ -65,6 +65,13 @@ pub fn fixed(
                 let mut players: Vec<PlayerTick> = Vec::new();
                 for (pb, hb, pl, eb, db, stats, powerups) in &player_query {
                     let pos = pb.0.get(tick.0);
+                    if pl.0 == 1 {
+                        if pos.is_some() {
+                            println!("send player 1 tick {} pos to {} {}", tick.0, pos.unwrap().x, pos.unwrap().y);
+                        } else {
+                            println!("very bad");
+                        }
+                    }
                     let hp = hb.0.get(tick.0);
                     let dir = db.0.get(tick.0);
                     let events = eb.0.get(tick.0);
@@ -93,7 +100,7 @@ pub fn fixed(
                                 id: en.0,
                                 pos,
                                 hp: hp.current,
-                                events: eb.0.get(tick.0).unwrap(),
+                                events: eb.0.get(tick.0).unwrap_or(0),
                             });
                         }
                     }
