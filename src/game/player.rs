@@ -1,3 +1,4 @@
+use std::ops::{Add, AddAssign, Sub};
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -719,13 +720,18 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>, &mut Transform)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, local, mut pt) in &mut player_query {
             if pl.0 == ev.tick.id {
+                if local.is_some() {
+                    let last = pb.0.get(ev.seq_num);
+                    let diff = last.unwrap().sub(ev.tick.pos);
+                    let diff3 = Vec3::new(diff.x, diff.y, 0.0);
+                    pt.translation.add_assign(diff3);
+                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
-
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));
