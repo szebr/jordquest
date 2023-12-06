@@ -508,13 +508,14 @@ pub fn attack_simulate(
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
     mut attack_reader: EventReader<AttackEvent>,
-    mut players: Query<(&Player, &PosBuffer, &DirBuffer, &mut HpBuffer, &StoredPowerUps), (Without<ItemChest>, Without<Enemy>)>,
+    mut players: Query<(&Player, &PosBuffer, &DirBuffer, &mut HpBuffer, &StoredPowerUps, &PlayerShield), (Without<ItemChest>, Without<Enemy>)>,
     mut enemies: Query<(&PosBuffer, &mut HpBuffer, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     for ev in &mut attack_reader {
-        for (pl, pb, db, _, spu) in &players {
+        for (pl, pb, db, _, spu, shield) in &players {
             if pl.0 != ev.id { continue }
+            if shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
             let player_pos = pb.0.get(ev.seq_num);
             if sword_angle.is_none() || player_pos.is_none() { println!("attack_simulate:none"); continue }
@@ -559,8 +560,9 @@ pub fn attack_simulate(
             }
         }
         let mut combinations = players.iter_combinations_mut();
-        while let Some([(pl, pb, db, _, spu), (target_pl, target_pb, _, mut target_hb, target_spu)]) = combinations.fetch_next() {
+        while let Some([(pl, pb, db, _, spu, attacker_shield), (target_pl, target_pb, _, mut target_hb, target_spu, target_shield)]) = combinations.fetch_next() {
             if pl.0 != ev.id { continue }
+            if target_shield.active || attacker_shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
             let player_pos = pb.0.get(ev.seq_num);
             if sword_angle.is_none() || player_pos.is_none() { continue }
@@ -582,8 +584,9 @@ pub fn attack_simulate(
             target_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
         }
         let mut combinations = players.iter_combinations_mut();
-        while let Some([(target_pl, target_pb, _, mut target_hb, target_spu), (pl, pb, db, _, spu)]) = combinations.fetch_next() {
+        while let Some([(target_pl, target_pb, _, mut target_hb, target_spu, target_shield), (pl, pb, db, _, spu, attacker_shield)]) = combinations.fetch_next() {
             if pl.0 != ev.id { continue }
+            if target_shield.active || attacker_shield { continue }
             let sword_angle = db.0.get(ev.seq_num);
             let player_pos = pb.0.get(ev.seq_num);
             if sword_angle.is_none() || player_pos.is_none() { continue }
