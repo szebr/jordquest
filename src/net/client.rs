@@ -2,9 +2,11 @@ use std::net::*;
 use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
-use crate::game::buffers::PosBuffer;
+use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
+use crate::game::components::{Camp, CampEnemies, CampStatus, Health, ItemChest, PowerUp};
 use crate::game::map::MapSeed;
-use crate::game::player::{ATTACK_BITFLAG, LocalEvents, LocalPlayer, SetIdEvent, SPAWN_BITFLAG};
+use crate::game::player::{LocalPlayer, SetIdEvent};
+use crate::game::PowerupAtlas;
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
 use crate::net::packets::*;
 
@@ -33,32 +35,27 @@ pub fn disconnect(mut sock: ResMut<net::Socket>) {
 pub fn fixed(
     mut sock: ResMut<net::Socket>,
     tick: Res<net::TickNum>,
-    pb_query: Query<&PosBuffer, With<LocalPlayer>>,
+    players: Query<(&PosBuffer, &EventBuffer, &DirBuffer), With<LocalPlayer>>,
     ack: Res<net::Ack>,
-    mut local_events: ResMut<LocalEvents>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
-    let pb = pb_query.get_single();
-    if pb.is_err() { return }
-    let pb = pb.unwrap();
+    let player = players.get_single();
+    if player.is_err() { return }
+    let (pb, eb, db) = player.unwrap();
     let pos = pb.0.get(tick.0);
-    let mut events: u8 = 0;
-    if local_events.spawn {
-        events |= SPAWN_BITFLAG;
-        local_events.spawn = false;
-    }
-    if local_events.attack {
-        events |= ATTACK_BITFLAG;
-        local_events.attack = false;
-    }
+    if pos.is_none() { println!("client::fixed:posnone"); return }
+    let pos = pos.unwrap();
+    let dir = if db.0.get(tick.0).is_none() { 0.0 } else {db.0.get(tick.0).unwrap()};
+    let events = eb.0.get(tick.0);
+    let events = if events.is_none() { 0 } else { events.unwrap() };
     let packet = ClientTick {
         seq_num: tick.0,
         rmt_num: ack.rmt_num,
         ack: ack.bitfield,
         tick: UserCmd {
-            pos: *pos,
-            dir: 0.0,
+            pos,
+            dir,
             events,
         },
     };
@@ -68,12 +65,18 @@ pub fn fixed(
 }
 
 pub fn update(
+    mut commands: Commands,
     mut sock: ResMut<net::Socket>,
     mut player_writer: EventWriter<PlayerTickEvent>,
     mut enemy_writer: EventWriter<EnemyTickEvent>,
     mut id_writer: EventWriter<SetIdEvent>,
     mut tick_num: ResMut<net::TickNum>,
-    mut seed: ResMut<MapSeed>
+    mut seed: ResMut<MapSeed>,
+    powerup_atlas: Res<PowerupAtlas>,
+    mut powerups: Query<Entity, With<PowerUp>>,
+    mut camps: Query<(&Camp, &mut CampStatus, &mut CampEnemies)>,
+    mut chests: Query<(&ItemChest, &mut Health)>
+
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -115,8 +118,43 @@ pub fn update(
                         tick
                     })
                 }
-                if tick_num.0.abs_diff(packet.seq_num) > 1 {
-                    println!("re-syncing");
+                for e in &mut powerups {
+                    commands.entity(e).despawn();
+                }
+                for (ptype, pos) in packet.powerups {
+                    commands.spawn((
+                        SpriteSheetBundle{
+                            texture_atlas: powerup_atlas.handle.clone(),
+                            sprite: TextureAtlasSprite {
+                                index: powerup_atlas.coord_to_index(0, ptype as i32),
+                                ..Default::default()
+                            },
+                            transform: Transform {
+                                translation: Vec3 { x: pos.x, y: pos.y, z: 0.0 },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        PowerUp(ptype),
+                        ));
+                }
+                for (camp_id, count) in packet.camps {
+                    for (camp, mut status, mut campcount) in camps.iter_mut() {
+                        if camp.0 == camp_id {
+                            status.0 = true;
+                            campcount.current_enemies = count;
+                        }
+                    }
+                }
+                for (net_ic, net_hp) in packet.chests {
+                    for (ic, mut hp) in &mut chests {
+                        if ic.id == net_ic {
+                            hp.current = net_hp;
+                        }
+                    }
+                }
+                if packet.seq_num > tick_num.0 {
+                    println!("re-syncing: changing tick from {} to {}", tick_num.0, packet.seq_num);
                     tick_num.0 = packet.seq_num;
                 }
             },

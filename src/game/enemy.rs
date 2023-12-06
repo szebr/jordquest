@@ -3,16 +3,16 @@ use bevy::prelude::*;
 use crate::{AppState, net};
 use crate::Atlas;
 use movement::correct_wall_collisions;
-use crate::game::buffers::{CircularBuffer, PosBuffer};
+use crate::game::buffers::*;
 use crate::game::components::*;
 use crate::net::{is_client, is_host, TickNum};
 use crate::game::components::PowerUpType;
 use crate::game::map::{Biome, TILESIZE, MAPSIZE, WorldMap};
 use crate::game::movement;
-use crate::game::player::PlayerShield;
-use super::player::PLAYER_DEFAULT_DEF;
+use crate::game::player::{LocalPlayer, LocalPlayerDeathEvent, LocalPlayerSpawnEvent, PLAYER_DEFAULT_DEF, PLAYER_DEFAULT_HP, PlayerShield};
 use std::collections::{BinaryHeap, HashMap};
 use std::cmp::Ordering;
+use bevy::ecs::component::Tick;
 use crate::PowerupAtlas;
 
 pub const ENEMY_SIZE: Vec2 = Vec2 { x: 32., y: 32. };
@@ -25,6 +25,8 @@ pub const SPECIAL_ATTACK_RADIUS_MOD: f32 = 1.5;
 pub const SPECIAL_MAX_HP_MOD: f32 = 1.5; // cannot be more than 2.55 due to u8 max
 pub const SPECIAL_ATTACK_RATE_MOD: f32 = 0.5;
 
+pub const ATTACK_BITFLAG: u8 = 1;
+pub const AGGRO_BITFLAG: u8 = 2;
 
 const CIRCLE_RADIUS: f32 = 64.;
 const CIRCLE_DAMAGE: u8 = 15;
@@ -61,14 +63,17 @@ impl Plugin for EnemyPlugin{
                 fixed_aggro.after(movement::update_buffer),
                 fixed_move.after(fixed_aggro),
                 fixed_resolve.run_if(in_state(AppState::Game)).after(fixed_move),
-                ).run_if(is_host)
-            )
-            .add_systems(Update, (
-                handle_packet.run_if(is_client),
-                update_enemies.after(handle_packet),
-                handle_attack.after(update_enemies),
-                enemy_regen_health.after(update_enemies),
-            ))
+                update_enemies,
+                attack_simulate.after(update_enemies),
+                attack_draw,
+                enemy_regen_health.after(update_enemies)
+            ).run_if(is_host))
+            .add_systems(FixedUpdate, (
+                health_simulate.run_if(is_client),
+                attack_draw,
+                ))
+            .add_systems(Update, attack_timer_tick.run_if(is_host))
+            .add_systems(Update, handle_packet.run_if(is_client))
             .add_systems(OnExit(AppState::Game), remove_enemies);
     }
 }
@@ -85,7 +90,6 @@ pub fn spawn_enemy(
     chance_drop_powerup: bool,
     is_special: bool,
 ) {
-    let pb = PosBuffer(CircularBuffer::new_from(pos));
     let mut pu: [u8; NUM_POWERUPS];
     pu = [0; NUM_POWERUPS];
     pu[power_up_type as usize] = 1;
@@ -101,7 +105,9 @@ pub fn spawn_enemy(
 
     let enemy_entity = commands.spawn((
         Enemy(id),
-        pb,
+        (PosBuffer(CircularBuffer::new_from(Some(pos))),
+        HpBuffer(CircularBuffer::new_from(Some(enemy_hp))),
+        EventBuffer(CircularBuffer::new())),
         SpawnPosition(pos),
         Health {
             current: enemy_hp,
@@ -124,7 +130,7 @@ pub fn spawn_enemy(
         },
         ChanceDropPWU(chance_drop_powerup),
         Aggro(None),
-        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Repeating)),//add a timer to spawn the enemy attack very 4 seconds
+        SpawnEnemyWeaponTimer(Timer::from_seconds(enemy_attack_rate, TimerMode::Once)),//add a timer to spawn the enemy attack very 4 seconds
         EnemyRegenTimer(Timer::from_seconds(1.0, TimerMode::Repeating)),
         IsSpecial(is_special),
     )).id();
@@ -144,38 +150,66 @@ pub fn remove_enemies(mut commands: Commands, enemies: Query<Entity, With<Enemy>
     }
 }
 
-// try to attack the player if they are aggroed
-pub fn handle_attack(
+pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     time: Res<Time>,
-    mut query_enemies: Query<(Entity, &Health, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
-    mut player_query: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
+    tick: Res<TickNum>,
+    mut enemies: Query<(Entity, &Health, &EventBuffer, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
+    mut players: Query<(&Transform, &mut Health, &StoredPowerUps, &PlayerShield), With<Player>>
 ) {
-    for (enemy_entity, enemy_hp, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
+    for (enemy_entity, enemy_hp, enemy_eb, enemy_transform, mut spawn_timer, aggro, is_special) in &mut enemies {
+        if enemy_eb.0.get(tick.0.saturating_sub(net::DELAY)).unwrap_or(0) & ATTACK_BITFLAG == 0 { continue }
+        let attack_radius;
+        if is_special.0 {
+            attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+        } else {
+            attack_radius = 1.0;
+        }
+        let attack = commands.spawn(
+            (SpriteBundle {
+            texture: asset_server.load("EnemyAttack01.png").into(),
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 5.0),
+                scale: Vec3::new(attack_radius, attack_radius, 1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+            },
+             EnemyWeapon,
+             Fade {current: 1.0, max: 1.0})).id();
+        let enemy_entity = commands.get_entity(enemy_entity);
+        if enemy_entity.is_none() {continue}
+        let mut enemy_entity = enemy_entity.unwrap();
+        enemy_entity.add_child(attack);
+    }
+}
+
+pub fn attack_timer_tick(
+    time: Res<Time>,
+    mut enemies: Query<&mut SpawnEnemyWeaponTimer, With<Enemy>>,
+) {
+    for mut sewt in &mut enemies {
+        sewt.0.tick(time.delta());
+    }
+
+}
+
+// try to attack the player if they are aggroed
+pub fn attack_simulate(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    tick: Res<TickNum>,
+    mut query_enemies: Query<(Entity, &Health, &mut EventBuffer, &Transform, &mut SpawnEnemyWeaponTimer, &Aggro, &IsSpecial), (With<Enemy>, Without<Player>)>,
+    mut player_query: Query<(&Transform, &mut HpBuffer, &StoredPowerUps, &PlayerShield), With<Player>>
+) {
+    for (enemy_entity, enemy_hp, mut enemy_eb, enemy_transform, mut spawn_timer, aggro, is_special) in query_enemies.iter_mut() {
         if enemy_hp.current <= 0 || aggro.0 == None { continue; }
-        spawn_timer.0.tick(time.delta());
         if spawn_timer.0.finished() {
-            let attack_radius;
-            if is_special.0 {
-                attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
-            } else {
-                attack_radius = 1.0;
-            }
-            let attack = commands.spawn((SpriteBundle {
-                texture: asset_server.load("EnemyAttack01.png").into(),
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, 5.0),
-                    scale: Vec3::new(attack_radius, attack_radius, 1.0),
-                    ..Default::default()
-                },
-                ..Default::default() },
-                EnemyWeapon,
-                Fade {current: 1.0, max: 1.0})).id();
-            let enemy_entity = commands.get_entity(enemy_entity);
-            if enemy_entity.is_none() {continue}
-            let mut enemy_entity = enemy_entity.unwrap();
-            enemy_entity.add_child(attack);
+            spawn_timer.0.reset();
+            let events = enemy_eb.0.get(tick.0).unwrap_or(0);
+            enemy_eb.0.set(tick.0, Some(events | ATTACK_BITFLAG));
             for (player_transform, mut player_hp, player_power_ups, shield) in player_query.iter_mut() {
                 let circle_radius;
                 if is_special.0 {
@@ -188,9 +222,9 @@ pub fn handle_attack(
                     if shield.active { continue }
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
                     let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
-                    if dmg > 0
-                    {
-                        player_hp.current = player_hp.current.saturating_sub(dmg);
+                    if dmg > 0 {
+                        let hp = player_hp.0.get(tick.0).unwrap_or(PLAYER_DEFAULT_HP).saturating_sub(dmg);
+                        player_hp.0.set(tick.0, Some(hp));
                     }
                     commands.spawn(AudioBundle {
                         source: asset_server.load("playerHurt.ogg"),
@@ -204,13 +238,18 @@ pub fn handle_attack(
 
 pub fn update_enemies(
     mut commands: Commands,
-    mut enemies: Query<(Entity, &Health, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU), With<Enemy>>,
+    tick: Res<TickNum>,
+    mut enemies: Query<(&mut Health, &HpBuffer, &LastAttacker, &StoredPowerUps, &mut TextureAtlasSprite, &Transform, &EnemyCamp, &ChanceDropPWU, &mut Visibility), With<Enemy>>,
     mut player: Query<(&mut Stats, &Player)>,
     powerup_atlas: Res<PowerupAtlas>,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &CampStatus), With<Camp>>,
 ) {
-    for (e, hp, la, spu, mut sp, tf, ec_num, cdpu) in enemies.iter_mut() {
-        if hp.current <= 0 {
+    for (mut hp, hb, la, spu, mut sp, tf, ec_num, cdpu, mut vis) in enemies.iter_mut() {
+        let next_hp = hb.0.get(tick.0);
+        if next_hp.is_none() { continue }
+        hp.current = next_hp.unwrap();
+        if hp.current <= 0 && !hp.dead {
+            //TODO drop powerups
             if cdpu.0{
                 // drop powerups by cycling through the stored powerups of the enemy
                 // and spawning the appropriate one
@@ -233,7 +272,7 @@ pub fn update_enemies(
             // decrement the enemy counter of the camp that this enemy is apart of
             for (camp_num, mut enemies_in_camp, camp_status) in camp_query.iter_mut() {
                 if camp_num.0 == ec_num.0 {
-                    enemies_in_camp.current_enemies -= 1;
+                    enemies_in_camp.current_enemies = enemies_in_camp.current_enemies.saturating_sub(1);
                 }
 
                 // check if the camp is cleared and assign 5 points for clearing the camp
@@ -247,8 +286,9 @@ pub fn update_enemies(
                 }
             }
 
-            // despawn the enemy and increment the score of the player who killed it
-            commands.entity(e).despawn_recursive();
+            // kill the enemy and increment the score of the player who killed it
+            hp.dead = true;
+            *vis = Visibility::Hidden;
             for (mut stats, pl) in player.iter_mut() {
                 if pl.0 == la.0.expect("died with no attacker?") {
                     stats.score = stats.score.saturating_add(1);
@@ -275,7 +315,10 @@ pub fn fixed_aggro(
         let mut best_distance = f32::MAX;
         for (pl, ppb, hp) in &players {
             if hp.dead { continue }
-            let dist = ppb.0.get(tick.0).distance(*prev);
+            let next = ppb.0.get(tick.0);
+            if next.is_none() { continue }
+            let next = next.unwrap();
+            let dist = next.distance(prev.unwrap());
             if dist < best_distance {
                 best_distance = dist;
                 closest_player = Some(pl);
@@ -319,15 +362,17 @@ pub fn fixed_move(
 ) {
     for (mut epb, aggro, spawn_pos) in &mut enemies {
         let prev = epb.0.get(tick.0.wrapping_sub(1));
+        if prev.is_none() { continue }
+        let prev = prev.unwrap();
         let mut next = prev.clone();
 
         'mov: {
             if aggro.0.is_none() {
                 // move the enemy to their spawn position
-                let displacement = spawn_pos.0 - *prev;
+                let displacement = spawn_pos.0 - prev;
                 if !(displacement.length() < CIRCLE_RADIUS) {
-                    let posit = find_next(&map.biome_map, *prev, spawn_pos.0);
-                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    let posit = find_next(&map.biome_map, prev, spawn_pos.0);
+                    let movement = (posit - prev).normalize() * ENEMY_SPEED;
                     next += movement;
                 }
             } else {
@@ -338,18 +383,18 @@ pub fn fixed_move(
                         ppbo = Some(ppb);
                     }
                 }
-                if ppbo.is_none() { break 'mov }
-                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1));
+                if ppbo.is_none() || ppbo.unwrap().0.get(tick.0.wrapping_sub(1)).is_none() { break 'mov }
+                let player_pos = ppbo.unwrap().0.get(tick.0.wrapping_sub(1)).unwrap();
 
-                let displacement = *player_pos - *prev;
+                let displacement = player_pos - prev;
                 if !(displacement.length() < CIRCLE_RADIUS) {
-                    let posit = find_next(&map.biome_map, *prev, *player_pos);
-                    let movement = (posit - *prev).normalize() * ENEMY_SPEED;
+                    let posit = find_next(&map.biome_map, prev, player_pos);
+                    let movement = (posit - prev).normalize() * ENEMY_SPEED;
                     next += movement;
                 }
             }
         }
-        epb.0.set(tick.0, next);
+        epb.0.set(tick.0, Some(next));
     }
 }
 
@@ -586,10 +631,12 @@ pub fn enemy_regen_health(
     mut enemies: Query<(&mut PosBuffer, &mut Health, &mut TextureAtlasSprite, &Aggro, &SpawnPosition, &mut EnemyRegenTimer), With<Enemy>>,
 ) {
     for (epb, mut hp, mut sprite, aggro, sp, mut timer) in enemies.iter_mut() {
-        let prev = epb.0.get(tick.0.wrapping_sub(1));
+        let prev = epb.0.get(tick.0.saturating_sub(1));
+        if prev.is_none() { continue }
+        let prev = prev.unwrap();
         if aggro.0.is_none() {
             // move the enemy to their spawn position
-            let displacement = sp.0 - *prev;
+            let displacement = sp.0 - prev;
             if displacement.length() < CIRCLE_RADIUS {
                 timer.0.tick(time.delta());
                 if timer.0.finished() {
@@ -612,22 +659,93 @@ pub fn fixed_resolve(
 ) {
     for (enemy_pos_buffer, collider) in &mut enemies {
         let pos_buffer = enemy_pos_buffer.into_inner();
-        let pos = pos_buffer.0.get(tick.0);
+        let pos = pos_buffer.0.get(tick.0).unwrap();
         let mut pos3 = Vec3::new(pos.x, pos.y, 0.0);
         pos3 = correct_wall_collisions(&pos3, &collider.0, &map.biome_map);
-        pos_buffer.0.set(tick.0, pos3.xy());
+        pos_buffer.0.set(tick.0, Some(pos3.xy()));
+    }
+}
+
+pub fn health_simulate(
+    tick: Res<TickNum>,
+    mut enemies: Query<(&mut Health, &HpBuffer, &mut TextureAtlasSprite, &EnemyCamp, &mut Visibility), With<Enemy>>,
+    mut camp_query: Query<(&Camp, &mut CampEnemies), With<Camp>>,
+) {
+    for (mut hp, hb, mut sp, ec_num, mut vis) in &mut enemies {
+        let next_hp = hb.0.get(tick.0);
+        if next_hp.is_none() { continue }
+        hp.current = next_hp.unwrap();
+        hp.max = ENEMY_MAX_HP;
+        if hp.current > 0 && hp.dead {
+            hp.dead = false;
+            *vis = Visibility::Visible;
+        }
+        else if hp.current == 0 && !hp.dead {
+            hp.dead = true;
+            *vis = Visibility::Hidden;
+            for (camp_num, mut enemies_in_camp) in camp_query.iter_mut() {
+                if camp_num.0 == ec_num.0 {
+                    enemies_in_camp.current_enemies = enemies_in_camp.current_enemies.saturating_sub(1);
+                }
+            }
+        }
+        let damage = hp.current as f32 / hp.max as f32;
+        sp.color = Color::Rgba {red: 1.0, green: damage, blue: damage, alpha: 1.0};
     }
 }
 
 pub fn handle_packet(
+    tick: Res<TickNum>,
     mut enemy_reader: EventReader<net::packets::EnemyTickEvent>,
-    mut enemy_query: Query<(&Enemy, &mut PosBuffer, &mut Health)>
+    mut enemy_query: Query<(Entity, &Enemy, &mut PosBuffer, &mut HpBuffer, &mut EventBuffer, &IsSpecial)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     for ev in enemy_reader.iter() {
-        for (en, mut pb, mut hp) in &mut enemy_query {
+        for (e, en, mut pb, mut hb, mut eb, is) in &mut enemy_query {
             if en.0 == ev.tick.id {
-                pb.0.set(ev.seq_num, ev.tick.pos);
-                hp.current = ev.tick.hp;
+                pb.0.set(ev.seq_num, Some(ev.tick.pos));
+                hb.0.set(tick.0, Some(ev.tick.hp));
+                eb.0.set(tick.0, Some(ev.tick.events));
+                if ev.tick.events & ATTACK_BITFLAG != 0 {
+                    let attack_radius;
+                    if is.0 {
+                        attack_radius = SPECIAL_ATTACK_RADIUS_MOD;
+                    } else {
+                        attack_radius = 1.0;
+                    }
+                    let attack = commands.spawn((
+                        SpriteBundle {
+                        texture: asset_server.load("EnemyAttack01.png").into(),
+                        transform: Transform {
+                            translation: Vec3::new(0.0, 0.0, 5.0),
+                            scale: Vec3::new(attack_radius, attack_radius, 1.0),
+                            ..Default::default()
+                            },
+                        ..Default::default()
+                        },
+                        EnemyWeapon,
+                        Fade {current: 1.0, max: 1.0})
+                    ).id();
+                    commands.entity(e).add_child(attack);
+                }
+                if ev.tick.events & AGGRO_BITFLAG != 0 {
+                    let exlaim = commands.spawn((
+                        SpriteBundle {
+                            texture: asset_server.load("aggro.png").into(),
+                            transform: Transform {
+                                translation: Vec3::new(0.0, 32., 2.5),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        Fade {
+                            current: 2.0,
+                            max: 2.0
+                        }
+                    )).id();
+                    commands.entity(e).add_child(exlaim);
+                }
             }
         }
     }

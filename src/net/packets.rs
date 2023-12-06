@@ -1,6 +1,8 @@
 use std::io::Result;
 use std::net::{SocketAddr, UdpSocket};
 use bevy::prelude::*;
+use crate::game::components::{PowerUpType, Stats, StoredPowerUps};
+use crate::game::map::MAXCHESTS;
 use crate::net::MAGIC_NUMBER;
 
 
@@ -17,7 +19,8 @@ pub enum PacketType {
 pub struct EnemyTick {
     pub id: u8,
     pub pos: Vec2,
-    pub hp: u8
+    pub hp: u8,
+    pub events: u8
 }
 
 /// sent by network module to disperse enemy information from the host
@@ -32,6 +35,10 @@ pub struct PlayerTick {
     pub id: u8,
     pub pos: Vec2,
     pub hp: u8,
+    pub dir: f32,
+    pub events: u8,
+    pub stats: Stats,
+    pub powerups: StoredPowerUps
 }
 
 /// sent by network module to disperse player information from the host
@@ -74,7 +81,10 @@ pub struct HostTick {
     pub rmt_num: u16,
     pub ack: u32,
     pub enemies: Vec<EnemyTick>,
-    pub players: Vec<PlayerTick>
+    pub players: Vec<PlayerTick>,
+    pub powerups: Vec<(PowerUpType, Vec2)>,
+    pub camps: Vec<(u8, u8)>,
+    pub chests: Vec<(u8, u8)>,
 }
 
 impl Packet for HostTick {
@@ -90,31 +100,103 @@ impl Packet for HostTick {
         i += 1;
         let player_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
         i += 1;
+        let powerup_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
+        i += 1;
         let mut enemies: Vec<EnemyTick> = Vec::new();
         for _ in 0..enemy_count {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            let pos = Vec2{
+            let pos = Vec2 {
                 x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
                 y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
             };
             i += 8;
             let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            enemies.push(EnemyTick { id, pos, hp });
+            let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            enemies.push(EnemyTick { id, pos, hp, events });
         }
         let mut players: Vec<PlayerTick> = Vec::new();
         for _ in 0..player_count {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            let pos = Vec2{
+            let pos = Vec2 {
                 x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
                 y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
             };
             i += 8;
             let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            players.push(PlayerTick { id, pos, hp });
+            let dir = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            let events = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let score = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let enemies_killed = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let players_killed = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let camps_captured = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let deaths = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let kd_ratio = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            let meat = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let damage_dealt_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let damage_reduction_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let attack_speed_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let move_speed_up = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            players.push(PlayerTick { id, pos, hp, dir, events, stats: Stats {
+                score,
+                enemies_killed,
+                players_killed,
+                camps_captured,
+                deaths,
+                kd_ratio,
+            }, powerups: StoredPowerUps { power_ups: [meat, damage_dealt_up, damage_reduction_up, attack_speed_up, move_speed_up] } });
+        }
+        let mut powerups: Vec<(PowerUpType, Vec2)> = Vec::new();
+        for _ in 0..powerup_count {
+            let ptype = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let ptype = match ptype {
+                0 => PowerUpType::Meat,
+                1 => PowerUpType::DamageDealtUp,
+                2 => PowerUpType::DamageReductionUp,
+                3 => PowerUpType::AttackSpeedUp,
+                4 => PowerUpType::MovementSpeedUp,
+                _ => panic!()
+            };
+            let x = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            let y = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            powerups.push((ptype, Vec2 {x, y}));
+        }
+        let mut camps: Vec<(u8, u8)> = Vec::new();
+        let num_camps = u8::from_be_bytes([buf[i]].try_into().unwrap());
+        i += 1;
+        for _ in 0..num_camps {
+            let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let count = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            camps.push((id, count));
+        }
+        let mut chests: Vec<(u8, u8)> = Vec::new();
+        for _ in 0..MAXCHESTS {
+            let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            chests.push((id, hp));
         }
         return Ok(HostTick {
             seq_num,
@@ -122,6 +204,9 @@ impl Packet for HostTick {
             ack,
             enemies,
             players,
+            powerups,
+            camps,
+            chests
         })
     }
 
@@ -133,17 +218,45 @@ impl Packet for HostTick {
         bytes.extend_from_slice(&self.ack.to_be_bytes());
         bytes.extend_from_slice(&(self.enemies.len() as u8).to_be_bytes());
         bytes.extend_from_slice(&(self.players.len() as u8).to_be_bytes());
+        bytes.extend_from_slice(&(self.powerups.len() as u8).to_be_bytes());
         for enemy in &self.enemies {
             bytes.extend_from_slice(&enemy.id.to_be_bytes());
             bytes.extend_from_slice(&enemy.pos.x.to_be_bytes());
             bytes.extend_from_slice(&enemy.pos.y.to_be_bytes());
             bytes.extend_from_slice(&enemy.hp.to_be_bytes());
+            bytes.extend_from_slice(&enemy.events.to_be_bytes());
         }
         for player in &self.players {
             bytes.extend_from_slice(&player.id.to_be_bytes());
             bytes.extend_from_slice(&player.pos.x.to_be_bytes());
             bytes.extend_from_slice(&player.pos.y.to_be_bytes());
             bytes.extend_from_slice(&player.hp.to_be_bytes());
+            bytes.extend_from_slice(&player.dir.to_be_bytes());
+            bytes.extend_from_slice(&player.events.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.score.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.enemies_killed.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.players_killed.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.camps_captured.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.deaths.to_be_bytes());
+            bytes.extend_from_slice(&player.stats.kd_ratio.to_be_bytes());
+            for b in &player.powerups.power_ups {
+                bytes.extend_from_slice(&b.to_be_bytes());
+            }
+        }
+
+        for powerup in &self.powerups {
+            bytes.extend_from_slice(&(powerup.0 as u8).to_be_bytes());
+            bytes.extend_from_slice(&powerup.1.x.to_be_bytes());
+            bytes.extend_from_slice(&powerup.1.y.to_be_bytes());
+        }
+        bytes.extend_from_slice(&(self.camps.len() as u8).to_be_bytes());
+        for camp in &self.camps {
+            bytes.extend_from_slice(&camp.0.to_be_bytes());
+            bytes.extend_from_slice(&camp.1.to_be_bytes());
+        }
+        for chest in &self.chests {
+            bytes.extend_from_slice(&chest.0.to_be_bytes());
+            bytes.extend_from_slice(&chest.1.to_be_bytes());
         }
     }
 }

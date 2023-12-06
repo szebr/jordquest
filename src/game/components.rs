@@ -27,13 +27,13 @@ pub const CHEST_CONTENTS: usize = 5;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
     Meat = 0,
-    DamageDealtUp = 1,
-    DamageReductionUp = 2,
-    AttackSpeedUp = 3,
-    MovementSpeedUp = 4,
+    DamageDealtUp,
+    DamageReductionUp,
+    AttackSpeedUp,
+    MovementSpeedUp,
 }
 
-#[derive(Component)]
+#[derive(Component, Eq, PartialEq, Clone)]
 pub struct StoredPowerUps{
     pub power_ups: [u8; NUM_POWERUPS],
     // 0: MaxHPUp, 1: DamageReductionUp, 2: DamageDealtUp, 3: AttackSpeedUp, 4: MovementSpeedUp
@@ -55,7 +55,7 @@ pub struct ScoreDisplay;
 #[derive(Component)]
 pub struct PowerupDisplayText(pub u8);
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Stats{
     pub score: u8,
     pub enemies_killed: u8,

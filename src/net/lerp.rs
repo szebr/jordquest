@@ -19,8 +19,11 @@ pub fn lerp_pos(
     for (mut tf, bp) in &mut query {
         let next_state = bp.0.get(tick.0.saturating_sub(net::DELAY));
         let prev_state = bp.0.get(tick.0.saturating_sub(net::DELAY + 1));
+        if next_state.is_none() || prev_state.is_none() { return }
+        let next_state = next_state.unwrap();
+        let prev_state = prev_state.unwrap();
         let percent: f32 = tick_time.accumulated().as_secs_f32() / tick_time.period.as_secs_f32();
-        let new_state = prev_state.lerp(*next_state, percent);
+        let new_state = prev_state.lerp(next_state, percent);
         tf.translation.x = new_state.x;
         tf.translation.y = new_state.y;
     }
@@ -37,16 +40,20 @@ pub fn resolve_collisions(
     while let Some([(mut pb1, hp1, collider1), (mut pb2, hp2, collider2)]) = iter.fetch_next() {
         if hp1.is_some_and(|hp| hp.dead) || hp2.is_some_and(|hp| hp.dead) { continue }
         let a_pos = pb1.0.get(tick.0);
+        if a_pos.is_none() { continue }
+        let a_pos = a_pos.unwrap();
         let a_pos = Vec3::new(a_pos.x, a_pos.y, 0.0);
         let b_pos = pb2.0.get(tick.0);
+        if b_pos.is_none() { continue }
+        let b_pos = b_pos.unwrap();
         let b_pos = Vec3::new(b_pos.x, b_pos.y, 0.0);
         if collide(a_pos, collider1.0, b_pos, collider2.0).is_some() {
             let mut new_a_pos = a_pos + (a_pos.sub(b_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
             new_a_pos = movement::correct_wall_collisions(&new_a_pos, &collider1.0, &map.biome_map);
             let mut new_b_pos = b_pos + (b_pos.sub(a_pos)).clamp_length_max(COLLISION_SHOVE_DIST);
             new_b_pos = movement::correct_wall_collisions(&new_b_pos, &collider1.0, &map.biome_map);
-            pb1.0.set(tick.0, new_a_pos.xy());
-            pb2.0.set(tick.0, new_b_pos.xy());
+            pb1.0.set(tick.0, Some(new_a_pos.xy()));
+            pb2.0.set(tick.0, Some(new_b_pos.xy()));
         }
     }
 }
