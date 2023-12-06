@@ -12,6 +12,7 @@ use crate::buffers::*;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
 use crate::map::ChestCoords;
+use crate::net::is_host;
 use crate::PowerupAtlas;
 
 const CAMP_ENEMIES: u8 = 5;
@@ -35,7 +36,7 @@ impl Plugin for CampPlugin{
             .after(setup_camps));
         app.add_systems(Update,(
             handle_camp_clear,
-            respawn_camp_enemies,
+            respawn_camp_enemies.run_if(is_host),
             handle_chest_hit,
         ));
     }
