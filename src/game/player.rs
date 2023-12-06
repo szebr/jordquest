@@ -659,11 +659,9 @@ pub fn shield_input(
         let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
         if mouse_button_inputs.pressed(MouseButton::Right) {
             eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
-            shield.active = true;
         }
         else {
             eb.0.set(tick.0, Some(events & !SHIELD_BITFLAG));
-            shield.active = false;
         }
     }
 }
