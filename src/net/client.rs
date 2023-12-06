@@ -3,8 +3,10 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
 use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
+use crate::game::components::{Health, ItemChest, PowerUp};
 use crate::game::map::MapSeed;
 use crate::game::player::{LocalPlayer, SetIdEvent};
+use crate::game::PowerupAtlas;
 use crate::net::{MAGIC_NUMBER, MAX_DATAGRAM_SIZE};
 use crate::net::packets::*;
 
@@ -63,12 +65,17 @@ pub fn fixed(
 }
 
 pub fn update(
+    mut commands: Commands,
     mut sock: ResMut<net::Socket>,
     mut player_writer: EventWriter<PlayerTickEvent>,
     mut enemy_writer: EventWriter<EnemyTickEvent>,
     mut id_writer: EventWriter<SetIdEvent>,
     mut tick_num: ResMut<net::TickNum>,
-    mut seed: ResMut<MapSeed>
+    mut seed: ResMut<MapSeed>,
+    powerup_atlas: Res<PowerupAtlas>,
+    mut powerups: Query<Entity, With<PowerUp>>,
+    mut chests: Query<(&ItemChest, &mut Health)>
+
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_mut().unwrap();
@@ -109,6 +116,33 @@ pub fn update(
                         seq_num: packet.seq_num,
                         tick
                     })
+                }
+                for e in &mut powerups {
+                    commands.entity(e).despawn();
+                }
+                for (ptype, pos) in packet.powerups {
+                    commands.spawn((
+                        SpriteSheetBundle{
+                            texture_atlas: powerup_atlas.handle.clone(),
+                            sprite: TextureAtlasSprite {
+                                index: powerup_atlas.coord_to_index(0, ptype as i32),
+                                ..Default::default()
+                            },
+                            transform: Transform {
+                                translation: Vec3 { x: pos.x, y: pos.y, z: 0.0 },
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        PowerUp(ptype),
+                        ));
+                }
+                for (net_ic, net_hp) in packet.chests {
+                    for (ic, mut hp) in &mut chests {
+                        if ic.id == net_ic {
+                            hp.current = net_hp;
+                        }
+                    }
                 }
                 if packet.seq_num > tick_num.0 {
                     println!("re-syncing: changing tick from {} to {}", tick_num.0, packet.seq_num);
