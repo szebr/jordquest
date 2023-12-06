@@ -28,7 +28,7 @@ pub struct PowerupAtlas{
 
 impl PowerupAtlas {
     // TODO this should take usize or isize instead of i32 I think
-    fn coord_to_index(&self, x: i32, y: i32) -> usize {
+    pub(crate) fn coord_to_index(&self, x: i32, y: i32) -> usize {
         let mut index: i32 = ((y as f32 * POWERUP_SHEET_DIMS[1]) + x as f32) as i32;
         if index < 0 || index > ((POWERUP_SHEET_DIMS[0] * POWERUP_SHEET_DIMS[1]) - 1.) as i32 {
             index = ((POWERUP_SHEET_DIMS[0] * POWERUP_SHEET_DIMS[1]) - 1.) as i32;
