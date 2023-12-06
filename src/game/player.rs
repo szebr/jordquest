@@ -509,12 +509,12 @@ pub fn attack_simulate(
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
     mut attack_reader: EventReader<AttackEvent>,
-    mut players: Query<(&Player, &PosBuffer, &DirBuffer, &mut HpBuffer, &StoredPowerUps, &PlayerShield), (Without<ItemChest>, Without<Enemy>)>,
+    mut players: Query<(&Player, &PosBuffer, &DirBuffer, &mut HpBuffer, &StoredPowerUps, &PlayerShield, &mut Stats), (Without<ItemChest>, Without<Enemy>)>,
     mut enemies: Query<(&PosBuffer, &mut HpBuffer, &mut LastAttacker), With<Enemy>>,
     mut chest: Query<(&Transform, &mut Health), (With<ItemChest>, Without<Enemy>)>,
 ) {
     for ev in &mut attack_reader {
-        for (pl, pb, db, _, spu, shield) in &players {
+        for (pl, pb, db, _, spu, shield, mut stats) in &players {
             if pl.0 != ev.id { continue }
             if shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
@@ -561,7 +561,7 @@ pub fn attack_simulate(
             }
         }
         let mut combinations = players.iter_combinations_mut();
-        while let Some([(pl, pb, db, _, spu, attacker_shield), (target_pl, target_pb, _, mut target_hb, target_spu, target_shield)]) = combinations.fetch_next() {
+        while let Some([(pl, pb, db, _, spu, attacker_shield, mut attacker_stats), (target_pl, target_pb, _, mut target_hb, target_spu, target_shield, mut target_stats)]) = combinations.fetch_next() {
             if pl.0 != ev.id { continue }
             if target_shield.active || attacker_shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
@@ -581,11 +581,28 @@ pub fn attack_simulate(
             if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // target not in sector
 
             let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
-            let hp = target_hb.0.get(tick.0).unwrap();
-            target_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
+            let hp = target_hb.0.get(tick.0).unwrap().saturating_sub(damage);
+            target_hb.0.set(tick.0, Some(hp));
+            if hp <= 0 {
+                target_stats.deaths = target_stats.deaths.saturating_add(1);
+                if target_stats.deaths != 0 {
+                    target_stats.kd_ratio = target_stats.players_killed as f32 / target_stats.deaths as f32;
+                }
+                else {
+                    target_stats.kd_ratio = target_stats.players_killed as f32;
+                }
+                attacker_stats.players_killed = attacker_stats.players_killed.saturating_add(1);
+                if attacker_stats.deaths != 0 {
+                    attacker_stats.kd_ratio = attacker_stats.players_killed as f32 / attacker_stats.deaths as f32;
+                }
+                else {
+                    attacker_stats.kd_ratio = attacker_stats.players_killed as f32;
+                }
+                attacker_stats.score += 20;
+            }
         }
         let mut combinations = players.iter_combinations_mut();
-        while let Some([(target_pl, target_pb, _, mut target_hb, target_spu, target_shield), (pl, pb, db, _, spu, attacker_shield)]) = combinations.fetch_next() {
+        while let Some([(target_pl, target_pb, _, mut target_hb, target_spu, target_shield, mut target_stats), (pl, pb, db, _, spu, attacker_shield, mut attacker_stats)]) = combinations.fetch_next() {
             if pl.0 != ev.id { continue }
             if target_shield.active || attacker_shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
@@ -605,8 +622,25 @@ pub fn attack_simulate(
             if angle_diff.abs() > SWORD_DEGREES.to_radians() { continue; } // target not in sector
 
             let damage = SWORD_DAMAGE.saturating_add(spu.power_ups[PowerUpType::DamageDealtUp as usize].saturating_mul(DAMAGE_DEALT_UP));
-            let hp = target_hb.0.get(tick.0).unwrap();
-            target_hb.0.set(tick.0, Some(hp.saturating_sub(damage)));
+            let hp = target_hb.0.get(tick.0).unwrap().saturating_sub(damage);
+            target_hb.0.set(tick.0, Some(hp));
+            if hp <= 0 {
+                target_stats.deaths = target_stats.deaths.saturating_add(1);
+                if target_stats.deaths != 0 {
+                    target_stats.kd_ratio = target_stats.players_killed as f32 / target_stats.deaths as f32;
+                }
+                else {
+                    target_stats.kd_ratio = target_stats.players_killed as f32;
+                }
+                attacker_stats.players_killed = attacker_stats.players_killed.saturating_add(1);
+                if attacker_stats.deaths != 0 {
+                    attacker_stats.kd_ratio = attacker_stats.players_killed as f32 / attacker_stats.deaths as f32;
+                }
+                else {
+                    attacker_stats.kd_ratio = attacker_stats.players_killed as f32;
+                }
+                attacker_stats.score += 20;
+            }
         }
     }
 }
@@ -730,13 +764,6 @@ pub fn health_simulate(
             if lp.is_some() {
                 death_writer.send(LocalPlayerDeathEvent);
             }
-            stats.deaths = stats.deaths.saturating_add(1);
-            if stats.deaths != 0 {
-                stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
-            }
-            else {
-                stats.kd_ratio = stats.players_killed as f32;
-            }
         }
     }
 }
@@ -760,11 +787,12 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut Stats, Option<&LocalPlayer>)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb, local) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, mut stats, local) in &mut player_query {
             if pl.0 == ev.tick.id {
+                *stats = ev.tick.stats.clone();
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
