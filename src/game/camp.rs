@@ -9,10 +9,11 @@ use crate::components::*;
 use crate::Decorations;
 use crate::Chests;
 use crate::buffers::*;
+use crate::game::enemy::ENEMY_MAX_HP;
 use crate::game::map::setup_map;
 use crate::map::MapSeed;
 use crate::map::ChestCoords;
-use crate::net::is_host;
+use crate::net::{is_host, TickNum};
 use crate::PowerupAtlas;
 
 const CAMP_ENEMIES: u8 = 5;
@@ -294,11 +295,9 @@ fn get_prefab_data(grade: u8) -> Vec<i32>{
 
 // respawn the enemies in a camp after a certain amount of time
 pub fn respawn_camp_enemies(
-    mut commands: Commands,
     mut camp_query: Query<(&Camp, &mut CampEnemies, &mut CampStatus, &Grade, &mut CampRespawnTimer, &GlobalTransform)>,
-    entity_atlas: Res<Atlas>,
-    asset_server: Res<AssetServer>,
-    map_seed: Res<MapSeed>,
+    mut enemies: Query<(&EnemyCamp, &mut Health, &mut Visibility, &mut HpBuffer), With<Enemy>>,
+    tick: Res<TickNum>,
     time: Res<Time>,
 ){
     for (camp_id, mut enemies_in_camp, mut camp_status, 
@@ -309,43 +308,15 @@ pub fn respawn_camp_enemies(
         }
         if respawn_timer.0.finished()
         {
-            let mut rng = ChaChaRng::seed_from_u64(map_seed.0);
-            let special_enemy_index = rng.gen_range(0..enemies_in_camp.max_enemies);
-            let powerups: [PowerUpType; 5] = [PowerUpType::Meat, PowerUpType::DamageDealtUp,
-                PowerUpType::DamageReductionUp, PowerUpType::AttackSpeedUp, PowerUpType::MovementSpeedUp];
-            let power_up_to_drop = powerups[grade.0 as usize - 1];
             respawn_timer.0.reset();
-            let mut id: u8 = 0;
-            let prefab_data = get_prefab_data(grade.0);
             camp_status.0 = true;
-
-            // for the prefab offsets
-            let mut i = 6;
-
-            // spawn enemies for this camp
-            for n in 0..enemies_in_camp.max_enemies{
-                let is_special = n == special_enemy_index;
-                let mut chance_drop_powerup = rng.gen_range(0..100) < POWERUP_DROP_CHANCE;
-                if is_special{
-                    chance_drop_powerup = true;
+            enemies_in_camp.current_enemies = enemies_in_camp.max_enemies;
+            for (parent_camp, mut hp, mut vis, mut hb) in enemies.iter_mut() {
+                if parent_camp.0 == camp_id.0 {
+                    *vis = Visibility::Visible;
+                    hb.0.set(tick.0, Some(hp.max));
+                    hp.dead = false;
                 }
-                enemy::spawn_enemy(
-                    &mut commands, 
-                    &asset_server,
-                    &entity_atlas, 
-                    id,
-                    camp_id.0, 
-                    Vec2::new(
-                        pos.translation().x + (prefab_data[i] * 16) as f32, 
-                        pos.translation().y + (prefab_data[i+1] * 16) as f32), 
-                        grade.0 as i32, 
-                    power_up_to_drop,
-                    chance_drop_powerup,
-                    is_special,
-                );
-                enemies_in_camp.current_enemies += 1;
-                id += 1;
-                i += 2;
             }
         }
     }
