@@ -762,16 +762,20 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut PlayerShield, Option<&LocalPlayer>)>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb, local) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, mut shield, local) in &mut player_query {
             if pl.0 == ev.tick.id {
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 if local.is_none() {
                     eb.0.set(ev.seq_num, Some(ev.tick.events));
+                    if ev.tick.events & SHIELD_BITFLAG != 0 {
+                        println!("shielded client!");
+                        shield.active = true;
+                    }
                 }
             }
         }
