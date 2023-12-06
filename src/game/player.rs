@@ -1,4 +1,3 @@
-use std::ops::Sub;
 use std::time::Duration;
 use bevy::prelude::*;
 use crate::{enemy, net};
@@ -82,8 +81,11 @@ impl Plugin for PlayerPlugin{
                 ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(Update, (
                 attack_input,
+                shield_input,
                 animate_sword,
                 handle_move,
+                update_score,
+                grab_powerup,
                 handle_player_ticks.run_if(is_client),
                 ).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, (
@@ -94,6 +96,7 @@ impl Plugin for PlayerPlugin{
             .add_systems(FixedUpdate, (
                 update_buffer.before(attack_host),
                 attack_draw.after(attack_simulate),
+                shield_draw,
                 health_simulate.after(spawn_simulate),
                 health_draw.after(health_simulate),
                 ).run_if(in_state(AppState::Game)).before(net::client::fixed).before(net::host::fixed))
@@ -280,7 +283,21 @@ pub fn spawn_players(
             HealthBar,
         )).id();
 
+        let shield = commands.spawn(
+            (SpriteBundle {
+            texture: asset_server.load("shield01.png").clone(),
+            visibility: Visibility::Hidden,
+            transform: Transform {
+                translation: Vec3::new(0.0, 0.0, 0.5),
+                ..Default::default()
+            },
+            ..Default::default()
+            },
+            Shield)
+        ).id();
+
         commands.entity(pl).add_child(health_bar);
+        commands.entity(pl).add_child(shield);
     }
 }
 
@@ -290,23 +307,6 @@ pub fn remove_players(
 ) {
     for e in players.iter() {
         commands.entity(e).despawn_recursive();
-    }
-}
-
-/*
-// Update the health bar child of player entity to reflect current hp
-pub fn update_health_bars(
-    mut health_bar_query: Query<&mut Transform, With<HealthBar>>,
-    mut player_health_query: Query<(&mut Health, &Children), With<Player>>,
-) {
-    for (mut health, children) in player_health_query.iter_mut() {
-        health.max = PLAYER_DEFAULT_HP;
-        for child in children.iter() {
-            let tf = health_bar_query.get_mut(*child);
-            if let Ok(mut tf) = tf {
-                tf.scale = Vec3::new((health.current as f32) / (health.max as f32), 1.0, 1.0);
-            }
-        }
     }
 }
 
@@ -329,6 +329,7 @@ pub fn update_score(
     }
 }
 
+/*
 pub fn handle_life_and_death(
     mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats)>,
     mut commands: Commands,
@@ -364,6 +365,7 @@ pub fn handle_life_and_death(
         }
     }
 }
+*/
 
 // if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
 pub fn grab_powerup(
@@ -419,7 +421,7 @@ pub fn grab_powerup(
         }
     }
 }
- */
+
 
 pub fn attack_input(
     time: Res<Time>,
@@ -645,14 +647,14 @@ pub fn animate_sword(
 pub fn shield_input(
     tick: Res<TickNum>,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut players: Query<&mut EventBuffer, With<Player>>
+    mut players: Query<&mut EventBuffer, With<LocalPlayer>>
 ) {
     for mut eb in &mut players {
         let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
-        if mouse_button_inputs.just_pressed(MouseButton::Right) {
+        if mouse_button_inputs.pressed(MouseButton::Right) {
             eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
         }
-        else if mouse_button_inputs.just_released(MouseButton::Right) {
+        else {
             eb.0.set(tick.0, Some(events & !SHIELD_BITFLAG));
         }
     }
@@ -660,70 +662,33 @@ pub fn shield_input(
 
 pub fn shield_draw(
     tick: Res<TickNum>,
-    //players: Query<>
-
+    mut players: Query<(&EventBuffer, &mut PlayerShield, &Children)>,
+    mut shields: Query<&mut Visibility, With<Shield>>,
 ) {
-
-}
-
-/*
-pub fn spawn_shield_on_right_click(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mouse_button_inputs: Res<Input<MouseButton>>,
-    mut query: Query<(Entity, &Transform, &mut PlayerShield), With<LocalPlayer>>,
-) {
-    if mouse_button_inputs.just_pressed(MouseButton::Right) {
-        let shield_texture_handle = asset_server.load("shield01.png"); //where to replace the shield image
-
-        for (player_entity, _player_transform, mut shield) in query.iter_mut() {
-            shield.active = true;
-            commands.entity(player_entity).with_children(|parent| {
-                parent.spawn(SpriteBundle {
-                    texture: shield_texture_handle.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(0.0, 0.0, 0.5),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                }).insert(Shield);
-            });
-            commands.spawn(AudioBundle {
-                source: asset_server.load("shield.ogg"),
-                ..default()
-            });
-        }
-    }
-}
-
-pub fn despawn_shield_on_right_click_release(
-    mut commands: Commands,
-    mouse_button_inputs: Res<Input<MouseButton>>,
-    mut query: Query<(&Children, &mut PlayerShield), With<LocalPlayer>>,
-    shield_query: Query<Entity, With<Shield>>,
-) {
-    let player = query.get_single_mut();
-    if player.is_err() { return; }
-    let (player_children, mut player_shield) = player.unwrap();
-    if !mouse_button_inputs.pressed(MouseButton::Right) {
-        player_shield.active = false;
-        for &child in player_children.iter() {
-            if shield_query.get(child).is_ok() {
-                commands.entity(child).despawn();
+    for (eb, mut ps, children) in &mut players {
+        for child in children.iter() {
+            let vis = shields.get_mut(*child);
+            if let Ok(mut vis) = vis {
+                if eb.0.get(tick.0.saturating_sub(net::DELAY)).unwrap_or(0) & SHIELD_BITFLAG != 0 {
+                    ps.active = true;
+                    *vis = Visibility::Visible;
+                }
+                else {
+                    ps.active = false;
+                    *vis = Visibility::Hidden;
+                }
             }
         }
     }
 }
- */
-// shield
 
 pub fn spawn_simulate(
     tick: Res<TickNum>,
     mut spawn_reader: EventReader<SpawnEvent>,
-    mut players: Query<(&Player, &mut HpBuffer, Option<&LocalPlayer>)>
+    mut players: Query<(&Player, &mut HpBuffer)>
 ) {
     for ev in &mut spawn_reader {
-        for (pl, mut hb, lp) in &mut players {
+        for (pl, mut hb) in &mut players {
             if pl.0 != ev.id { continue }
             hb.0.set(tick.0, Some(PLAYER_DEFAULT_HP));
         }
@@ -791,22 +756,11 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>, &mut Transform)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, Option<&LocalPlayer>)>,
 ) {
     for ev in player_reader.iter() {
-        println!("got playertick");
-        for (pl, mut pb, mut hb, mut db, mut eb, local, mut pt) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, local) in &mut player_query {
             if pl.0 == ev.tick.id {
-                if local.is_some() {
-                    let last = pb.0.get(ev.seq_num);
-                    println!("pos received {:?}", ev.tick.pos);
-                    if last.is_some() {
-                        let diff = last.unwrap().sub(ev.tick.pos);
-                        println!("recv tick {} from server: pos diff {} {}", ev.seq_num, diff.x, diff.y);
-                        let diff3 = Vec3::new(diff.x, diff.y, 0.0);
-                        //pt.translation.sub_assign(diff3);
-                    }
-                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
@@ -832,16 +786,13 @@ pub fn handle_id_events(
 
 pub fn handle_usercmd_events(
     mut usercmd_reader: EventReader<UserCmdEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut DirBuffer, &mut EventBuffer)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut DirBuffer, &mut EventBuffer, &mut PlayerShield)>,
     mut attack_writer: EventWriter<AttackEvent>,
     mut spawn_writer: EventWriter<SpawnEvent>,
 ) {
     for ev in usercmd_reader.iter() {
-        for (pl, mut pb, mut db, mut eb) in &mut player_query {
+        for (pl, mut pb, mut db, mut eb, mut shield) in &mut player_query {
             if pl.0 == ev.id {
-                if ev.id == 1 {
-                    println!("recv player 1 tick {} pos to {} {}", ev.seq_num, ev.tick.pos.x, ev.tick.pos.y);
-                }
                 pb.0.set_with_time(ev.seq_num, Some(ev.tick.pos), ev.seq_num);
                 db.0.set(ev.seq_num, Some(ev.tick.dir));
                 eb.0.set(ev.seq_num, Some(ev.tick.events));
@@ -850,6 +801,10 @@ pub fn handle_usercmd_events(
                 }
                 if ev.tick.events & SPAWN_BITFLAG != 0 {
                     spawn_writer.send(SpawnEvent { id: ev.id });
+                }
+                if ev.tick.events & SHIELD_BITFLAG != 0 {
+                    println!("shielded client!");
+                    shield.active = true;
                 }
             }
         }

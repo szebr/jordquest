@@ -110,7 +110,7 @@ pub fn update(
                         tick
                     })
                 }
-                if packet.seq_num.saturating_sub(tick_num.0) > 0 {
+                if packet.seq_num > tick_num.0 {
                     println!("re-syncing: changing tick from {} to {}", tick_num.0, packet.seq_num);
                     tick_num.0 = packet.seq_num;
                 }
