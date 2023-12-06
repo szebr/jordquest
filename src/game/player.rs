@@ -218,7 +218,7 @@ HostTick
     PlayerTicks
     ** all below are culled by visibility **
     EnemyTicks
-    Chests (hp, Vec2)
+    Chests (hp, id)
     Powerups (type, Vec2)
 
 
@@ -328,44 +328,6 @@ pub fn update_score(
         }
     }
 }
-
-/*
-pub fn handle_life_and_death(
-    mut players: Query<(&mut Health, &mut Visibility, Option<&LocalPlayer>, &mut Stats)>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut death_writer: EventWriter<LocalPlayerDeathEvent>,
-    mut spawn_writer: EventWriter<LocalPlayerSpawnEvent>,
-) {
-    for (mut health, mut vis, lp, mut stats) in players.iter_mut() {
-        if health.current <= 0 && !health.dead {
-            commands.spawn(AudioBundle {
-                source: asset_server.load("dead-2.ogg"),
-                ..default()
-            });
-            health.dead = true;
-            *vis = Visibility::Hidden;
-            if lp.is_some() {
-                death_writer.send(LocalPlayerDeathEvent);
-            }
-            stats.deaths = stats.deaths.saturating_add(1);
-            if stats.deaths != 0 {
-                stats.kd_ratio = stats.players_killed as f32 / stats.deaths as f32;
-            } 
-            else {
-                stats.kd_ratio = stats.players_killed as f32;
-            }
-        }
-        else if health.current > 0 && health.dead {
-            health.dead = false;
-            if lp.is_some() {
-                spawn_writer.send(LocalPlayerSpawnEvent);
-            }
-            *vis = Visibility::Visible;
-        }
-    }
-}
-*/
 
 // if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
 pub fn grab_powerup(
@@ -835,7 +797,6 @@ pub fn handle_usercmd_events(
                     spawn_writer.send(SpawnEvent { id: ev.id });
                 }
                 if ev.tick.events & SHIELD_BITFLAG != 0 {
-                    println!("shielded client!");
                     shield.active = true;
                 }
             }
