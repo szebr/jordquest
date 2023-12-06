@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bevy::prelude::*;
 use crate::{menus, net};
 use crate::game::buffers::{DirBuffer, EventBuffer, PosBuffer};
-use crate::game::components::{Health, ItemChest, PowerUp};
+use crate::game::components::{Camp, CampEnemies, CampStatus, Health, ItemChest, PowerUp};
 use crate::game::map::MapSeed;
 use crate::game::player::{LocalPlayer, SetIdEvent};
 use crate::game::PowerupAtlas;
@@ -74,6 +74,7 @@ pub fn update(
     mut seed: ResMut<MapSeed>,
     powerup_atlas: Res<PowerupAtlas>,
     mut powerups: Query<Entity, With<PowerUp>>,
+    mut camps: Query<(&Camp, &mut CampStatus, &mut CampEnemies)>,
     mut chests: Query<(&ItemChest, &mut Health)>
 
 ) {
@@ -136,6 +137,14 @@ pub fn update(
                         },
                         PowerUp(ptype),
                         ));
+                }
+                for (camp_id, count) in packet.camps {
+                    for (camp, mut status, mut campcount) in camps.iter_mut() {
+                        if camp.0 == camp_id {
+                            status.0 = true;
+                            campcount.current_enemies = count;
+                        }
+                    }
                 }
                 for (net_ic, net_hp) in packet.chests {
                     for (ic, mut hp) in &mut chests {
