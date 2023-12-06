@@ -85,13 +85,14 @@ impl Plugin for PlayerPlugin{
                 animate_sword,
                 handle_move,
                 update_score,
-                grab_powerup,
+                powerup_feedback,
                 handle_player_ticks.run_if(is_client),
                 ).run_if(in_state(AppState::Game)))
             .add_systems(FixedUpdate, (
                 attack_host.before(attack_simulate),
                 attack_simulate.after(enemy::fixed_move),
                 spawn_simulate,
+                powerup_grab_simulate,
             ).run_if(in_state(AppState::Game)).run_if(is_host).before(net::host::fixed))
             .add_systems(FixedUpdate, (
                 update_buffer.before(attack_host),
@@ -323,62 +324,73 @@ pub fn update_score(
     let (hp, stats) = lp.unwrap();
     text.sections[0].value = format!("Score: {}", stats.score);
     for (mut powerup, index) in &mut powerup_displays {
-        if index.0 == 2 {
+        if index.0 == PowerUpType::Meat as u8 {
             powerup.sections[0].value = format!("{}%", 100. * hp.current as f32 / PLAYER_DEFAULT_HP as f32);
         }
     }
 }
 
-// if the player collides with a powerup, add it to the player's powerup list and despawn the powerup entity
-pub fn grab_powerup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut player_query: Query<(&Transform, &mut Health, &mut Cooldown, &mut StoredPowerUps), With<Player>>,
-    powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
-    mut powerup_displays: Query<(&mut Text, &PowerupDisplayText), With<PowerupDisplayText>>,
+/// sets powerup ui text, if it changed from before play powerup collection sound
+pub fn powerup_feedback(
+    mut players: Query<(&Transform, &mut HpBuffer, &mut Cooldown, &mut StoredPowerUps), With<LocalPlayer>>,
+    mut powerup_displays: Query<(&mut Text, &PowerupDisplayText)>,
 ) {
-    for (player_transform, mut player_health, mut cooldown, mut player_power_ups) in player_query.iter_mut() {
+    let mut player = players.get_single_mut();
+    if player.is_err() { return }
+    let (tf, mut hb, mut cd, mut spu) = player.unwrap();
+    for (mut powerup, index) in &mut powerup_displays {
+        if index.0 == PowerUpType::DamageDealtUp as u8 {
+            powerup.sections[0].value = format!("{:.2}x",
+                (SWORD_DAMAGE as f32 + spu.power_ups[PowerUpType::DamageDealtUp as usize] as f32 * DAMAGE_DEALT_UP as f32)
+                    / SWORD_DAMAGE as f32);
+        }
+        else if index.0 == PowerUpType::DamageReductionUp as u8 {
+            powerup.sections[0].value = format!("{:.2}x",
+                                                (PLAYER_DEFAULT_DEF
+                                                    / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(spu.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
+        }
+        else if index.0 == PowerUpType::AttackSpeedUp as u8 {
+            powerup.sections[0].value = format!("{:.2}x",
+                                                (DEFAULT_COOLDOWN
+                                                    / (cd.0.duration().as_millis() as f32 / 1000.)));
+        }
+        else if index.0 == PowerUpType::MovementSpeedUp as u8 {
+            powerup.sections[0].value = format!("{:.2}x",
+                                                (PLAYER_SPEED + (spu.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32))
+                                                    / PLAYER_SPEED);
+        }
+    }
+}
+
+/// if player collides with a powerup, add it to their storedpowerups and remove it
+pub fn powerup_grab_simulate(
+    mut commands: Commands,
+    tick: Res<TickNum>,
+    asset_server: Res<AssetServer>,
+    mut player_query: Query<(&Transform, &mut HpBuffer, &mut Cooldown, &mut StoredPowerUps, Option<&LocalPlayer>), With<Player>>,
+    powerup_query: Query<(Entity, &Transform, &PowerUp), With<PowerUp>>,
+) {
+    for (player_transform, mut player_health, mut cooldown, mut player_power_ups, lp) in player_query.iter_mut() {
         for (powerup_entity, powerup_transform, power_up) in powerup_query.iter() {
-            // check detection
             let player_pos = player_transform.translation.truncate();
             let powerup_pos = powerup_transform.translation.truncate();
-            if player_pos.distance(powerup_pos) < 16. {
-                // add powerup to player
+            if player_pos.distance(powerup_pos) < 32. {
                 player_power_ups.power_ups[power_up.0 as usize] = player_power_ups.power_ups[power_up.0 as usize].saturating_add(1);
-                for (mut powerup, index) in &mut powerup_displays {
-                    if power_up.0 == PowerUpType::DamageDealtUp && index.0 == 0 {
-                        powerup.sections[0].value = format!("{:.2}x",
-                        (SWORD_DAMAGE as f32 + player_power_ups.power_ups[PowerUpType::DamageDealtUp as usize] as f32 * DAMAGE_DEALT_UP as f32)
-                        / SWORD_DAMAGE as f32);
-                    }
-                    else if power_up.0 == PowerUpType::DamageReductionUp && index.0 == 1 {
-                        // Defense multiplier determined by DAMAGE_REDUCTION_UP ^ n, where n is stacks of damage reduction
-                        powerup.sections[0].value = format!("{:.2}x", 
-                        (PLAYER_DEFAULT_DEF
-                        / (PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32))));
-                    }
-                    else if power_up.0 == PowerUpType::Meat && index.0 == 2 {
-                        player_health.current = player_health.current.saturating_add(MEAT_VALUE);
-                    }
-                    else if power_up.0 == PowerUpType::AttackSpeedUp && index.0 == 3 {
-                        let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
-                        cooldown.0.set_duration(updated_duration);
-                        powerup.sections[0].value = format!("{:.2}x",
-                        (DEFAULT_COOLDOWN
-                        / (cooldown.0.duration().as_millis() as f32 / 1000.)));
-                    }
-                    else if power_up.0 == PowerUpType::MovementSpeedUp && index.0 == 4 {
-                        powerup.sections[0].value = format!("{:.2}x",
-                        (PLAYER_SPEED + (player_power_ups.power_ups[PowerUpType::MovementSpeedUp as usize] as f32 * MOVEMENT_SPEED_UP as f32))
-                        / PLAYER_SPEED);
-                    }
-                }
-                commands.spawn(AudioBundle {
-                    source: asset_server.load("powerup.ogg"),
-                    ..default()
-                });
-                // despawn powerup
                 commands.entity(powerup_entity).despawn();
+                if power_up.0 == PowerUpType::Meat {
+                    let hp = player_health.0.get(tick.0).unwrap().saturating_add(MEAT_VALUE);
+                    player_health.0.set(tick.0, Some(hp));
+                }
+                else if power_up.0 == PowerUpType::AttackSpeedUp {
+                    let updated_duration = cooldown.0.duration().mul_f32(1. / ATTACK_SPEED_UP);
+                    cooldown.0.set_duration(updated_duration);
+                }
+                if lp.is_some() {
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("powerup.ogg"),
+                        ..default()
+                    });
+                }
             }
         }
     }
@@ -749,12 +761,23 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut Stats, Option<&LocalPlayer>)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut Stats, &mut StoredPowerUps, Option<&LocalPlayer>)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb, mut stats, local) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, mut stats, mut spu, local) in &mut player_query {
             if pl.0 == ev.tick.id {
                 *stats = ev.tick.stats.clone();
+
+                let prev = spu.clone();
+                *spu = ev.tick.powerups.clone();
+                if prev != *spu {
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("powerup.ogg"),
+                        ..default()
+                    });
+                }
                 pb.0.set(ev.seq_num, Some(ev.tick.pos));
                 hb.0.set(tick.0, Some(ev.tick.hp));
                 db.0.set(ev.seq_num, Some(ev.tick.dir));

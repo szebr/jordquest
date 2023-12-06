@@ -33,7 +33,7 @@ pub enum PowerUpType {
     MovementSpeedUp,
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Eq, PartialEq, Clone)]
 pub struct StoredPowerUps{
     pub power_ups: [u8; NUM_POWERUPS],
     // 0: MaxHPUp, 1: DamageReductionUp, 2: DamageDealtUp, 3: AttackSpeedUp, 4: MovementSpeedUp
