@@ -469,10 +469,11 @@ pub fn attack_draw(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tick: Res<TickNum>,
-    players: Query<(Entity, &EventBuffer, &DirBuffer, Option<&LocalPlayer>)>,
+    players: Query<(Entity, &EventBuffer, &DirBuffer, &PlayerShield, Option<&LocalPlayer>)>,
 ) {
-    for (e, eb, db, lp) in &players {
+    for (e, eb, db, shield, lp) in &players {
         let tick = if lp.is_some() { tick.0 } else { tick.0.saturating_sub(net::DELAY) };
+        if shield.active { continue }
         let events = eb.0.get(tick);
         if events.is_none() { continue }
         if events.unwrap() & ATTACK_BITFLAG != 0 {
@@ -586,7 +587,7 @@ pub fn attack_simulate(
         let mut combinations = players.iter_combinations_mut();
         while let Some([(target_pl, target_pb, _, mut target_hb, target_spu, target_shield), (pl, pb, db, _, spu, attacker_shield)]) = combinations.fetch_next() {
             if pl.0 != ev.id { continue }
-            if target_shield.active || attacker_shield { continue }
+            if target_shield.active || attacker_shield.active { continue }
             let sword_angle = db.0.get(ev.seq_num);
             let player_pos = pb.0.get(ev.seq_num);
             if sword_angle.is_none() || player_pos.is_none() { continue }
