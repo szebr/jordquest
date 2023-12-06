@@ -223,7 +223,7 @@ pub fn attack_simulate(
                     // Multiply enemy's damage value by player's default defense and DAMAGE_REDUCTION_UP ^ stacks of damage reduction
                     let dmg: u8 = (CIRCLE_DAMAGE as f32 * PLAYER_DEFAULT_DEF * DAMAGE_REDUCTION_UP.powf(player_power_ups.power_ups[PowerUpType::DamageReductionUp as usize] as f32)) as u8;
                     if dmg > 0 {
-                        let hp = player_hp.0.get(tick.0).unwrap().saturating_sub(dmg);
+                        let hp = player_hp.0.get(tick.0).unwrap_or(PLAYER_DEFAULT_HP).saturating_sub(dmg);
                         player_hp.0.set(tick.0, Some(hp));
                     }
                     commands.spawn(AudioBundle {
