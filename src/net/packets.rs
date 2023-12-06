@@ -207,6 +207,7 @@ impl Packet for HostTick {
         bytes.extend_from_slice(&self.ack.to_be_bytes());
         bytes.extend_from_slice(&(self.enemies.len() as u8).to_be_bytes());
         bytes.extend_from_slice(&(self.players.len() as u8).to_be_bytes());
+        bytes.extend_from_slice(&(self.powerups.len() as u8).to_be_bytes());
         for enemy in &self.enemies {
             bytes.extend_from_slice(&enemy.id.to_be_bytes());
             bytes.extend_from_slice(&enemy.pos.x.to_be_bytes());
@@ -231,6 +232,7 @@ impl Packet for HostTick {
                 bytes.extend_from_slice(&b.to_be_bytes());
             }
         }
+
         for powerup in &self.powerups {
             bytes.extend_from_slice(&(powerup.0 as u8).to_be_bytes());
             bytes.extend_from_slice(&powerup.1.x.to_be_bytes());

@@ -26,7 +26,7 @@ pub const CHEST_CONTENTS: usize = 5;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PowerUpType {
-    Meat,
+    Meat = 0,
     DamageDealtUp,
     DamageReductionUp,
     AttackSpeedUp,
