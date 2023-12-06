@@ -83,7 +83,8 @@ pub struct HostTick {
     pub enemies: Vec<EnemyTick>,
     pub players: Vec<PlayerTick>,
     pub powerups: Vec<(PowerUpType, Vec2)>,
-    pub chests: Vec<(u8, u8)>
+    pub camps: Vec<(u8, u8)>,
+    pub chests: Vec<(u8, u8)>,
 }
 
 impl Packet for HostTick {
@@ -180,6 +181,15 @@ impl Packet for HostTick {
             i += 4;
             powerups.push((ptype, Vec2 {x, y}));
         }
+        let mut camps: Vec<(u8, u8)> = Vec::new();
+        let num_camps = u8::from_be_bytes([buf[i]].try_into().unwrap());
+        i += 1;
+        for _ in 0..num_camps {
+            let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let count = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            camps.push((id, count));
+        }
         let mut chests: Vec<(u8, u8)> = Vec::new();
         for _ in 0..MAXCHESTS {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
@@ -195,6 +205,7 @@ impl Packet for HostTick {
             enemies,
             players,
             powerups,
+            camps,
             chests
         })
     }
@@ -237,6 +248,11 @@ impl Packet for HostTick {
             bytes.extend_from_slice(&(powerup.0 as u8).to_be_bytes());
             bytes.extend_from_slice(&powerup.1.x.to_be_bytes());
             bytes.extend_from_slice(&powerup.1.y.to_be_bytes());
+        }
+        bytes.extend_from_slice(&(self.camps.len() as u8).to_be_bytes());
+        for camp in &self.camps {
+            bytes.extend_from_slice(&camp.0.to_be_bytes());
+            bytes.extend_from_slice(&camp.1.to_be_bytes());
         }
         for chest in &self.chests {
             bytes.extend_from_slice(&chest.0.to_be_bytes());

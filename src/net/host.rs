@@ -54,6 +54,7 @@ pub fn fixed(
     player_query: Query<(&PosBuffer, &HpBuffer, &Player, &EventBuffer, &DirBuffer, &Stats, &StoredPowerUps)>,
     enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
     powerups_query: Query<(&PowerUp, &Transform)>,
+    camp_query: Query<(&Camp, &CampStatus, &CampEnemies)>,
     chests_query: Query<(&ItemChest, &Health)>
 ) {
     if sock.0.is_none() { return }
@@ -105,6 +106,12 @@ pub fn fixed(
                 for (pu, pos) in &powerups_query {
                     powerups.push((pu.0, pos.translation.xy()));
                 }
+                let mut camps = Vec::new();
+                for (camp, status, enemies) in &camp_query {
+                    if status.0 {
+                        camps.push((camp.0, enemies.current_enemies));
+                    }
+                }
                 let mut chests: Vec<(u8, u8)> = Vec::new();
                 for (id, hp) in &chests_query {
                     chests.push((id.id, hp.current));
@@ -116,6 +123,7 @@ pub fn fixed(
                     enemies,
                     players,
                     powerups,
+                    camps,
                     chests
                 };
                 let peer = conn.addr;
