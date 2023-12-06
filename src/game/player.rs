@@ -427,12 +427,13 @@ pub fn attack_input(
     time: Res<Time>,
     tick: Res<TickNum>,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut players: Query<(&mut Cooldown, &mut EventBuffer), With<LocalPlayer>>,
+    mut players: Query<(&mut Cooldown, &mut EventBuffer, &PlayerShield), With<LocalPlayer>>,
 ) {
     let player = players.get_single_mut();
     if player.is_err() { return }
-    let (mut c, mut eb) = player.unwrap();
+    let (mut c, mut eb, shield) = player.unwrap();
     c.0.tick(time.delta());
+    if shield.active { return }
     if !(mouse_button_inputs.pressed(MouseButton::Left) && c.0.finished()) {
         return;
     }
@@ -448,13 +449,14 @@ pub fn attack_input(
 }
 
 pub fn attack_host(
-    players: Query<&EventBuffer, With<LocalPlayer>>,
+    players: Query<(&EventBuffer, &PlayerShield), With<LocalPlayer>>,
     tick: Res<TickNum>,
     mut attack_writer: EventWriter<AttackEvent>
 ) {
     let player = players.get_single();
     if player.is_err() { return }
-    let eb = player.unwrap();
+    let (eb, shield) = player.unwrap();
+    if shield.active { return }
     let events = eb.0.get(tick.0);
     if events.is_none() { return }
     if events.unwrap() & ATTACK_BITFLAG != 0 {
@@ -651,15 +653,17 @@ pub fn animate_sword(
 pub fn shield_input(
     tick: Res<TickNum>,
     mouse_button_inputs: Res<Input<MouseButton>>,
-    mut players: Query<&mut EventBuffer, With<LocalPlayer>>
+    mut players: Query<(&mut EventBuffer, &mut PlayerShield), With<LocalPlayer>>
 ) {
-    for mut eb in &mut players {
+    for (mut eb, shield) in &mut players {
         let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
         if mouse_button_inputs.pressed(MouseButton::Right) {
             eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
+            shield.active = true;
         }
         else {
             eb.0.set(tick.0, Some(events & !SHIELD_BITFLAG));
+            shield.active = false;
         }
     }
 }
