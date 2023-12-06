@@ -655,7 +655,7 @@ pub fn shield_input(
     mouse_button_inputs: Res<Input<MouseButton>>,
     mut players: Query<(&mut EventBuffer, &mut PlayerShield), With<LocalPlayer>>
 ) {
-    for (mut eb, shield) in &mut players {
+    for (mut eb, mut shield) in &mut players {
         let events = if eb.0.get(tick.0).is_some() {eb.0.get(tick.0).unwrap()} else {0};
         if mouse_button_inputs.pressed(MouseButton::Right) {
             eb.0.set(tick.0, Some(events | SHIELD_BITFLAG));
