@@ -1,7 +1,8 @@
 use std::io::Result;
 use std::net::{SocketAddr, UdpSocket};
 use bevy::prelude::*;
-use crate::game::components::{Stats, StoredPowerUps};
+use crate::game::components::{PowerUpType, Stats, StoredPowerUps};
+use crate::game::map::MAXCHESTS;
 use crate::net::MAGIC_NUMBER;
 
 
@@ -80,7 +81,9 @@ pub struct HostTick {
     pub rmt_num: u16,
     pub ack: u32,
     pub enemies: Vec<EnemyTick>,
-    pub players: Vec<PlayerTick>
+    pub players: Vec<PlayerTick>,
+    pub powerups: Vec<(PowerUpType, Vec2)>,
+    pub chests: Vec<(u8, u8)>
 }
 
 impl Packet for HostTick {
@@ -96,11 +99,13 @@ impl Packet for HostTick {
         i += 1;
         let player_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
         i += 1;
+        let powerup_count = u8::from_be_bytes([buf[i]].try_into().unwrap());
+        i += 1;
         let mut enemies: Vec<EnemyTick> = Vec::new();
         for _ in 0..enemy_count {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            let pos = Vec2{
+            let pos = Vec2 {
                 x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
                 y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
             };
@@ -115,7 +120,7 @@ impl Packet for HostTick {
         for _ in 0..player_count {
             let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
             i += 1;
-            let pos = Vec2{
+            let pos = Vec2 {
                 x: f32::from_be_bytes(buf[i..i+4].try_into().unwrap()),
                 y: f32::from_be_bytes(buf[i+4..i+8].try_into().unwrap())
             };
@@ -157,12 +162,40 @@ impl Packet for HostTick {
                 kd_ratio,
             }, powerups: StoredPowerUps { power_ups: [meat, damage_dealt_up, damage_reduction_up, attack_speed_up, move_speed_up] } });
         }
+        let mut powerups: Vec<(PowerUpType, Vec2)> = Vec::new();
+        for _ in 0..powerup_count {
+            let ptype = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let ptype = match ptype {
+                0 => PowerUpType::Meat,
+                1 => PowerUpType::DamageDealtUp,
+                2 => PowerUpType::DamageReductionUp,
+                3 => PowerUpType::AttackSpeedUp,
+                4 => PowerUpType::MovementSpeedUp,
+                _ => panic!()
+            };
+            let x = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            let y = f32::from_be_bytes(buf[i..i+4].try_into().unwrap());
+            i += 4;
+            powerups.push((ptype, Vec2 {x, y}));
+        }
+        let mut chests: Vec<(u8, u8)> = Vec::new();
+        for _ in 0..MAXCHESTS {
+            let id = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            let hp = u8::from_be_bytes([buf[i]].try_into().unwrap());
+            i += 1;
+            chests.push((id, hp));
+        }
         return Ok(HostTick {
             seq_num,
             rmt_num,
             ack,
             enemies,
             players,
+            powerups,
+            chests
         })
     }
 
@@ -174,6 +207,7 @@ impl Packet for HostTick {
         bytes.extend_from_slice(&self.ack.to_be_bytes());
         bytes.extend_from_slice(&(self.enemies.len() as u8).to_be_bytes());
         bytes.extend_from_slice(&(self.players.len() as u8).to_be_bytes());
+        bytes.extend_from_slice(&(self.powerups.len() as u8).to_be_bytes());
         for enemy in &self.enemies {
             bytes.extend_from_slice(&enemy.id.to_be_bytes());
             bytes.extend_from_slice(&enemy.pos.x.to_be_bytes());
@@ -197,6 +231,16 @@ impl Packet for HostTick {
             for b in &player.powerups.power_ups {
                 bytes.extend_from_slice(&b.to_be_bytes());
             }
+        }
+
+        for powerup in &self.powerups {
+            bytes.extend_from_slice(&(powerup.0 as u8).to_be_bytes());
+            bytes.extend_from_slice(&powerup.1.x.to_be_bytes());
+            bytes.extend_from_slice(&powerup.1.y.to_be_bytes());
+        }
+        for chest in &self.chests {
+            bytes.extend_from_slice(&chest.0.to_be_bytes());
+            bytes.extend_from_slice(&chest.1.to_be_bytes());
         }
     }
 }

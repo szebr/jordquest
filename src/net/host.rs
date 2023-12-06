@@ -1,7 +1,8 @@
 use std::net::*;
 use std::str::FromStr;
+use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use crate::game::player;
+use crate::game::{Chests, player};
 use crate::{menus, net};
 use crate::game::buffers::{DirBuffer, EventBuffer, HpBuffer, PosBuffer};
 use crate::components::*;
@@ -52,6 +53,8 @@ pub fn fixed(
     sock: Res<net::Socket>,
     player_query: Query<(&PosBuffer, &HpBuffer, &Player, &EventBuffer, &DirBuffer, &Stats, &StoredPowerUps)>,
     enemy_query: Query<(&PosBuffer, &Health, &Enemy, &EventBuffer)>,
+    powerups_query: Query<(&PowerUp, &Transform)>,
+    chests_query: Query<(&ItemChest, &Health)>
 ) {
     if sock.0.is_none() { return }
     let sock = sock.0.as_ref().unwrap();
@@ -98,12 +101,22 @@ pub fn fixed(
                         }
                     }
                 }
+                let mut powerups: Vec<(PowerUpType, Vec2)> = Vec::new();
+                for (pu, pos) in &powerups_query {
+                    powerups.push((pu.0, pos.translation.xy()));
+                }
+                let mut chests: Vec<(u8, u8)> = Vec::new();
+                for (id, hp) in &chests_query {
+                    chests.push((id.id, hp.current));
+                }
                 let packet = HostTick {
                     seq_num: tick.0,
                     rmt_num: conn.rmt_num,
                     ack: conn.ack,
                     enemies,
                     players,
+                    powerups,
+                    chests
                 };
                 let peer = conn.addr;
                 let mut bytes: Vec<u8> = Vec::new();
