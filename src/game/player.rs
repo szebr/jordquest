@@ -120,111 +120,6 @@ pub fn reset_cooldowns(mut query: Query<&mut Cooldown, With<Player>>) {
     }
 }
 
-
-/*
-
-client::fixed
-  send ClientTick to host
-
-client::update
-  receive HostTick and send events to other systems to fill out info
-
-host::fixed
-  send HostTick culled for each guy
-
-host::update
-  receive ClientTick and send events to other systems to fill out info
-
-attack_input (update, all)
-  if left clicking and cooldown is up, set event.attack to true
-
-attack_simulate (on attack event, host)
-  go through all of the players, collecting their powerups, mut Stats, PosBuffer, DirBuffer, EventBuffer, mut HpBuffer, option lp
-  if EventBuffer says it's not attacking, continue
-  go through all enemies, collecting their PosBuffer, mut HpBuffer
-  if attacker, tick = seq_num, else tick = seq_num - net::DELAY
-  do collision checks for each player that is attacking on enemies (using PosBuffer and DirBuffer of player, PosBuffer of enemy)
-  enemies that are hit take damage depending on player powerups, (using powerups of player, HpBuffer of enemy)
-  HpBuffer is updated at true current tick
-  go through all of the players
-  if same player as this one, continue
-  if player is shielding on this tick, continue
-  do collision checks using PosBuffer and DirBuffer of attacker, PosBuffer of victim
-  if hit, set HpBuffer of victim for true current tick
-  if killed, set Stats of attacker and victim
-  go through all of the chests
-  if chest hp is 0, continue
-  do collision checks using PosBuffer and DirBuffer of attacker, position of chest
-  if hit, set hp of chest to zero and bust it open
-
-attack_host (fixed, host)
-  if attack is true, make an attack event for yourself
-
-attack_draw (fixed, all)
-  go through all of the players, collecting their PosBuffer, DirBuffer, EventBuffer, option lp
-  if lp, delay = 0, else delay = net::DELAY
-  if attacking this tick, draw their attack
-
-powerup_simulate (fixed, host)
-  go through all of the powerups, go through all the players, if they are in the same place remove powerup and add to player powerups
-
-shield_input (update, all)
-  if right clicking, set event.shield to true
-
-to check if shield is active, check if this tick's shield event is true
-
-shield_draw (fixed, all)
-  for every player, if event.shield is true for this tick, show their shield
-
-spawn_input (update if dead, all)
-  if left clicking and valid position, set event.spawn to true and move player there
-
-handle_host_tick (on host tick event, client)
-  for each player, mark it dead and invisible
-  for players in tick, if alive, mark not dead and not invisible, fill PosBuffer, HpBuffer, DirBuffer, EventBuffer, Stats, Powerups for each player
-  for players, find localplayer, check if dead and if Res<MapState> == MAP_MINI, then send LocalPlayerDeathEvent
-                                 check if not dead and if Res<MapState> == MAP_SPAWN, then send LocalPlayerSpawnEvent
-  for each enemy, mark it dead and invisible
-  for enemies in tick, if alive, mark not dead and not invisible, fill PosBuffer, HpBuffer, EventBuffer
-  remove all powerups
-  for powerups in tick, spawn a powerup on location
-  remove all chests
-  for chests in tick, spawn a chest on location, if hp 0 then empty, otherwise full
-  redraw score counter, powerup ui, health bars
-
-handle_client_tick (on client tick event, host)
-  fill player PosBuffer, DirBuffer, EventBuffer
-  if player sent an attack, make an attack event and send it
-
-UserCmd
-    pos
-    dir
-    events
-
-PlayerTick
-    pos
-    hp
-    dir
-    events
-    stats
-    powerups
-
-EnemyTick
-    pos
-    hp
-    special
-    events
-
-HostTick
-    PlayerTicks
-    ** all below are culled by visibility **
-    EnemyTicks
-    Chests (hp, id)
-    Powerups (type, Vec2)
-
-
- */
-
 pub fn spawn_players(
     mut commands: Commands,
     entity_atlas: Res<Atlas>,
@@ -761,18 +656,23 @@ pub fn health_draw(
 pub fn handle_player_ticks(
     tick: Res<TickNum>,
     mut player_reader: EventReader<PlayerTickEvent>,
-    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut Stats, &mut StoredPowerUps, Option<&LocalPlayer>)>,
+    mut player_query: Query<(&Player, &mut PosBuffer, &mut HpBuffer, &mut DirBuffer, &mut EventBuffer, &mut Stats, &mut StoredPowerUps, &mut Cooldown, Option<&LocalPlayer>)>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
     for ev in player_reader.iter() {
-        for (pl, mut pb, mut hb, mut db, mut eb, mut stats, mut spu, local) in &mut player_query {
+        for (pl, mut pb, mut hb, mut db, mut eb, mut stats, mut spu, mut cooldown, local) in &mut player_query {
             if pl.0 == ev.tick.id {
                 *stats = ev.tick.stats.clone();
 
                 let prev = spu.clone();
                 *spu = ev.tick.powerups.clone();
                 if prev != *spu {
+                    if prev.power_ups[PowerUpType::AttackSpeedUp as usize] !=
+                        spu.power_ups[PowerUpType::AttackSpeedUp as usize] {
+                        let updated_duration = DEFAULT_COOLDOWN * (1. / ATTACK_SPEED_UP).powi(spu.power_ups[PowerUpType::AttackSpeedUp as usize] as i32);
+                        cooldown.0.set_duration(Duration::from_secs_f32(updated_duration));
+                    }
                     commands.spawn(AudioBundle {
                         source: asset_server.load("powerup.ogg"),
                         ..default()
