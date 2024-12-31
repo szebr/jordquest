@@ -1,5 +1,16 @@
 # Jordquest
 
+This is a group project I worked on for a class on game design at the University of Pittsburgh. The main contributions that I made to the project were two backend algorithms; *Perlin Noise* for procedurally generated worlds and *A\* Pathfinding* for enemy AI. I also worked on some of the sound design. Our project got an A and was pretty highly regarded.
+
+![](title-screen.png)
+![](combat.png)
+
+The game was built in Rust using the Bevy engine from scratch. We were not allowed to use any large crates to implement any of the advanced topics, and had to work on building up those implementations on our own. It was a very rewarding experience and I'm proud of the work that we did.
+
+I kept the original repo description below.
+
+# Jordquest
+
 by Red Delicious
 
 ## Team Members
